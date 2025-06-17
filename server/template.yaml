@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: MyAgilityQs API
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs22.x
+    Environment:
+      Variables:
+        NODE_ENV: !Ref Environment
+        CORS_ORIGIN: !Ref CorsOrigin
+
+Parameters:
+  Environment:
+    Type: String
+    Default: development
+    AllowedValues:
+      - development
+      - staging
+      - production
+  
+  CorsOrigin:
+    Type: String
+    Default: http://localhost:5173
+    Description: CORS origin for the frontend
+
+Resources:
+  MyAgilityQsApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref CorsOrigin
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        AllowCredentials: true
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: dist/
+      Handler: index.handler
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyAgilityQsApi
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  ApiUrl:
+    Description: "HTTP API Gateway endpoint URL"
+    Value: !Sub "https://${MyAgilityQsApi}.execute-api.${AWS::Region}.amazonaws.com/"
+  
+  ApiFunction:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt ApiFunction.Arn

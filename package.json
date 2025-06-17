@@ -1,0 +1,31 @@
+{
+  "name": "my-agility-qs",
+  "version": "1.0.0",
+  "description": "AKC Canine Agility Tracking Application",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev:client": "npm run dev --workspace=client",
+    "dev:server": "npm run dev --workspace=server",
+    "build": "npm run build --workspace=shared && npm run build --workspace=client && npm run build --workspace=server",
+    "build:client": "npm run build --workspace=client",
+    "build:server": "npm run build --workspace=server",
+    "build:shared": "npm run build --workspace=shared",
+    "type-check": "npm run type-check --workspace=client && npm run type-check --workspace=server",
+    "lint": "npm run lint --workspace=client && npm run lint --workspace=server",
+    "clean": "npm run clean --workspace=client && npm run clean --workspace=server && npm run clean --workspace=shared"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.5.2"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  }
+}
