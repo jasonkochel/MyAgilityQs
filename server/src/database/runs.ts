@@ -5,7 +5,13 @@ import {
   ScanCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { CreateRunRequest, Run, RunsQuery, UpdateRunRequest } from "@my-agility-qs/shared";
+import {
+  CompetitionLevel,
+  CreateRunRequest,
+  Run,
+  RunsQuery,
+  UpdateRunRequest,
+} from "@my-agility-qs/shared";
 import {
   createSortableTimestamp,
   createTimestamp,
@@ -13,9 +19,122 @@ import {
   generateId,
   TABLE_NAME,
 } from "./client.js";
+import { getDogById, updateDog } from "./dogs.js";
+
+// Helper function to count qualifying runs for a specific dog, class, and level
+async function countQualifyingRuns(
+  dogId: string,
+  competitionClass: string,
+  level: string
+): Promise<number> {
+  const result = await dynamoClient.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      IndexName: "GSI1",
+      KeyConditionExpression: "GSI1PK = :dogId AND begins_with(GSI1SK, :runPrefix)",
+      FilterExpression: "#class = :class AND #level = :level AND qualified = :qualified",
+      ExpressionAttributeNames: {
+        "#class": "class",
+        "#level": "level",
+      },
+      ExpressionAttributeValues: {
+        ":dogId": `DOG#${dogId}`,
+        ":runPrefix": "RUN#",
+        ":class": competitionClass,
+        ":level": level,
+        ":qualified": true,
+      },
+    })
+  );
+
+  return result.Items?.length || 0;
+}
+
+// Helper function to get the next level
+function getNextLevel(currentLevel: string): CompetitionLevel | null {
+  const levelProgression: Record<string, CompetitionLevel | null> = {
+    Novice: "Open",
+    Open: "Excellent",
+    Excellent: "Masters",
+    Masters: null, // Stay in Masters forever
+  };
+  return levelProgression[currentLevel] || null;
+}
+
+// Function to check and update dog levels after a qualifying run
+async function checkAndUpdateDogLevel(
+  userId: string,
+  dogId: string,
+  competitionClass: string,
+  currentLevel: string
+): Promise<{
+  progressed: boolean;
+  fromLevel?: string;
+  toLevel?: string;
+  dogName?: string;
+  class?: string;
+} | null> {
+  // Only check progression if not already at Masters level
+  if (currentLevel === "Masters") {
+    return null;
+  }
+
+  // Count qualifying runs at the current level for this class
+  const qualifyingRuns = await countQualifyingRuns(dogId, competitionClass, currentLevel);
+
+  // If dog has 3 or more Qs at current level, advance to next level
+  if (qualifyingRuns >= 3) {
+    const nextLevel = getNextLevel(currentLevel);
+    if (!nextLevel) {
+      return null; // Should not happen since we check for Masters above
+    }
+
+    // Get current dog data
+    const dog = await getDogById(dogId);
+    if (!dog) {
+      throw new Error(`Dog not found: ${dogId}`);
+    } // Update the specific class level
+    const updatedClasses = dog.classes.map((dogClass) =>
+      dogClass.name === competitionClass
+        ? { ...dogClass, level: nextLevel as CompetitionLevel }
+        : dogClass
+    );
+
+    // Update the dog in the database
+    await updateDog(dogId, userId, { classes: updatedClasses });
+
+    console.log(
+      `🎉 Auto-progression: ${dog.name} advanced from ${currentLevel} to ${nextLevel} in ${competitionClass}`
+    );
+
+    return {
+      progressed: true,
+      fromLevel: currentLevel,
+      toLevel: nextLevel,
+      dogName: dog.name,
+      class: competitionClass,
+    };
+  }
+
+  return { progressed: false };
+}
+
+// Response type for createRun with progression info
+interface CreateRunResponse {
+  run: Run;
+  levelProgression?: {
+    dogName: string;
+    class: string;
+    fromLevel: string;
+    toLevel: string;
+  };
+}
 
 // Create a new run
-export async function createRun(userId: string, request: CreateRunRequest): Promise<Run> {
+export async function createRun(
+  userId: string,
+  request: CreateRunRequest
+): Promise<CreateRunResponse> {
   const runId = generateId();
   const now = createTimestamp();
   const sortableTimestamp = createSortableTimestamp(new Date(request.date));
@@ -53,7 +172,35 @@ export async function createRun(userId: string, request: CreateRunRequest): Prom
     })
   );
 
-  return run;
+  let levelProgression: CreateRunResponse["levelProgression"] = undefined;
+
+  // Check for auto-level progression if this was a qualifying run
+  if (run.qualified) {
+    try {
+      const progressionResult = await checkAndUpdateDogLevel(
+        userId,
+        request.dogId,
+        request.class,
+        request.level
+      );
+      if (progressionResult && progressionResult.progressed) {
+        levelProgression = {
+          dogName: progressionResult.dogName!,
+          class: progressionResult.class! as any,
+          fromLevel: progressionResult.fromLevel! as any,
+          toLevel: progressionResult.toLevel! as any,
+        };
+      }
+    } catch (error) {
+      console.error("Error checking dog level progression:", error);
+      // Don't fail the run creation if level update fails - just log the error
+    }
+  }
+
+  return {
+    run,
+    levelProgression,
+  };
 }
 
 // Get a run by ID (needs to scan since we don't know which user owns it)
@@ -300,7 +447,6 @@ export async function updateRun(
     // Only updatedAt, no real changes
     return currentRun;
   }
-
   // If date changed, we need to delete the old record and create a new one
   // because the sort key includes the timestamp
   if (needsKeyUpdate) {
@@ -339,6 +485,16 @@ export async function updateRun(
       })
     );
 
+    // Check for auto-level progression if this is now a qualifying run
+    if (updatedRun.qualified) {
+      try {
+        await checkAndUpdateDogLevel(userId, updatedRun.dogId, updatedRun.class, updatedRun.level);
+      } catch (error) {
+        console.error("Error checking dog level progression:", error);
+        // Don't fail the run update if level update fails - just log the error
+      }
+    }
+
     return updatedRun;
   } else {
     // Simple update without key change
@@ -362,7 +518,19 @@ export async function updateRun(
 
     // Remove DynamoDB-specific fields
     const { PK, SK, EntityType, GSI1PK, GSI1SK, ...run } = result.Attributes;
-    return run as Run;
+    const updatedRun = run as Run;
+
+    // Check for auto-level progression if this is now a qualifying run
+    if (updatedRun.qualified) {
+      try {
+        await checkAndUpdateDogLevel(userId, updatedRun.dogId, updatedRun.class, updatedRun.level);
+      } catch (error) {
+        console.error("Error checking dog level progression:", error);
+        // Don't fail the run update if level update fails - just log the error
+      }
+    }
+
+    return updatedRun;
   }
 }
 

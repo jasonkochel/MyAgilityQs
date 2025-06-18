@@ -158,13 +158,15 @@ export const runHandler = {
       if (dog.userId !== userId) {
         throw createError(403, "Not authorized to create runs for this dog");
       }
-
-      const run = await createRun(userId, request);
+      const result = await createRun(userId, request);
 
       const response: ApiResponse = {
         success: true,
-        data: run,
-        message: `Run created successfully for ${dog.name}`,
+        data: result.run,
+        message: result.levelProgression
+          ? `Run created successfully for ${dog.name}! 🎉 ${result.levelProgression.dogName} advanced from ${result.levelProgression.fromLevel} to ${result.levelProgression.toLevel} in ${result.levelProgression.class}!`
+          : `Run created successfully for ${dog.name}`,
+        meta: result.levelProgression ? { levelProgression: result.levelProgression } : undefined,
       };
 
       return {

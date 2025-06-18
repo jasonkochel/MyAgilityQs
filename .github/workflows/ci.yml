@@ -1,0 +1,71 @@
+# Example GitHub Actions workflow for MyAgilityQs monorepo
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          # CRITICAL: Cache at workspace root, not individual packages
+          cache-dependency-path: "**/package-lock.json"
+
+      - name: Install dependencies (workspace root)
+        run: npm ci
+        # This installs ALL workspace dependencies and creates symlinks
+
+      - name: Build shared package first
+        run: npm run build --workspace=shared
+
+      - name: Build server
+        run: npm run build --workspace=server
+
+      - name: Build client
+        run: npm run build --workspace=client
+
+      - name: Run tests
+        run: |
+          npm run test --workspace=server
+          npm run test --workspace=client
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "**/package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all packages
+        run: npm run build
+
+      - name: Deploy to AWS
+        run: |
+          cd server
+          # Your SAM deployment commands here
+          sam build
+          sam deploy --no-confirm-changeset --no-fail-on-empty-changeset

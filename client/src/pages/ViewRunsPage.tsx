@@ -14,6 +14,7 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import type { Dog, Run } from "@my-agility-qs/shared";
 import {
   IconArrowLeft,
   IconChevronDown,
@@ -26,7 +27,6 @@ import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { dogsApi, runsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
-import type { Dog, Run } from "../types";
 
 type SortField = "date" | "dog" | "class" | "level";
 type SortDirection = "asc" | "desc";

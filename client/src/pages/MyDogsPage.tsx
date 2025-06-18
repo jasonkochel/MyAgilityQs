@@ -11,12 +11,12 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import type { Dog } from "@my-agility-qs/shared";
 import { IconArrowLeft, IconDog, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { dogsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
-import type { Dog } from "../types";
 
 export const MyDogsPage: React.FC = () => {
   const [, setLocation] = useLocation();

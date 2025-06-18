@@ -13,13 +13,18 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
+import type {
+  CompetitionClass,
+  CompetitionLevel,
+  CreateDogRequest,
+  DogClass,
+} from "@my-agility-qs/shared";
 import { IconArrowLeft, IconCheck } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { dogsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES, COMPETITION_CLASSES, COMPETITION_LEVELS } from "../lib/constants";
-import type { CreateDogRequest, DogClass } from "../types";
 
 interface DogFormData {
   name: string;
@@ -72,14 +77,12 @@ export const AddDogPage: React.FC = () => {
     },
   });
   const handleSubmit = (values: DogFormData) => {
-    setError(null);
-
-    // Convert classSelections back to DogClass array using display names
+    setError(null); // Convert classSelections back to DogClass array using display names
     const classes: DogClass[] = Object.entries(values.classSelections)
       .filter(([, selection]) => selection.enabled)
       .map(([className, selection]) => ({
-        name: CLASS_DISPLAY_NAMES[className], // Use full display name for API
-        level: selection.level,
+        name: CLASS_DISPLAY_NAMES[className] as CompetitionClass, // Use full display name for API
+        level: selection.level as CompetitionLevel,
       }));
 
     const apiData: CreateDogRequest = {

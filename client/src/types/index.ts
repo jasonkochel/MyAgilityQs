@@ -1,17 +1,20 @@
-// API Response Types
+// Client-specific API Response Types (enhanced with meta for level progression)
 export interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;
   data?: T;
   error?: string;
+  meta?: {
+    levelProgression?: {
+      dogName: string;
+      class: string;
+      fromLevel: string;
+      toLevel: string;
+    };
+  };
 }
 
-// Authentication Types
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
+// Authentication Types (Client-specific - not shared with server)
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
@@ -19,92 +22,7 @@ export interface AuthResponse {
   expiresIn: number;
 }
 
-// Dog Types
-export interface DogClass {
-  name: string;
-  level: string;
-}
-
-export interface Dog {
-  id: string;
-  userId: string;
-  name: string;
-  active: boolean;
-  classes: DogClass[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateDogRequest {
-  name: string;
-  classes: DogClass[];
-}
-
-export interface UpdateDogRequest {
-  name?: string;
-  classes?: DogClass[];
-  active?: boolean;
-}
-
-// Run Types
-export interface Run {
-  id: string;
-  userId: string;
-  dogId: string;
-  class: string;
-  level: string;
-  time?: number;
-  qualified: boolean;
-  placement?: number;
-  location?: string;
-  notes?: string;
-  date: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateRunRequest {
-  dogId: string;
-  class: string;
-  level: string;
-  date: string;
-  qualified?: boolean;
-  placement?: number;
-  time?: number;
-  location?: string;
-  notes?: string;
-}
-
-// Progress Types
-export interface ClassProgress {
-  className: string;
-  level: string;
-  totalRuns: number;
-  qualifyingRuns: number;
-  averageTime: number;
-  bestTime: number;
-  lastRun?: string;
-}
-
-export interface DogProgress {
-  dogId: string;
-  dogName: string;
-  totalRuns: number;
-  qualifyingRuns: number;
-  doubleQs: number;
-  machPoints: number;
-  classes: ClassProgress[];
-}
-
-export interface ProgressSummary {
-  totalDogs: number;
-  totalRuns: number;
-  totalQs: number;
-  doubleQs: number;
-  averageSuccessRate: number;
-}
-
-// Form Types
+// UI Form Types (Client-specific form state)
 export interface LoginForm {
   email: string;
   password: string;
@@ -112,15 +30,18 @@ export interface LoginForm {
 
 export interface DogForm {
   name: string;
-  classes: DogClass[];
+  classes: Array<{ name: string; level: string }>;
 }
 
-// Common utility types
+// UI State Types (Client-specific)
 export type LoadingState = "idle" | "loading" | "success" | "error";
 
-// Navigation types
+// Navigation types (Client-specific)
 export interface NavItem {
   label: string;
   href: string;
   icon?: React.ComponentType<{ size?: number; className?: string }>;
 }
+
+// NOTE: Dog, Run, CreateRunRequest, etc. are now imported from @my-agility-qs/shared
+// This eliminates duplication and ensures type consistency across client and server

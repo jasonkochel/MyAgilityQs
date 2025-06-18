@@ -1,14 +1,14 @@
-import ky from "ky";
 import type {
   ApiResponse,
-  AuthResponse,
   CreateDogRequest,
   CreateRunRequest,
   Dog,
   LoginRequest,
   Run,
   UpdateDogRequest,
-} from "../types";
+} from "@my-agility-qs/shared";
+import ky from "ky";
+import type { AuthResponse } from "../types";
 
 // API Configuration
 const API_BASE_URL =
@@ -218,8 +218,9 @@ export const dogsApi = {
 
 // Runs API
 export const runsApi = {
-  createRun: async (runData: CreateRunRequest): Promise<Run> => {
-    return apiRequest(api.post("runs", { json: runData })) as Promise<Run>;
+  createRun: async (runData: CreateRunRequest): Promise<ApiResponse<Run>> => {
+    const response = await api.post("runs", { json: runData }).json<ApiResponse<Run>>();
+    return response;
   },
 
   getAllRuns: async (): Promise<Run[]> => {

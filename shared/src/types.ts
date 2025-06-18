@@ -80,6 +80,16 @@ export interface CreateRunRequest {
   notes?: string;
 }
 
+export interface CreateRunResponse {
+  run: Run;
+  levelProgression?: {
+    dogName: string;
+    class: CompetitionClass;
+    fromLevel: CompetitionLevel;
+    toLevel: CompetitionLevel;
+  };
+}
+
 export interface UpdateRunRequest {
   date?: string;
   class?: CompetitionClass;
@@ -114,6 +124,7 @@ export interface ApiResponse<T = any> {
   data?: T;
   error?: string;
   message?: string;
+  meta?: Record<string, any>;
 }
 
 export interface ApiError {

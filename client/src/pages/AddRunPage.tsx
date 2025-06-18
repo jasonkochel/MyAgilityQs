@@ -14,13 +14,18 @@ import {
 import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
-import { IconArrowLeft, IconCheck } from "@tabler/icons-react";
+import type {
+  CompetitionClass,
+  CompetitionLevel,
+  CreateRunRequest,
+  Dog,
+} from "@my-agility-qs/shared";
+import { IconArrowLeft, IconCheck, IconTrophy } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { dogsApi, locationsApi, runsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
-import type { CreateRunRequest, Dog } from "../types";
 
 // AKC Agility Classes - use shared constants
 const AKC_CLASS_MAPPING = CLASS_DISPLAY_NAMES;
@@ -82,9 +87,14 @@ export const AddRunPage: React.FC = () => {
   });
   const createRunMutation = useMutation({
     mutationFn: runsApi.createRun,
-    onSuccess: async (_, variables) => {
+    onSuccess: async (response, variables) => {
       // Refetch runs query to refresh the View Runs page
       await queryClient.refetchQueries({ queryKey: ["runs"] });
+
+      // If there was a level progression, invalidate dogs cache to refresh My Dogs page
+      if (response.meta?.levelProgression) {
+        await queryClient.refetchQueries({ queryKey: ["dogs"] });
+      }
 
       // Only refetch locations if a new location was added
       if (
@@ -93,13 +103,19 @@ export const AddRunPage: React.FC = () => {
         !locationSuggestions.includes(variables.location.trim())
       ) {
         await queryClient.refetchQueries({ queryKey: ["locations"] });
-      }
+      } // Show success notification with progression info if applicable
+      const levelProgression = response.meta?.levelProgression;
+      const isProgression = !!levelProgression;
 
       notifications.show({
-        title: "Success!",
-        message: "Run added successfully",
-        color: "green",
-        icon: <IconCheck size="1rem" />,
+        title: isProgression ? "🎉 Level Up!" : "Success!",
+        message:
+          isProgression && levelProgression
+            ? `${levelProgression.dogName} advanced from ${levelProgression.fromLevel} to ${levelProgression.toLevel} in ${levelProgression.class}!`
+            : "Run added successfully",
+        color: isProgression ? "yellow" : "green",
+        icon: isProgression ? <IconTrophy size="1rem" /> : <IconCheck size="1rem" />,
+        autoClose: isProgression ? 8000 : 4000, // Show progression longer
       });
       setLocation("/view-runs");
     },
@@ -110,13 +126,11 @@ export const AddRunPage: React.FC = () => {
     },
   });
   const handleSubmit = (values: RunFormData) => {
-    setError(null);
-
-    // Convert form data to API format
+    setError(null); // Convert form data to API format
     const apiData: CreateRunRequest = {
       dogId: values.dogId,
-      class: values.className,
-      level: values.level,
+      class: values.className as CompetitionClass,
+      level: values.level as CompetitionLevel,
       date: values.date, // Already in YYYY-MM-DD string format
       qualified: values.qualified,
       placement: values.placement,

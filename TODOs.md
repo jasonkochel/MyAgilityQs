@@ -6,7 +6,26 @@
 - ✅ Use the icon from the main menu as the favicon too
 - ✅ Do not show inactive dogs on Add Run
 - ✅ On Add Run, have the placement buttons reflect the colors of the ribbons: 1st = Blue, 2nd = Red, 3rd = Yellow, 4th = White, None = gray
-- "Location" is missing from the screens, including the "pick from prior locations in my data" feature
+- ✅ "Location" is missing from the screens, including the "pick from prior locations in my data" feature
 - ✅ When adding a run, just show the class; we already know the level for each class; show the level in small text inside the class button to make it obvious, but don't make the user select it
-- Add logic to auto-change the level of the dog upon saving a Q. Per-class, you need 3 Novice Qs to move into Open, 3 Open Qs to move into Excellent, and 3 Excellent Qs to move into Masters. Then you stay in Masters forever.
+- ✅ Add logic to auto-change the level of the dog upon saving a Q. Per-class, you need 3 Novice Qs to move into Open, 3 Open Qs to move into Excellent, and 3 Excellent Qs to move into Masters. Then you stay in Masters forever.
 - Add a profile option for whether you want to track "NQ" runs or not. If not, don't show the Q/NQ buttons or filters; just assume everything is "Q"
+
+## ✅ COMPLETED: Auto-Level Progression & Code Quality Improvements
+
+### Auto-Level Progression System
+
+- ✅ **Server-side logic**: Dogs automatically advance levels after 3 qualifying runs
+- ✅ **AKC compliance**: Novice → Open → Excellent → Masters progression
+- ✅ **Class-specific**: Each class progresses independently
+- ✅ **User notifications**: Trophy celebrations when dogs advance levels
+- ✅ **Cache invalidation**: My Dogs page updates immediately without refresh
+- ✅ **Error handling**: Robust error handling prevents run creation failures
+
+### Shared Type System Cleanup
+
+- ✅ **Eliminated duplication**: Removed duplicate types between client and server
+- ✅ **Centralized types**: All core types now in `@my-agility-qs/shared` package
+- ✅ **Type safety**: Strict enums for CompetitionClass and CompetitionLevel
+- ✅ **Clean separation**: Client now only contains UI-specific types
+- ✅ **Improved maintainability**: Single source of truth for all data types
