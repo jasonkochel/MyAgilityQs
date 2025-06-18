@@ -1,26 +1,24 @@
-<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background circle -->
-  <circle cx="16" cy="16" r="15" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Background circle for better visibility -->
+  <circle cx="16" cy="16" r="15" fill="#ffffff" stroke="#2563eb" stroke-width="2" />
 
-  <!-- Agility jump obstacle -->
-  <!-- Base poles -->
-  <rect x="6" y="24" width="2" height="6" fill="#ffffff"/>
-  <rect x="24" y="24" width="2" height="6" fill="#ffffff"/>
-
-  <!-- Jump bar -->
-  <rect x="6" y="22" width="20" height="2" fill="#ffffff"/>
-
-  <!-- Dog silhouette jumping -->
-  <!-- Body -->
-  <ellipse cx="16" cy="18" rx="6" ry="3" fill="#ffffff"/>
-  <!-- Head -->
-  <circle cx="10" cy="16" r="2.5" fill="#ffffff"/>
-  <!-- Ears -->
-  <ellipse cx="8.5" cy="14.5" rx="1" ry="1.5" fill="#ffffff"/>
-  <ellipse cx="11.5" cy="14.5" rx="1" ry="1.5" fill="#ffffff"/>
-  <!-- Legs -->
-  <rect x="12" y="20" width="1" height="3" fill="#ffffff"/>
-  <rect x="19" y="20" width="1" height="3" fill="#ffffff"/>
-  <!-- Tail -->
-  <ellipse cx="22" cy="16" rx="1.5" ry="2" fill="#ffffff"/>
+  <!-- Tabler dog icon, centered and scaled appropriately -->
+  <g transform="translate(4, 4)" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round"
+    stroke-linejoin="round">
+    <!-- Dog head top -->
+    <path d="M11 5h2" />
+    <!-- Main body outline -->
+    <path d="M19 12c-.667 5.333 -2.333 8 -5 8h-4c-2.667 0 -4.333 -2.667 -5 -8" />
+    <!-- Mouth -->
+    <path d="M11 16c0 .667 .333 1 1 1s1 -.333 1 -1h-2z" />
+    <!-- Nose -->
+    <path d="M12 18v2" />
+    <!-- Eyes -->
+    <path d="M10 11v.01" />
+    <path d="M14 11v.01" />
+    <!-- Left ear -->
+    <path d="M5 4l6 .97l-6.238 6.688a1.021 1.021 0 0 1 -1.41 .111a.953 .953 0 0 1 -.327 -.954l1.975 -6.815z" />
+    <!-- Right ear -->
+    <path d="M19 4l-6 .97l6.238 6.688c.358 .408 .989 .458 1.41 .111a.953 .953 0 0 0 .327 -.954l-1.975 -6.815z" />
+  </g>
 </svg>

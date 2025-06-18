@@ -1,8 +1,8 @@
 import {
   DeleteCommand,
-  GetCommand,
   PutCommand,
   QueryCommand,
+  ScanCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { CreateRunRequest, Run, RunsQuery, UpdateRunRequest } from "@my-agility-qs/shared";
@@ -11,7 +11,6 @@ import {
   createTimestamp,
   dynamoClient,
   generateId,
-  KeyPatterns,
   TABLE_NAME,
 } from "./client.js";
 
@@ -37,63 +36,19 @@ export async function createRun(userId: string, request: CreateRunRequest): Prom
     updatedAt: now,
   };
 
-  // Store run details
-  const runKeys = KeyPatterns.runDetails(runId);
+  // Store run once under USER#{userId} | RUN#{timestamp}#{runId}
+  // GSI1 will automatically index it under DOG#{dogId} | RUN#{timestamp}#{runId}
   await dynamoClient.send(
     new PutCommand({
       TableName: TABLE_NAME,
       Item: {
-        ...runKeys,
-        ...run,
-        userId, // Store userId for authorization
-        EntityType: "RUN",
-      },
-    })
-  );
-
-  // Store dog -> run relationship
-  const dogRunKeys = KeyPatterns.dogRun(request.dogId, sortableTimestamp);
-  await dynamoClient.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        ...dogRunKeys,
-        runId,
-        date: request.date,
-        class: request.class,
-        level: request.level,
-        qualified: run.qualified,
-        placement: run.placement,
-        time: run.time,
-        machPoints: run.machPoints,
-        createdAt: now,
-        EntityType: "DOG_RUN",
-        GSI1PK: `DOG#${request.dogId}`,
-        GSI1SK: `RUN#${sortableTimestamp}`,
-      },
-    })
-  );
-
-  // Store user -> run relationship
-  const userRunKeys = KeyPatterns.userRun(userId, sortableTimestamp);
-  await dynamoClient.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        ...userRunKeys,
-        runId,
-        dogId: request.dogId,
-        date: request.date,
-        class: request.class,
-        level: request.level,
-        qualified: run.qualified,
-        placement: run.placement,
-        time: run.time,
-        machPoints: run.machPoints,
-        createdAt: now,
+        PK: `USER#${userId}`,
+        SK: `RUN#${sortableTimestamp}#${runId}`,
+        ...run, // All run data
         EntityType: "USER_RUN",
-        GSI1PK: `USER#${userId}`,
-        GSI1SK: `RUN#${sortableTimestamp}`,
+        // GSI1 for dog-based queries
+        GSI1PK: `DOG#${request.dogId}`,
+        GSI1SK: `RUN#${sortableTimestamp}#${runId}`,
       },
     })
   );
@@ -101,23 +56,31 @@ export async function createRun(userId: string, request: CreateRunRequest): Prom
   return run;
 }
 
-// Get a run by ID
+// Get a run by ID (needs to scan since we don't know which user owns it)
 export async function getRunById(runId: string): Promise<Run | null> {
-  const keys = KeyPatterns.runDetails(runId);
-
+  // Since we store runs under users, we need to scan to find it
+  // This is less efficient but getRunById is rarely used directly
   const result = await dynamoClient.send(
-    new GetCommand({
+    new ScanCommand({
       TableName: TABLE_NAME,
-      Key: keys,
+      FilterExpression: "#id = :runId AND EntityType = :entityType",
+      ExpressionAttributeNames: {
+        "#id": "id",
+      },
+      ExpressionAttributeValues: {
+        ":runId": runId,
+        ":entityType": "USER_RUN",
+      },
     })
   );
 
-  if (!result.Item) {
+  if (!result.Items || result.Items.length === 0) {
     return null;
   }
 
+  const item = result.Items[0];
   // Remove DynamoDB-specific fields
-  const { PK, SK, EntityType, userId, ...run } = result.Item;
+  const { PK, SK, EntityType, GSI1PK, GSI1SK, ...run } = item;
   return run as Run;
 }
 
@@ -176,16 +139,12 @@ export async function getRunsByDogId(dogId: string, query: RunsQuery = {}): Prom
     return [];
   }
 
-  // Convert to runs and get full details
-  const runIds = result.Items.map((item) => item.runId);
-  const runs: Run[] = [];
-
-  for (const runId of runIds) {
-    const run = await getRunById(runId);
-    if (run) {
-      runs.push(run);
-    }
-  }
+  // Convert GSI1 items directly to Run objects (all data is already there)
+  const runs: Run[] = result.Items.map((item) => {
+    // Remove DynamoDB-specific fields and return as Run
+    const { PK, SK, EntityType, GSI1PK, GSI1SK, ...runData } = item;
+    return runData as Run;
+  });
 
   return runs;
 }
@@ -194,8 +153,7 @@ export async function getRunsByDogId(dogId: string, query: RunsQuery = {}): Prom
 export async function getRunsByUserId(userId: string, query: RunsQuery = {}): Promise<Run[]> {
   const queryParams: any = {
     TableName: TABLE_NAME,
-    IndexName: "GSI1",
-    KeyConditionExpression: "GSI1PK = :pk AND begins_with(GSI1SK, :sk)",
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
     ExpressionAttributeValues: {
       ":pk": `USER#${userId}`,
       ":sk": "RUN#",
@@ -250,16 +208,12 @@ export async function getRunsByUserId(userId: string, query: RunsQuery = {}): Pr
     return [];
   }
 
-  // Convert to runs and get full details
-  const runIds = result.Items.map((item) => item.runId);
-  const runs: Run[] = [];
-
-  for (const runId of runIds) {
-    const run = await getRunById(runId);
-    if (run) {
-      runs.push(run);
-    }
-  }
+  // Convert USER_RUN items directly to Run objects (all data is already there)
+  const runs: Run[] = result.Items.map((item) => {
+    // Remove DynamoDB-specific fields and return as Run
+    const { PK, SK, EntityType, GSI1PK, GSI1SK, userId, ...runData } = item;
+    return runData as Run;
+  });
 
   return runs;
 }
@@ -270,17 +224,29 @@ export async function updateRun(
   userId: string,
   request: UpdateRunRequest
 ): Promise<Run | null> {
-  const keys = KeyPatterns.runDetails(runId);
+  // First, find the run to get its current keys
+  const currentRun = await getRunById(runId);
+  if (!currentRun) {
+    return null;
+  }
+
+  const currentSortableTimestamp = createSortableTimestamp(new Date(currentRun.date));
+  const currentSK = `RUN#${currentSortableTimestamp}#${runId}`;
 
   // Build update expression
   const updateExpressions: string[] = [];
   const expressionAttributeNames: Record<string, string> = {};
   const expressionAttributeValues: Record<string, any> = {};
 
+  let needsKeyUpdate = false;
+  let newSortableTimestamp = currentSortableTimestamp;
+
   if (request.date !== undefined) {
     updateExpressions.push("#date = :date");
     expressionAttributeNames["#date"] = "date";
     expressionAttributeValues[":date"] = request.date;
+    newSortableTimestamp = createSortableTimestamp(new Date(request.date));
+    needsKeyUpdate = newSortableTimestamp !== currentSortableTimestamp;
   }
 
   if (request.class !== undefined) {
@@ -331,77 +297,95 @@ export async function updateRun(
   expressionAttributeValues[":updatedAt"] = createTimestamp();
 
   if (updateExpressions.length === 1) {
-    // Only updatedAt
-    return null;
+    // Only updatedAt, no real changes
+    return currentRun;
   }
 
-  const result = await dynamoClient.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: keys,
-      UpdateExpression: `SET ${updateExpressions.join(", ")}`,
-      ExpressionAttributeNames: expressionAttributeNames,
-      ExpressionAttributeValues: {
-        ...expressionAttributeValues,
-        ":userId": userId,
-      },
-      ConditionExpression: "userId = :userId",
-      ReturnValues: "ALL_NEW",
-    })
-  );
+  // If date changed, we need to delete the old record and create a new one
+  // because the sort key includes the timestamp
+  if (needsKeyUpdate) {
+    const updatedRun = {
+      ...currentRun,
+      ...request,
+      updatedAt: createTimestamp(),
+    };
 
-  if (!result.Attributes) {
-    return null;
+    const newSK = `RUN#${newSortableTimestamp}#${runId}`;
+    const newGSI1SK = `RUN#${newSortableTimestamp}#${runId}`;
+
+    // Delete old record
+    await dynamoClient.send(
+      new DeleteCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: `USER#${userId}`,
+          SK: currentSK,
+        },
+      })
+    );
+
+    // Create new record with updated date
+    await dynamoClient.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+          PK: `USER#${userId}`,
+          SK: newSK,
+          ...updatedRun,
+          EntityType: "USER_RUN",
+          GSI1PK: `DOG#${currentRun.dogId}`,
+          GSI1SK: newGSI1SK,
+        },
+      })
+    );
+
+    return updatedRun;
+  } else {
+    // Simple update without key change
+    const result = await dynamoClient.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: `USER#${userId}`,
+          SK: currentSK,
+        },
+        UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: expressionAttributeValues,
+        ReturnValues: "ALL_NEW",
+      })
+    );
+
+    if (!result.Attributes) {
+      return null;
+    }
+
+    // Remove DynamoDB-specific fields
+    const { PK, SK, EntityType, GSI1PK, GSI1SK, ...run } = result.Attributes;
+    return run as Run;
   }
-
-  // TODO: Update the dog -> run and user -> run relationships if needed
-  // This would require additional logic to handle date changes (which affect sort keys)
-
-  // Remove DynamoDB-specific fields
-  const { PK, SK, EntityType, userId: _, ...run } = result.Attributes;
-  return run as Run;
 }
 
 // Delete a run
 export async function deleteRun(runId: string, userId: string): Promise<boolean> {
-  // First get the run to get the dogId and date for cleanup
+  // First get the run to get the date for the sort key
   const run = await getRunById(runId);
   if (!run) {
     return false;
   }
 
   const sortableTimestamp = createSortableTimestamp(new Date(run.date));
-
-  const runKeys = KeyPatterns.runDetails(runId);
-  const dogRunKeys = KeyPatterns.dogRun(run.dogId, sortableTimestamp);
-  const userRunKeys = KeyPatterns.userRun(userId, sortableTimestamp);
+  const sk = `RUN#${sortableTimestamp}#${runId}`;
 
   try {
-    // Delete run details
+    // Delete the single run record
     await dynamoClient.send(
       new DeleteCommand({
         TableName: TABLE_NAME,
-        Key: runKeys,
-        ConditionExpression: "userId = :userId",
-        ExpressionAttributeValues: {
-          ":userId": userId,
+        Key: {
+          PK: `USER#${userId}`,
+          SK: sk,
         },
-      })
-    );
-
-    // Delete dog -> run relationship
-    await dynamoClient.send(
-      new DeleteCommand({
-        TableName: TABLE_NAME,
-        Key: dogRunKeys,
-      })
-    );
-
-    // Delete user -> run relationship
-    await dynamoClient.send(
-      new DeleteCommand({
-        TableName: TABLE_NAME,
-        Key: userRunKeys,
       })
     );
 

@@ -17,7 +17,7 @@
 
 - 🌐 **Live API**: `https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com/`
 - ✅ **Health Check**: `https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com/health`
-- ✅ **Database**: DynamoDB single-table design working
+- ✅ **Database**: DynamoDB single-record design with GSI optimization
 - ✅ **Frontend Integration**: React app successfully connected to backend
 
 **Quick Start Commands:**
@@ -60,16 +60,26 @@ The MyAgilityQs application is now a fully functional, production-ready agility 
 
 ## ✅ Phase 3: Database Integration Complete 🎉
 
-### **What We Built & Successfully Deployed**
+### **🚀 MAJOR DATABASE REFACTORING COMPLETE - Single-Record Structure with GSI!**
 
-- ✅ **DynamoDB Single-Table Design**: `MyAgilityQs` (prod) / `MyAgilityQs-Dev` (dev)
-- ✅ **Database CRUD Operations**: Full create, read, update, delete functionality
-- ✅ **Entity Management**: Dogs, runs, and progress tracking
-- ✅ **Database Utilities**: Type-safe database operations with proper PK/SK patterns
-- ✅ **GSI Implementation**: Efficient querying with Global Secondary Index
-- ✅ **Environment-Based Tables**: Automatic dev/prod table selection
+**✅ DynamoDB Optimization Achievement**: Successfully migrated from problematic multi-record approach to elegant single-record design:
 
-### **Database Schema (Single-Table Design)**
+**Previous Issues (SOLVED):**
+
+- ❌ Multiple records per run (USER_RUN, DOG_RUN, RUN_DETAILS)
+- ❌ Data inconsistency and missing relationships
+- ❌ Complex queries requiring multiple lookups
+- ❌ View Runs page showing incomplete data
+
+**Current Optimized Structure (WORKING PERFECTLY):**
+
+- ✅ **Single record per run** stored under the user
+- ✅ **GSI for dog queries** - no data duplication needed
+- ✅ **All run data in one place** - no additional lookups required
+- ✅ **Efficient sorting** by date using timestamp in sort key
+- ✅ **View Runs page displays all runs correctly**
+
+### **Final DynamoDB Schema (Optimized Single-Record Design)**
 
 ```
 Table: MyAgilityQs / MyAgilityQs-Dev
@@ -78,12 +88,40 @@ SK (Sort Key): String
 GSI1PK: String (Global Secondary Index)
 GSI1SK: String (Global Secondary Index)
 
-Entity Patterns:
+Optimized Entity Patterns:
 - Users: PK: USER#<userId>, SK: PROFILE
 - Dogs: PK: DOG#<dogId>, SK: PROFILE
-- Runs: PK: RUN#<runId>, SK: DETAILS
+- User-Dog Links: PK: USER#<userId>, SK: DOG#<dogId>
+- Runs (SINGLE RECORD):
+  * Main: PK: USER#<userId>, SK: RUN#<timestamp>#<runId>
+  * GSI1: GSI1PK: DOG#<dogId>, GSI1SK: RUN#<timestamp>#<runId>
+  * Contains: All run data + EntityType: "USER_RUN"
 - Progress: PK: PROGRESS#<userId>, SK: DOG#<dogId>
+
+Query Patterns (HIGHLY EFFICIENT):
+- All runs for user: Query PK=USER#<userId>, SK begins_with "RUN#"
+- All runs for dog: Query GSI1PK=DOG#<dogId>, GSI1SK begins_with "RUN#"
+- Both queries return complete run data - no additional lookups needed!
 ```
+
+### **Database Migration Journey (COMPLETED)**
+
+1. ✅ **Analysis Phase**: Diagnosed missing/inconsistent run data
+2. ✅ **Migration Scripts**: Created and ran data cleanup and restructuring scripts
+3. ✅ **Backend Refactor**: Updated `runs.ts` to use single-record structure
+4. ✅ **GSI Implementation**: Efficient dog-based queries without data duplication
+5. ✅ **Frontend Integration**: View Runs page now displays all runs correctly
+6. ✅ **Production Deployment**: New structure deployed and working
+
+### **What We Built & Successfully Deployed**
+
+- ✅ **DynamoDB Single-Table Design**: `MyAgilityQs` (prod) / `MyAgilityQs-Dev` (dev)
+- ✅ **Optimized Single-Record Structure**: Each run stored once with GSI indexing
+- ✅ **Database CRUD Operations**: Full create, read, update, delete functionality
+- ✅ **Entity Management**: Dogs, runs, and progress tracking
+- ✅ **Database Utilities**: Type-safe database operations with proper PK/SK patterns
+- ✅ **GSI Implementation**: Efficient querying with Global Secondary Index
+- ✅ **Environment-Based Tables**: Automatic dev/prod table selection
 
 ### **Working Endpoints (Tested in Postman)**
 
@@ -99,7 +137,7 @@ Entity Patterns:
 - ✅ **Monorepo Architecture**: Client, server, shared, infrastructure folders
 - ✅ **Shared TypeScript Package**: All data models, validation, utilities
 - ✅ **Production AWS Lambda Backend** (DEPLOYED):
-  - **Live API**: `https://072j9gp0u7.execute-api.us-east-1.amazonaws.com/`
+  - **Live API**: `https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com/`
   - Clean TypeScript with .ts extensions
   - @middy/http-router with ExtendedRoute interface
   - Dynamic anonymous route derivation (allowAnonymous attribute)
@@ -118,13 +156,14 @@ Entity Patterns:
   - User context available in all handlers
   - **Security**: Removed client secrets (React app ready)
 - ✅ **All Endpoints Deployed & Working**:
-  - `GET /health` → ✅ Live: https://072j9gp0u7.execute-api.us-east-1.amazonaws.com/health
+  - `GET /health` → ✅ Live: https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com/health
   - `POST /auth/signup` → ✅ User registration (WORKING - Cognito configured)
   - `POST /auth/login` → ✅ Authentication with JWT tokens (WORKING - Cognito configured)
   - `GET /dogs` → ✅ Protected endpoint (JWT middleware working, database working)
   - `POST /dogs` → ✅ Create dogs (database insert working)
   - `PUT /dogs/{id}` → ✅ Dynamic route with path parameters (database update working)
-  - `GET /runs/dog/{dogId}` → ✅ Multi-level dynamic routes
+  - `GET /runs` → ✅ All runs for user (optimized single-record queries)
+  - `GET /runs/dog/{dogId}` → ✅ All runs for dog (GSI queries)
   - All routes properly protected/anonymous as configured
 
 ### **✅ Cognito Configuration Complete**
@@ -258,6 +297,7 @@ SAM bridges the gap between local development and AWS deployment. The same `temp
 - ✅ **React 18+ with TypeScript** - Modern React with hooks and functional components
 - ✅ **Vite** - Fast build tool and development server (working dev server)
 - ✅ **Mantine** - UI component library with custom theming (comprehensive usage)
+  - **📝 Note**: Mantine v8+ date components (DateInput, DatePicker) use string values, not Date objects
 - ✅ **Wouter** - Lightweight client-side routing (full route structure)
 - ✅ **TanStack Query** - Server state management and data fetching (integrated)
 - ✅ **Ky** - HTTP client wrapper for fetch API (not Axios) - custom API client
@@ -326,6 +366,7 @@ client/src/
 - ✅ User context available throughout app
 - ✅ Professional login form with validation
 - ✅ Automatic token cleanup and session management
+- ✅ **Data Preloading**: Dogs and locations data preloaded upon login for instant access
 
 **✅ API Integration Fully Working:**
 

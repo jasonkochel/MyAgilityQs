@@ -1,11 +1,12 @@
-## Client
-
-- ✅ "Select Dog" should be two-wide with no text besides the dog's name
-- ✅ Some of the class names are too long, so simplified them: "Jumpers with Weaves" -> "Jumpers", "Premier Standard" -> "Premier Std", "Premier Jumpers" -> "Premier JWW"
-- ✅ Levels should be highest-to-lowest: Masters, Excellent, Open, Novice
-- ✅ "Qualified (Q)" is getting cut off so remove the "(Q)" and remove the emoji
-- ✅ "Not Qualified (NQ)" is getting cut off so make it just "NQ" and remove the emoji
-- ✅ Placement buttons have too much interior padding so the numbers are cut off on small screens
-- ✅ Placement: None should be just "X" so it fits
-- ✅ Once the dog and class are selected, we know what level the dog is in for that class, so auto-select it
-- ✅ All of the toggle-buttons should be the same color as "dog" -- right now, dog, class, level, and placement (Q and NQ can stay green/red)
+- ✅ Make auth persistent - when the token expires I am getting logged out
+- ✅ Run the local Vite dev server on a different port so it doesn't conflict with other projects I have
+- ✅ Consider loading all dog data for the user upon login, using Tanstack Query to cache it so it's available on all pages immediately. This is especially helpful for the View Runs page where you need to load the dogs to look up the IDs and get the names
+- Add the ability to hard-delete a dog
+- Add the ability to hard-delete a run (from the View Runs page)
+- ✅ Use the icon from the main menu as the favicon too
+- ✅ Do not show inactive dogs on Add Run
+- ✅ On Add Run, have the placement buttons reflect the colors of the ribbons: 1st = Blue, 2nd = Red, 3rd = Yellow, 4th = White, None = gray
+- "Location" is missing from the screens, including the "pick from prior locations in my data" feature
+- ✅ When adding a run, just show the class; we already know the level for each class; show the level in small text inside the class button to make it obvious, but don't make the user select it
+- Add logic to auto-change the level of the dog upon saving a Q. Per-class, you need 3 Novice Qs to move into Open, 3 Open Qs to move into Excellent, and 3 Excellent Qs to move into Masters. Then you stay in Masters forever.
+- Add a profile option for whether you want to track "NQ" runs or not. If not, don't show the Q/NQ buttons or filters; just assume everything is "Q"

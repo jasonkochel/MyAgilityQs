@@ -32,13 +32,11 @@ type SortField = "date" | "dog" | "class" | "level";
 type SortDirection = "asc" | "desc";
 
 export const ViewRunsPage: React.FC = () => {
-  const [, setLocation] = useLocation();
-  // Filter and sort state
+  const [, setLocation] = useLocation(); // Filter and sort state
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
-  const [showOnlyQs, setShowOnlyQs] = useState(true);
+  const [showOnlyQs, setShowOnlyQs] = useState(false); // Changed to false to show all runs by default
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-
   const {
     data: runs = [],
     isLoading: runsLoading,
@@ -323,10 +321,10 @@ export const ViewRunsPage: React.FC = () => {
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">{getClassDisplayName(run.class)}</Text>
-                      </Table.Td>
+                      </Table.Td>{" "}
                       <Table.Td>
                         <Text size="sm">{run.level}</Text>
-                      </Table.Td>{" "}
+                      </Table.Td>
                       <Table.Td style={{ textAlign: "center" }}>
                         <Popover width={300} position="bottom" withArrow shadow="md">
                           <Popover.Target>

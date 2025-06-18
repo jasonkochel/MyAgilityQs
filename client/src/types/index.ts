@@ -56,6 +56,7 @@ export interface Run {
   time?: number;
   qualified: boolean;
   placement?: number;
+  location?: string;
   notes?: string;
   date: string;
   createdAt: string;
@@ -70,6 +71,7 @@ export interface CreateRunRequest {
   qualified?: boolean;
   placement?: number;
   time?: number;
+  location?: string;
   notes?: string;
 }
 

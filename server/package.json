@@ -23,14 +23,10 @@
     "@middy/http-error-handler": "^6.3.2",
     "@middy/http-json-body-parser": "^6.3.2",
     "@middy/http-router": "^6.3.2",
-    "@middy/validator": "^6.3.2",
     "@my-agility-qs/shared": "*",
     "@types/http-errors": "^2.0.5",
     "aws-jwt-verify": "^5.1.0",
-    "crypto": "^1.0.1",
     "http-errors": "^2.0.0",
-    "jsonwebtoken": "^9.0.2",
-    "openid-client": "^6.5.1",
     "uuid": "^10.0.0"
   },
   "devDependencies": {

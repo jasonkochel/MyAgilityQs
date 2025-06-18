@@ -94,7 +94,6 @@ export const EditDogPage: React.FC = () => {
       dogsApi.update(dogId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dogs"] });
-      queryClient.invalidateQueries({ queryKey: ["dogs", dogId] });
       notifications.show({
         title: "Success!",
         message: "Dog updated successfully",

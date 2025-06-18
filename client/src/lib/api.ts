@@ -45,11 +45,35 @@ export const tokenManager = {
     localStorage.setItem("idToken", authData.idToken);
     localStorage.setItem("tokenExpiry", (Date.now() + authData.expiresIn * 1000).toString());
   },
-
   isTokenExpired: (): boolean => {
     const expiry = localStorage.getItem("tokenExpiry");
     if (!expiry) return true;
-    return Date.now() > parseInt(expiry);
+    // Check if token expires in the next 5 minutes (300 seconds)
+    return Date.now() > parseInt(expiry) - 300000;
+  },
+
+  // Refresh access token using refresh token
+  refreshAccessToken: async (): Promise<boolean> => {
+    const refreshToken = tokenManager.getRefreshToken();
+    if (!refreshToken) return false;
+
+    try {
+      const response = await ky
+        .post(`${API_BASE_URL}/auth/refresh`, {
+          json: { refreshToken },
+        })
+        .json<ApiResponse<AuthResponse>>();
+
+      if (response.success && response.data) {
+        tokenManager.setTokens(response.data);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Token refresh failed:", error);
+      tokenManager.removeToken();
+      return false;
+    }
   },
 
   // Clear sensitive data on page visibility change (user switches tabs/apps)
@@ -68,17 +92,26 @@ export const api = ky.create({
   prefixUrl: API_BASE_URL,
   hooks: {
     beforeRequest: [
-      (request) => {
-        const token = tokenManager.getToken();
-        console.log("🔍 Debug - Token exists:", !!token);
-        console.log("🔍 Debug - Token expired:", tokenManager.isTokenExpired());
-        console.log("🔍 Debug - Request URL:", request.url);
+      async (request) => {
+        let token = tokenManager.getToken();
+        const isTokenExpired = tokenManager.isTokenExpired();
+
+        // Try to refresh token if expired but we have a refresh token
+        if ((!token || isTokenExpired) && tokenManager.getRefreshToken()) {
+          const refreshed = await tokenManager.refreshAccessToken();
+          if (refreshed) {
+            token = tokenManager.getToken();
+          } else {
+            // Only redirect if this isn't already a login/auth request
+            if (!request.url.includes("/auth/")) {
+              window.location.href = "/login";
+            }
+            return;
+          }
+        }
 
         if (token && !tokenManager.isTokenExpired()) {
           request.headers.set("Authorization", `Bearer ${token}`);
-          console.log("✅ Authorization header set");
-        } else {
-          console.log("❌ No Authorization header set - missing or expired token");
         }
       },
     ],
@@ -186,11 +219,19 @@ export const dogsApi = {
 // Runs API
 export const runsApi = {
   createRun: async (runData: CreateRunRequest): Promise<Run> => {
-    return apiRequest(api.post("runs", { json: runData }));
+    return apiRequest(api.post("runs", { json: runData })) as Promise<Run>;
   },
 
   getAllRuns: async (): Promise<Run[]> => {
-    return apiRequest(api.get("runs"));
+    return apiRequest(api.get("runs")) as Promise<Run[]>;
+  },
+};
+
+// Locations API
+export const locationsApi = {
+  // Get all unique locations from user's runs
+  getAll: async (): Promise<string[]> => {
+    return apiRequest(api.get("locations"));
   },
 };
 

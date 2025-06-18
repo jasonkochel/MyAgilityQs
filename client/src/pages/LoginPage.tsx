@@ -47,7 +47,7 @@ export const LoginPage: React.FC = () => {
 
     try {
       const authData = await authApi.login(values);
-      login(authData, values.email);
+      await login(authData, values.email);
 
       // Success - redirect without showing a toast (the redirect is clear enough)
       setLocation("/");

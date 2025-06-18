@@ -1,5 +1,6 @@
 import {
   Alert,
+  Autocomplete,
   Button,
   Container,
   Group,
@@ -14,24 +15,22 @@ import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconCheck } from "@tabler/icons-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { dogsApi, runsApi } from "../lib/api";
-import { CLASS_DISPLAY_NAMES, COMPETITION_LEVELS } from "../lib/constants";
+import { dogsApi, locationsApi, runsApi } from "../lib/api";
+import { CLASS_DISPLAY_NAMES } from "../lib/constants";
 import type { CreateRunRequest, Dog } from "../types";
 
-// AKC Agility Classes and Levels - use shared constants
+// AKC Agility Classes - use shared constants
 const AKC_CLASS_MAPPING = CLASS_DISPLAY_NAMES;
 
-const AKC_LEVELS = COMPETITION_LEVELS; // Reordered highest to lowest
-
 const PLACEMENT_OPTIONS = [
-  { label: "1", value: 1 },
-  { label: "2", value: 2 },
-  { label: "3", value: 3 },
-  { label: "4", value: 4 },
-  { label: "X", value: undefined }, // Changed from "None" to "X"
+  { label: "1", value: 1, color: "blue" }, // Blue ribbon
+  { label: "2", value: 2, color: "red" }, // Red ribbon
+  { label: "3", value: 3, color: "yellow" }, // Yellow ribbon
+  { label: "4", value: 4, color: "gray.3" }, // White ribbon (light gray for visibility)
+  { label: "X", value: undefined, color: "gray.7" }, // No placement (dark gray)
 ];
 
 interface RunFormData {
@@ -41,18 +40,29 @@ interface RunFormData {
   date: string; // Changed to string for new Mantine DateInput
   qualified: boolean;
   placement?: number;
+  location: string;
   notes: string;
 }
 
 export const AddRunPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  // Fetch user's dogs
-  const { data: dogs = [], isLoading: dogsLoading } = useQuery({
+  // Fetch user's dogs and filter to only active ones
+  const { data: allDogs = [], isLoading: dogsLoading } = useQuery({
     queryKey: ["dogs"],
     queryFn: dogsApi.getAllDogs,
   });
+  // Fetch unique locations from user's runs for autocomplete
+  const { data: locationSuggestions = [] } = useQuery({
+    queryKey: ["locations"],
+    queryFn: locationsApi.getAll,
+    staleTime: Infinity, // Always fresh - preloaded on login, invalidated on changes
+  });
+
+  // Filter to only show active dogs for run entry
+  const dogs = allDogs.filter((dog) => dog.active);
   const form = useForm<RunFormData>({
     initialValues: {
       dogId: "",
@@ -61,19 +71,30 @@ export const AddRunPage: React.FC = () => {
       date: new Date().toISOString().split("T")[0], // Today's date as YYYY-MM-DD string
       qualified: true, // Default to qualified
       placement: undefined, // Default to None
+      location: "",
       notes: "",
     },
     validate: {
       dogId: (value) => (value ? null : "Please select a dog"),
       className: (value) => (value ? null : "Please select a class"),
-      level: (value) => (value ? null : "Please select a level"),
       date: (value) => (value ? null : "Please select a date"),
     },
   });
-
   const createRunMutation = useMutation({
     mutationFn: runsApi.createRun,
-    onSuccess: () => {
+    onSuccess: async (_, variables) => {
+      // Refetch runs query to refresh the View Runs page
+      await queryClient.refetchQueries({ queryKey: ["runs"] });
+
+      // Only refetch locations if a new location was added
+      if (
+        variables.location &&
+        variables.location.trim() &&
+        !locationSuggestions.includes(variables.location.trim())
+      ) {
+        await queryClient.refetchQueries({ queryKey: ["locations"] });
+      }
+
       notifications.show({
         title: "Success!",
         message: "Run added successfully",
@@ -83,11 +104,11 @@ export const AddRunPage: React.FC = () => {
       setLocation("/view-runs");
     },
     onError: (err) => {
+      console.error("AddRunPage - error creating run:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to add run";
       setError(errorMessage);
     },
   });
-
   const handleSubmit = (values: RunFormData) => {
     setError(null);
 
@@ -99,6 +120,7 @@ export const AddRunPage: React.FC = () => {
       date: values.date, // Already in YYYY-MM-DD string format
       qualified: values.qualified,
       placement: values.placement,
+      location: values.location,
       notes: values.notes,
     };
 
@@ -165,40 +187,53 @@ export const AddRunPage: React.FC = () => {
               {/* Dog Selection - Large Touch-Friendly Buttons */}
               <Stack gap="xs">
                 <Text fw={500}>Select Dog</Text>
-                <SimpleGrid cols={2} spacing="xs">
-                  {dogs.map((dog: Dog) => (
-                    <Button
-                      key={dog.id}
-                      variant={form.values.dogId === dog.id ? "filled" : "outline"}
-                      color={form.values.dogId === dog.id ? "blue" : "gray"}
-                      size="lg"
-                      h={50}
-                      onClick={() => {
-                        form.setFieldValue("dogId", dog.id);
-                        // Auto-select level based on dog's class level
-                        if (form.values.className && dog.classes) {
-                          const dogClass = dog.classes.find(
-                            (c) => c.name === form.values.className
-                          );
-                          if (dogClass && dogClass.level) {
-                            form.setFieldValue("level", dogClass.level);
-                          }
-                        }
-                      }}
-                    >
-                      <Text fw={600} size="md">
-                        {dog.name}
+                {dogs.length === 0 ? (
+                  <Paper withBorder p="md" radius="md">
+                    <Stack align="center" gap="xs">
+                      <Text c="dimmed" size="sm">
+                        No active dogs available
                       </Text>
-                    </Button>
-                  ))}
-                </SimpleGrid>
+                      <Button variant="outline" size="sm" onClick={() => setLocation("/my-dogs")}>
+                        Manage Dogs
+                      </Button>
+                    </Stack>
+                  </Paper>
+                ) : (
+                  <SimpleGrid cols={2} spacing="xs">
+                    {dogs.map((dog: Dog) => (
+                      <Button
+                        key={dog.id}
+                        variant={form.values.dogId === dog.id ? "filled" : "outline"}
+                        color={form.values.dogId === dog.id ? "blue" : "gray"}
+                        size="lg"
+                        h={50}
+                        onClick={() => {
+                          form.setFieldValue("dogId", dog.id);
+                          // Auto-select level based on dog's class level
+                          if (form.values.className && dog.classes) {
+                            const dogClass = dog.classes.find(
+                              (c) => c.name === form.values.className
+                            );
+                            if (dogClass && dogClass.level) {
+                              form.setFieldValue("level", dogClass.level);
+                            }
+                          }
+                        }}
+                      >
+                        <Text fw={600} size="md">
+                          {dog.name}
+                        </Text>{" "}
+                      </Button>
+                    ))}
+                  </SimpleGrid>
+                )}
                 {form.errors.dogId && (
                   <Text c="red" size="sm">
                     {form.errors.dogId}
                   </Text>
                 )}
               </Stack>{" "}
-              {/* Class Selection - Large Touch-Friendly Buttons */}
+              {/* Class Selection - Smart Class/Level Buttons */}
               <Stack gap="xs">
                 <Text fw={500}>Select Class</Text>
                 {!form.values.dogId ? (
@@ -220,7 +255,13 @@ export const AddRunPage: React.FC = () => {
                               AKC_CLASS_MAPPING[key as keyof typeof AKC_CLASS_MAPPING] ===
                               dogClass.name
                           );
-                          return displayName ? { displayName, actualName: dogClass.name } : null;
+                          return displayName
+                            ? {
+                                displayName,
+                                actualName: dogClass.name,
+                                level: dogClass.level,
+                              }
+                            : null;
                         })
                         .filter(Boolean);
 
@@ -234,22 +275,30 @@ export const AddRunPage: React.FC = () => {
                             }
                             color={form.values.className === classInfo.actualName ? "blue" : "gray"}
                             size="lg"
-                            h={50}
+                            h={60}
                             onClick={() => {
                               form.setFieldValue("className", classInfo.actualName);
                               // Auto-select level based on dog's class level
-                              const selectedDog = dogs.find((d) => d.id === form.values.dogId);
-                              if (selectedDog && selectedDog.classes) {
-                                const dogClass = selectedDog.classes.find(
-                                  (c) => c.name === classInfo.actualName
-                                );
-                                if (dogClass && dogClass.level) {
-                                  form.setFieldValue("level", dogClass.level);
-                                }
-                              }
+                              form.setFieldValue("level", classInfo.level);
                             }}
                           >
-                            {classInfo.displayName}
+                            {" "}
+                            <Stack gap={2} align="center">
+                              <Text fw={600} size="md">
+                                {classInfo.displayName}
+                              </Text>
+                              <Text
+                                size="xs"
+                                fw={500}
+                                c={
+                                  form.values.className === classInfo.actualName
+                                    ? "white"
+                                    : "dimmed"
+                                }
+                              >
+                                {classInfo.level}
+                              </Text>
+                            </Stack>
                           </Button>
                         );
                       });
@@ -259,29 +308,6 @@ export const AddRunPage: React.FC = () => {
                 {form.errors.className && (
                   <Text c="red" size="sm">
                     {form.errors.className}
-                  </Text>
-                )}
-              </Stack>
-              {/* Level Selection - Large Touch-Friendly Buttons */}
-              <Stack gap="xs">
-                <Text fw={500}>Select Level</Text>
-                <SimpleGrid cols={2} spacing="xs">
-                  {AKC_LEVELS.map((level) => (
-                    <Button
-                      key={level}
-                      variant={form.values.level === level ? "filled" : "outline"}
-                      color={form.values.level === level ? "blue" : "gray"}
-                      size="lg"
-                      h={50}
-                      onClick={() => form.setFieldValue("level", level)}
-                    >
-                      {level}
-                    </Button>
-                  ))}
-                </SimpleGrid>
-                {form.errors.level && (
-                  <Text c="red" size="sm">
-                    {form.errors.level}
                   </Text>
                 )}
               </Stack>{" "}
@@ -302,34 +328,50 @@ export const AddRunPage: React.FC = () => {
                     variant={!form.values.qualified ? "filled" : "outline"}
                     color={!form.values.qualified ? "red" : "gray"}
                     size="lg"
-                    onClick={() => form.setFieldValue("qualified", false)}
+                    onClick={() => {
+                      form.setFieldValue("qualified", false);
+                      // Clear placement when NQ is selected since you can't place if you don't qualify
+                      form.setFieldValue("placement", undefined);
+                    }}
                     flex={1}
                   >
                     NQ
                   </Button>
                 </Group>
               </Stack>
-              {/* Placement Selection - Touch-Friendly Buttons */}{" "}
+              {/* Placement Selection - Only show when qualified */}
+              {form.values.qualified && (
+                <Stack gap="xs">
+                  <Text fw={500}>Placement</Text>
+                  <SimpleGrid cols={5} spacing="xs">
+                    {PLACEMENT_OPTIONS.map((option) => (
+                      <Button
+                        key={option.label}
+                        variant={form.values.placement === option.value ? "filled" : "outline"}
+                        color={form.values.placement === option.value ? option.color : "gray"}
+                        size="md"
+                        h={44}
+                        onClick={() => form.setFieldValue("placement", option.value)}
+                        styles={{
+                          inner: { padding: "2px" },
+                          label: { fontSize: "16px", fontWeight: 600 },
+                        }}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </SimpleGrid>
+                </Stack>
+              )}
+              {/* Location */}
               <Stack gap="xs">
-                <Text fw={500}>Placement</Text>
-                <SimpleGrid cols={5} spacing="xs">
-                  {PLACEMENT_OPTIONS.map((option) => (
-                    <Button
-                      key={option.label}
-                      variant={form.values.placement === option.value ? "filled" : "outline"}
-                      color={form.values.placement === option.value ? "blue" : "gray"}
-                      size="md"
-                      h={44}
-                      onClick={() => form.setFieldValue("placement", option.value)}
-                      styles={{
-                        inner: { padding: "2px" },
-                        label: { fontSize: "16px", fontWeight: 600 },
-                      }}
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </SimpleGrid>
+                <Text fw={500}>Location (Optional)</Text>
+                <Autocomplete
+                  placeholder="e.g., Springfield Dog Training Center"
+                  data={locationSuggestions}
+                  {...form.getInputProps("location")}
+                  size="lg"
+                />
               </Stack>
               {/* Notes */}
               <Stack gap="xs">
