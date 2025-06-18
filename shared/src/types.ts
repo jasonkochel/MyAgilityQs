@@ -1,24 +1,19 @@
 // Competition classes
 export const COMPETITION_CLASSES = [
-  'Standard',
-  'Jumpers', 
-  'T2B',
-  'FAST',
-  'Premier Standard',
-  'Premier Jumpers'
+  "Standard",
+  "Jumpers",
+  "T2B",
+  "FAST",
+  "Premier Std",
+  "Premier JWW",
 ] as const;
 
-export type CompetitionClass = typeof COMPETITION_CLASSES[number];
+export type CompetitionClass = (typeof COMPETITION_CLASSES)[number];
 
 // Competition levels
-export const COMPETITION_LEVELS = [
-  'Novice',
-  'Open', 
-  'Excellent',
-  'Masters'
-] as const;
+export const COMPETITION_LEVELS = ["Novice", "Open", "Excellent", "Masters"] as const;
 
-export type CompetitionLevel = typeof COMPETITION_LEVELS[number];
+export type CompetitionLevel = (typeof COMPETITION_LEVELS)[number];
 
 // User types
 export interface User {
@@ -135,8 +130,8 @@ export interface RunsQuery {
   qualified?: boolean;
   limit?: number;
   offset?: number;
-  sort?: 'date' | 'class' | 'level' | 'time' | 'placement';
-  order?: 'asc' | 'desc';
+  sort?: "date" | "class" | "level" | "time" | "placement";
+  order?: "asc" | "desc";
 }
 
 // Authentication types

@@ -1,0 +1,28 @@
+.navLink {
+  border-radius: var(--mantine-radius-sm);
+  margin-bottom: 0.25rem;
+}
+
+.navLink:hover {
+  background-color: var(--mantine-color-gray-1);
+}
+
+.navLink[data-active="true"] {
+  background-color: var(--mantine-color-blue-light);
+  color: var(--mantine-color-blue-filled);
+}
+
+.navLink[data-active="true"]:hover {
+  background-color: var(--mantine-color-blue-light-hover);
+}
+
+@media (prefers-color-scheme: dark) {
+  .navLink:hover {
+    background-color: var(--mantine-color-dark-6);
+  }
+
+  .navLink[data-active="true"] {
+    background-color: var(--mantine-color-blue-light-color);
+    color: var(--mantine-color-blue-light);
+  }
+}

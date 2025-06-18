@@ -142,7 +142,7 @@ export const runHandler = {
         throw createError(400, "Request body is required");
       }
 
-      const request = event.body as unknown as CreateRunRequest;
+      const request = JSON.parse(event.body) as CreateRunRequest;
 
       // Validate required fields
       if (!request.dogId || !request.date || !request.class || !request.level) {
@@ -214,7 +214,7 @@ export const runHandler = {
         throw createError(400, "Request body is required");
       }
 
-      const request = event.body as unknown as UpdateRunRequest;
+      const request = JSON.parse(event.body) as UpdateRunRequest;
 
       // Verify run exists and user has permission
       const existingRun = await getRunById(runId);

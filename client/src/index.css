@@ -1,0 +1,17 @@
+/* Import Mantine styles */
+@import "@mantine/core/styles.css";
+@import "@mantine/dates/styles.css";
+@import "@mantine/notifications/styles.css";
+@import "@mantine/charts/styles.css";
+
+/* Global styles */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+}

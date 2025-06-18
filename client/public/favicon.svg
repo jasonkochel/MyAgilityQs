@@ -1,0 +1,26 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="15" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+
+  <!-- Agility jump obstacle -->
+  <!-- Base poles -->
+  <rect x="6" y="24" width="2" height="6" fill="#ffffff"/>
+  <rect x="24" y="24" width="2" height="6" fill="#ffffff"/>
+
+  <!-- Jump bar -->
+  <rect x="6" y="22" width="20" height="2" fill="#ffffff"/>
+
+  <!-- Dog silhouette jumping -->
+  <!-- Body -->
+  <ellipse cx="16" cy="18" rx="6" ry="3" fill="#ffffff"/>
+  <!-- Head -->
+  <circle cx="10" cy="16" r="2.5" fill="#ffffff"/>
+  <!-- Ears -->
+  <ellipse cx="8.5" cy="14.5" rx="1" ry="1.5" fill="#ffffff"/>
+  <ellipse cx="11.5" cy="14.5" rx="1" ry="1.5" fill="#ffffff"/>
+  <!-- Legs -->
+  <rect x="12" y="20" width="1" height="3" fill="#ffffff"/>
+  <rect x="19" y="20" width="1" height="3" fill="#ffffff"/>
+  <!-- Tail -->
+  <ellipse cx="22" cy="16" rx="1.5" ry="2" fill="#ffffff"/>
+</svg>

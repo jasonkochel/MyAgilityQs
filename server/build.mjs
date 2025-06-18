@@ -1,4 +1,4 @@
-import { build } from "esbuild";
+import { build, context } from "esbuild";
 import { writeFileSync } from "fs";
 import { join } from "path";
 
@@ -10,7 +10,7 @@ const buildOptions = {
   outdir: "./dist",
   platform: "node",
   target: "node22",
-  format: "cjs",  // Changed to CommonJS for Lambda compatibility
+  format: "cjs", // Changed to CommonJS for Lambda compatibility
   sourcemap: true,
   minify: false,
   external: [
@@ -26,33 +26,23 @@ const buildOptions = {
 // Create package.json in dist folder for Lambda
 const createDistPackageJson = () => {
   const packageJson = {
-    "type": "commonjs"
+    type: "commonjs",
   };
-  
-  writeFileSync(
-    join("dist", "package.json"), 
-    JSON.stringify(packageJson, null, 2)
-  );
+
+  writeFileSync(join("dist", "package.json"), JSON.stringify(packageJson, null, 2));
   console.log("📦 Created dist/package.json");
 };
 
 if (isWatch) {
-  const ctx = await build({
-    ...buildOptions,
-    watch: {
-      onRebuild(error, result) {
-        if (error) console.error("❌ Build failed:", error);
-        else console.log("✅ Build succeeded");
-      },
-    },
-  });
+  const ctx = await context(buildOptions);
+  await ctx.watch();
+  createDistPackageJson();
+  console.log("👀 Watching for changes...");
 
   process.on("SIGINT", () => {
     ctx.dispose();
     process.exit(0);
   });
-
-  console.log("👀 Watching for changes...");
 } else {
   try {
     await build(buildOptions);
