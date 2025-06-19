@@ -1,6 +1,6 @@
 import { Button, Container, Group, Stack, Switch, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconArrowLeft, IconLogout, IconRefresh } from "@tabler/icons-react";
+import { IconArrowLeft, IconFileImport, IconLogout, IconRefresh } from "@tabler/icons-react";
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
 import { tokenManager } from "../lib/api";
@@ -13,6 +13,7 @@ export const ProfilePage: React.FC = () => {
     logout();
     setLocation("/login");
   };
+
   const handleRefreshToken = async () => {
     try {
       console.log("Current refresh token:", tokenManager.getRefreshToken());
@@ -45,12 +46,14 @@ export const ProfilePage: React.FC = () => {
         >
           Back
         </Button>
-        <Title order={1}>Profile</Title>{" "}
+        <Title order={1}>Profile</Title>
+
         <Stack gap="lg">
           <div>
             <Text fw={500}>Email</Text>
             <Text c="dimmed">{user?.email}</Text>
-          </div>{" "}
+          </div>
+
           <div>
             <Text fw={500} mb="xs">
               Preferences
@@ -67,7 +70,7 @@ export const ProfilePage: React.FC = () => {
                     message: "Preference updated successfully",
                     color: "green",
                   });
-                } catch (error) {
+                } catch {
                   notifications.show({
                     title: "Error",
                     message: "Failed to update preference",
@@ -78,6 +81,24 @@ export const ProfilePage: React.FC = () => {
               color="green"
             />
           </div>
+
+          <div>
+            <Text fw={500} mb="xs">
+              Import Data
+            </Text>
+            <Button
+              variant="light"
+              leftSection={<IconFileImport size={16} />}
+              onClick={() => setLocation("/import")}
+              fullWidth
+            >
+              Import Runs from Text
+            </Button>
+            <Text size="xs" c="dimmed" mt="xs">
+              Import historical run data from spreadsheets or other sources
+            </Text>
+          </div>
+
           <Group>
             <Button
               variant="outline"

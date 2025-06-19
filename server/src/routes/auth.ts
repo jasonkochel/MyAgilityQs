@@ -381,7 +381,7 @@ export const authHandler = {
       if (!tokenResponse.ok) {
         throw new Error(`Token exchange failed: ${tokenResponse.statusText}`);
       }
-      const tokenData = (await tokenResponse.json()) as CognitoTokenResponse;      // Decode the ID token to get user information
+      const tokenData = (await tokenResponse.json()) as CognitoTokenResponse; // Decode the ID token to get user information
       const idTokenPayload = JSON.parse(
         Buffer.from(tokenData.id_token.split(".")[1], "base64").toString()
       );
@@ -395,8 +395,11 @@ export const authHandler = {
       console.log("Extracted email:", email, "Cognito sub:", cognitoUserId);
 
       // Validate that we have a valid email
-      if (!email || typeof email !== 'string' || email.trim() === '') {
-        console.error("Invalid or missing email in Google ID token:", { email, payload: idTokenPayload });
+      if (!email || typeof email !== "string" || email.trim() === "") {
+        console.error("Invalid or missing email in Google ID token:", {
+          email,
+          payload: idTokenPayload,
+        });
         const response: ApiResponse = {
           success: false,
           error: "authentication_error",
@@ -413,7 +416,8 @@ export const authHandler = {
       // This ensures users with same email from different IdPs share the same database record
       await createOrUpdateUserProfile(email, email, {
         trackQsOnly: false, // Default setting
-      });      const response: ApiResponse = {
+      });
+      const response: ApiResponse = {
         success: true,
         message: "Google authentication successful",
         data: {

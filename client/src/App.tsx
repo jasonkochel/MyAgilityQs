@@ -5,6 +5,7 @@ import { AddDogPage } from "./pages/AddDogPage";
 import { AddRunPage } from "./pages/AddRunPage";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { EditDogPage } from "./pages/EditDogPage";
+import { ImportPage } from "./pages/ImportPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MainMenuPage } from "./pages/MainMenuPage";
 import { MyDogsPage } from "./pages/MyDogsPage";
@@ -31,6 +32,7 @@ function App() {
             <Route path="/dogs/add" component={AddDogPage} />
             <Route path="/dogs/:dogId/edit" component={EditDogPage} />
             <Route path="/profile" component={ProfilePage} />
+            <Route path="/import" component={ImportPage} />
           </Switch>
         </ProtectedRoute>
       </Switch>

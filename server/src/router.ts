@@ -152,6 +152,11 @@ export const routes: ExtendedRoute[] = [
     path: "/runs/{id}",
     handler: runHandler.deleteRun,
   },
+  {
+    method: "POST",
+    path: "/runs/batch",
+    handler: runHandler.batchImportRuns,
+  },
   // Progress endpoints - require authentication
   {
     method: "GET",

@@ -39,7 +39,8 @@ export const tokenManager = {
   // Keep refresh token in localStorage (longer persistence needed)
   getRefreshToken: (): string | null => {
     return localStorage.getItem("refreshToken");
-  },  removeToken: (): void => {
+  },
+  removeToken: (): void => {
     sessionStorage.removeItem("accessToken");
     sessionStorage.removeItem("idToken");
     localStorage.removeItem("refreshToken");
@@ -269,6 +270,11 @@ export const runsApi = {
 
   getAllRuns: async (): Promise<Run[]> => {
     return apiRequest(api.get("runs")) as Promise<Run[]>;
+  },
+
+  // Batch import runs
+  batchImportRuns: async (runs: CreateRunRequest[]): Promise<any> => {
+    return apiRequest(api.post("runs/batch", { json: { runs } }));
   },
 
   // Hard delete a run (permanent removal)

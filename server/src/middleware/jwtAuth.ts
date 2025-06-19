@@ -50,9 +50,10 @@ export const conditionalJwtAuth = () => {
       if (!token) {
         console.error("[JWT ERROR] Protected route accessed without token:", routeKey);
         throw createError(401, "Authorization header missing");
-      }      try {
+      }
+      try {
         let payload;
-        
+
         try {
           // Verify the ID token (contains user profile information like email)
           payload = await idTokenVerifier.verify(token);
@@ -64,16 +65,16 @@ export const conditionalJwtAuth = () => {
 
         // Extract email from ID token
         const email = String(payload.email || "");
-        
+
         console.log("JWT payload email:", email, "JWT payload sub:", payload.sub);
         console.log("Token type:", payload.token_use);
-        
+
         // Validate email exists and is not empty
-        if (!email || email.trim() === '') {
+        if (!email || email.trim() === "") {
           console.error("JWT token missing email field:", { payload });
           throw createError(401, "Token missing required email field");
         }
-        
+
         event.user = {
           userId: email, // Use email as userId for consistent database operations
           email: email,

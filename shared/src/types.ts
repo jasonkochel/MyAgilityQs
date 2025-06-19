@@ -108,6 +108,21 @@ export interface UpdateRunRequest {
   notes?: string;
 }
 
+export interface BatchImportRunsRequest {
+  runs: CreateRunRequest[];
+}
+
+export interface BatchImportRunsResponse {
+  successful: Run[];
+  failed: Array<{
+    request: CreateRunRequest;
+    error: string;
+  }>;
+  totalRequested: number;
+  totalSuccessful: number;
+  totalFailed: number;
+}
+
 // Statistics types
 export interface ClassProgress {
   class: CompetitionClass;

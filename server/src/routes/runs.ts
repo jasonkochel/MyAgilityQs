@@ -340,4 +340,105 @@ export const runHandler = {
       };
     }
   },
+
+  // POST /runs/batch - Batch import runs
+  batchImportRuns: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    try {
+      const userId = event.user!.userId;
+
+      if (!event.body) {
+        const response: ApiResponse = {
+          success: false,
+          error: "bad_request",
+          message: "Request body is required",
+        };
+        return {
+          statusCode: 400,
+          body: JSON.stringify(response),
+        };
+      }
+
+      let parsedBody;
+      if (typeof event.body === "string") {
+        parsedBody = JSON.parse(event.body);
+      } else {
+        parsedBody = event.body;
+      }
+
+      const { runs: runRequests } = parsedBody as { runs: CreateRunRequest[] };
+
+      if (!Array.isArray(runRequests) || runRequests.length === 0) {
+        const response: ApiResponse = {
+          success: false,
+          error: "bad_request",
+          message: "Runs array is required and must not be empty",
+        };
+        return {
+          statusCode: 400,
+          body: JSON.stringify(response),
+        };
+      }
+
+      const successful: any[] = [];
+      const failed: Array<{ request: CreateRunRequest; error: string }> = [];
+
+      // Process each run request
+      for (const runRequest of runRequests) {
+        try {
+          // Validate that the dog belongs to the user
+          const dog = await getDogById(runRequest.dogId);
+          if (!dog || dog.userId !== userId) {
+            failed.push({
+              request: runRequest,
+              error: "Dog not found or does not belong to user",
+            });
+            continue;
+          } // Create the run
+          const result = await createRun(userId, {
+            ...runRequest,
+            qualified: runRequest.qualified ?? false, // Default to false if not specified
+          });
+
+          successful.push(result.run);
+        } catch (error: any) {
+          failed.push({
+            request: runRequest,
+            error: error.message || "Failed to create run",
+          });
+        }
+      }
+
+      const batchResponse = {
+        successful,
+        failed,
+        totalRequested: runRequests.length,
+        totalSuccessful: successful.length,
+        totalFailed: failed.length,
+      };
+
+      const response: ApiResponse = {
+        success: true,
+        data: batchResponse,
+        message: `Batch import completed: ${successful.length} successful, ${failed.length} failed`,
+      };
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+      };
+    } catch (error: any) {
+      console.error("Error in batch import runs:", error);
+
+      const response: ApiResponse = {
+        success: false,
+        error: "internal_error",
+        message: "Failed to process batch import",
+      };
+
+      return {
+        statusCode: 500,
+        body: JSON.stringify(response),
+      };
+    }
+  },
 };
