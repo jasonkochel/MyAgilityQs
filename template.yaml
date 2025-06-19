@@ -274,11 +274,6 @@ Resources:
           DYNAMODB_TABLE_NAME: !Ref DynamoTable
       FunctionUrlConfig:
         AuthType: NONE
-        Cors:
-          AllowCredentials: false
-          AllowMethods: ["*"]
-          AllowOrigins: ["*"]
-          MaxAge: 86400
 
 Outputs:
   ApiUrl:
