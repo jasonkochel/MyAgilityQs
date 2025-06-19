@@ -86,8 +86,7 @@ jobs:
         with:
           use-installer: true
 
-      - name: Build shared package
-        if: needs.detect-changes.outputs.shared-changed == 'true'
+      - name: Build shared package (required for server)
         run: npm run build:shared
 
       - name: Build server package
@@ -126,8 +125,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Build shared package
-        if: needs.detect-changes.outputs.shared-changed == 'true'
+      - name: Build shared package (required for client)
         run: npm run build:shared
 
       - name: Build client package
