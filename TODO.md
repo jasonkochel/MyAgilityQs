@@ -1,7 +1,13 @@
 # MyAgilityQs TODO
 
+## ✅ Recently Completed
+- [x] **Title Progress tracking system** - Complete implementation with current levels, advancement progress, and MACH tracking
+- [x] **MACH Points entry** - User input field on Add Run form for Masters Standard/Jumpers
+- [x] **Progress backend logic** - Fixed Double Q and MACH point calculation with correct AKC rules
+- [x] **Cache management** - Improved efficiency with invalidateQueries instead of refetchQueries
+
 ## 🐛 Bugs & Issues
-- [ ] There is code generated for "progress" but I'm not sure what it is intended to be
+- No known issues at this time
 
 ## ✨ Feature Ideas
 - [ ] Photo management: Attach a photo of each dog

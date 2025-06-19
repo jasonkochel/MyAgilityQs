@@ -10,7 +10,8 @@ MyAgilityQs helps agility competitors track their dogs' qualifying runs (Qs), mo
 - 🏆 **Automatic level progression** - Dogs advance levels after earning 3 qualifying runs  
 - 📱 **Mobile-optimized** - Quick run entry designed for use at competitions
 - 🔐 **Secure authentication** - Login with email/password or Google OAuth
-- 📊 **Progress analytics** - Track Double Qs (QQs) and MACH progress
+- 📊 **Title progress tracking** - Visual progress toward next level and MACH titles
+- 🎯 **MACH point entry** - Track Masters Standard/Jumpers points toward MACH (750 points + 20 Double Qs)
 - ⚡ **Real-time updates** - Immediate cache updates and trophy notifications
 
 ## 🚀 Quick Start
@@ -44,8 +45,9 @@ This starts:
 
 1. **Sign up** with email/password or Google
 2. **Add your dogs** with their competition classes and levels
-3. **Enter runs** quickly on mobile at competitions
-4. **Track progress** toward titles and MACH achievements
+3. **Enter runs** quickly on mobile at competitions (including MACH points for Masters)
+4. **Track progress** on the Title Progress page - see current levels and advancement progress
+5. **Monitor MACH progress** for dogs competing in Masters Standard and Jumpers
 
 ## 🛠 Tech Stack
 

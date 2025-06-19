@@ -167,6 +167,15 @@ import { Dog, CreateRunRequest, ApiResponse } from '@my-agility-qs/shared';
 - Stored in database user profile
 - Affects AddRunPage and ViewRunsPage behavior
 
+### Title Progress Tracking
+- **Complete progress system** for AKC agility title advancement
+- **Per-dog level tracking**: Shows current level in each class with progress toward next level
+- **MACH progress**: For Masters Standard + Jumpers dogs (750 points + 20 Double Qs)
+- **MACH Points entry**: User-entered field on Add Run form (Masters Standard/Jumpers only)
+- **Accurate AKC rules**: Double Qs only count Masters level, same-day Standard + Jumpers
+- **Real-time updates**: Progress invalidates automatically when runs are added
+- **Clean UI**: Streamlined display focusing on actionable progression information
+
 ## Important Development Notes
 
 ### Authentication Setup
