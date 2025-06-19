@@ -144,22 +144,23 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  # S3 Bucket Policy for CloudFront
-  FrontendBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref FrontendBucket
-      PolicyDocument:
-        Statement:
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
-            Action: s3:GetObject
-            Resource: !Sub "${FrontendBucket}/*"
-            Condition:
-              StringEquals:
-                "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+  # S3 Bucket Policy for CloudFront (already exists, created manually)
+  # FrontendBucketPolicy:
+  #   Type: AWS::S3::BucketPolicy
+  #   DependsOn: CloudFrontDistribution
+  #   Properties:
+  #     Bucket: !Ref FrontendBucket
+  #     PolicyDocument:
+  #       Statement:
+  #         - Sid: AllowCloudFrontServicePrincipal
+  #           Effect: Allow
+  #           Principal:
+  #             Service: cloudfront.amazonaws.com
+  #           Action: s3:GetObject
+  #           Resource: !Sub "${FrontendBucket}/*"
+  #           Condition:
+  #             StringEquals:
+  #               "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
 
   # Route 53 Records
   DNSRecord:
@@ -184,27 +185,7 @@ Resources:
         DNSName: !GetAtt CloudFrontDistribution.DomainName
         HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
 
-  # API Gateway
-  MyAgilityQsApi:
-    Type: AWS::Serverless::HttpApi
-    Properties:
-      Description: "MyAgilityQs API"
-      CorsConfiguration:
-        AllowOrigins:
-          - !If
-            - IsProduction
-            - !Sub "https://${DomainName}"
-            - !Ref CorsOrigin
-        AllowMethods:
-          - GET
-          - POST
-          - PUT
-          - DELETE
-          - OPTIONS
-        AllowHeaders:
-          - Content-Type
-          - Authorization
-        MaxAge: 300
+  # No API Gateway needed - using Lambda Function URL
 
   # DynamoDB Table
   DynamoTable:
@@ -291,18 +272,18 @@ Resources:
             - !Ref CorsOrigin
           NODE_ENV: !Ref Environment
           DYNAMODB_TABLE_NAME: !Ref DynamoTable
-      Events:
-        CatchAll:
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref MyAgilityQsApi
-            Path: /{proxy+}
-            Method: ANY
+      FunctionUrlConfig:
+        AuthType: NONE
+        Cors:
+          AllowCredentials: false
+          AllowMethods: ["*"]
+          AllowOrigins: ["*"]
+          MaxAge: 86400
 
 Outputs:
   ApiUrl:
-    Description: "HTTP API Gateway endpoint URL"
-    Value: !Sub "https://${MyAgilityQsApi}.execute-api.${AWS::Region}.amazonaws.com/"
+    Description: "Lambda Function URL"
+    Value: !GetAtt ApiFunctionUrl.FunctionUrl
 
   WebsiteURL:
     Description: "Frontend URL"
