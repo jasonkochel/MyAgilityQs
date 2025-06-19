@@ -18,7 +18,10 @@
     "build:shared": "npm run build --workspace=shared",
     "type-check": "npm run type-check --workspace=client && npm run type-check --workspace=server",
     "lint": "npm run lint --workspace=client && npm run lint --workspace=server",
-    "clean": "npm run clean --workspace=client && npm run clean --workspace=server && npm run clean --workspace=shared"
+    "clean": "npm run clean --workspace=client && npm run clean --workspace=server && npm run clean --workspace=shared",
+    "deploy:dev": "npm run build && sam deploy",
+    "deploy:prod": "npm run build && sam deploy --config-env production",
+    "deploy:frontend": "aws s3 sync client/dist/ s3://$(aws cloudformation describe-stacks --stack-name my-agility-qs --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text) --delete && aws cloudfront create-invalidation --distribution-id $(aws cloudformation describe-stacks --stack-name my-agility-qs --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text) --paths '/*'"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

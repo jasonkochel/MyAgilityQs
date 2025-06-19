@@ -14,7 +14,7 @@ import type { AuthResponse } from "../types";
 
 // API Configuration
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "https://072j9gp0u7.execute-api.us-east-1.amazonaws.com";
+  import.meta.env.VITE_API_URL || "https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com";
 
 // Enhanced token management with security improvements
 export const tokenManager = {

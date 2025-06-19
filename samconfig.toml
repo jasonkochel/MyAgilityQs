@@ -1,0 +1,21 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "my-agility-qs-dev"
+resolve_s3 = true
+s3_prefix = "my-agility-qs"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
+parameter_overrides = "Environment=\"development\""
+
+[production.deploy.parameters]
+stack_name = "my-agility-qs"
+resolve_s3 = true
+s3_prefix = "my-agility-qs"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
+parameter_overrides = "Environment=\"production\""

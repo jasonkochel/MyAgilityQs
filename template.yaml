@@ -1,0 +1,342 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: MyAgilityQs Full Stack - API + Frontend
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs22.x
+    Environment:
+      Variables:
+        NODE_ENV: !Ref Environment
+        CORS_ORIGIN: !If
+          - IsProduction
+          - !Sub "https://${DomainName}"
+          - !Ref CorsOrigin
+
+Parameters:
+  Environment:
+    Type: String
+    Default: development
+    AllowedValues:
+      - development
+      - staging
+      - production
+  DomainName:
+    Type: String
+    Default: myagilityqs.com
+    Description: Domain name for the application
+  CorsOrigin:
+    Type: String
+    Default: http://localhost:5174
+    Description: CORS origin for the frontend (dev only, prod uses domain)
+
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+  IsDevelopment: !Equals [!Ref Environment, development]
+
+Resources:
+  # Route 53 Hosted Zone
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Condition: IsProduction
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig:
+        Comment: !Sub "Hosted zone for ${DomainName}"
+      HostedZoneTags:
+        - Key: Project
+          Value: MyAgilityQs
+        - Key: Environment
+          Value: !Ref Environment
+
+  # SSL Certificate (must be in us-east-1 for CloudFront)
+  SSLCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: IsProduction
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub "www.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZone
+        - DomainName: !Sub "www.${DomainName}"
+          HostedZoneId: !Ref HostedZone
+      Tags:
+        - Key: Project
+          Value: MyAgilityQs
+        - Key: Environment
+          Value: !Ref Environment
+
+  # S3 Bucket for Frontend
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 
+        - "myagilityqs-frontend${Suffix}"
+        - Suffix: !If [IsProduction, "", "-dev"]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: MyAgilityQs
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CloudFront Origin Access Control
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "myagilityqs-oac-${Environment}"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # CloudFront Distribution
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases: !If
+          - IsProduction
+          - - !Ref DomainName
+            - !Sub "www.${DomainName}"
+          - !Ref "AWS::NoValue"
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf  # Managed-CORS-S3Origin
+          ResponseHeadersPolicyId: 5cc3b908-e619-4b99-88e5-2cf7f45965bd  # Managed-SimpleCORS
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+            OriginAccessControlId: !Ref OriginAccessControl
+        PriceClass: PriceClass_100  # US/Europe only
+        ViewerCertificate: !If
+          - IsProduction
+          - AcmCertificateArn: !Ref SSLCertificate
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+      Tags:
+        - Key: Project
+          Value: MyAgilityQs
+        - Key: Environment
+          Value: !Ref Environment
+
+  # S3 Bucket Policy for CloudFront
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket}/*"
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+
+  # Route 53 Records
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: IsProduction
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+
+  WWWDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: IsProduction
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      Name: !Sub "www.${DomainName}"
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+
+  # API Gateway
+  MyAgilityQsApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Description: "MyAgilityQs API"
+      CorsConfiguration:
+        AllowOrigins:
+          - !If
+            - IsProduction
+            - !Sub "https://${DomainName}"
+            - !Ref CorsOrigin
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 300
+
+  # DynamoDB Table
+  DynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub
+        - "MyAgilityQs${Suffix}"
+        - Suffix: !If [IsProduction, "", "-Dev"]
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Project
+          Value: MyAgilityQs
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Lambda Function
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: server/dist/
+      Handler: index.handler
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminCreateUser
+                - cognito-idp:AdminInitiateAuth
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminUpdateUserAttributes
+              Resource: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/us-east-1_808uxrU8E"
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+                - dynamodb:Scan
+              Resource:
+                - !GetAtt DynamoTable.Arn
+                - !Sub "${DynamoTable.Arn}/index/*"
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: us-east-1_808uxrU8E
+          COGNITO_CLIENT_ID: 31rckg6cckn32b8fsil5blhh4t
+          COGNITO_DOMAIN: https://myagilityqs.auth.us-east-1.amazoncognito.com
+          FRONTEND_URL: !If
+            - IsProduction
+            - !Sub "https://${DomainName}"
+            - !Ref CorsOrigin
+          COGNITO_REGION: us-east-1
+          CORS_ORIGIN: !If
+            - IsProduction
+            - !Sub "https://${DomainName}"
+            - !Ref CorsOrigin
+          NODE_ENV: !Ref Environment
+          DYNAMODB_TABLE_NAME: !Ref DynamoTable
+      Events:
+        CatchAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MyAgilityQsApi
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  ApiUrl:
+    Description: "HTTP API Gateway endpoint URL"
+    Value: !Sub "https://${MyAgilityQsApi}.execute-api.${AWS::Region}.amazonaws.com/"
+
+  WebsiteURL:
+    Description: "Frontend URL"
+    Value: !If
+      - IsProduction
+      - !Sub "https://${DomainName}"
+      - !Sub "https://${CloudFrontDistribution.DomainName}"
+
+  CloudFrontDistributionId:
+    Description: "CloudFront Distribution ID"
+    Value: !Ref CloudFrontDistribution
+
+  FrontendBucketName:
+    Description: "S3 Bucket for Frontend"
+    Value: !Ref FrontendBucket
+
+  HostedZoneId:
+    Condition: IsProduction
+    Description: "Route 53 Hosted Zone ID"
+    Value: !Ref HostedZone
+
+  SSLCertificateArn:
+    Condition: IsProduction
+    Description: "SSL Certificate ARN"
+    Value: !Ref SSLCertificate
+
+  ApiFunction:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt ApiFunction.Arn
+
+  DynamoTableName:
+    Description: "DynamoDB Table Name"
+    Value: !Ref DynamoTable
+
+  DynamoTableArn:
+    Description: "DynamoDB Table ARN"
+    Value: !GetAtt DynamoTable.Arn
