@@ -1,7 +1,13 @@
 import { ApiResponse, CreateDogRequest, UpdateDogRequest } from "@my-agility-qs/shared";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import createError from "http-errors";
-import { createDog, deleteDog, getDogById, getDogsByUserId, updateDog } from "../database/index.js";
+import {
+  createDog,
+  getDogById,
+  getDogsByUserId,
+  hardDeleteDog,
+  updateDog,
+} from "../database/index.js";
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
 
 // Dog management handlers - full database implementation
@@ -238,9 +244,8 @@ export const dogHandler = {
       };
     }
   },
-
-  // DELETE /dogs/{id} - Soft delete a dog (set active = false)
-  updateDogStatus: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+  // DELETE /dogs/{id} - Hard delete a dog (permanent removal)
+  hardDeleteDog: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
     try {
       const userId = event.user!.userId;
       const dogId = event.pathParameters?.id;
@@ -259,15 +264,15 @@ export const dogHandler = {
         throw createError(403, "Not authorized to delete this dog");
       }
 
-      const success = await deleteDog(dogId, userId);
+      const success = await hardDeleteDog(dogId, userId);
 
       if (!success) {
-        throw createError(404, "Dog not found");
+        throw createError(500, "Failed to delete dog");
       }
 
       const response: ApiResponse = {
         success: true,
-        message: `Dog "${existingDog.name}" deactivated successfully`,
+        message: `Dog "${existingDog.name}" permanently deleted`,
       };
 
       return {
@@ -275,7 +280,7 @@ export const dogHandler = {
         body: JSON.stringify(response),
       };
     } catch (error: any) {
-      console.error("Error deleting dog:", error);
+      console.error("Error hard deleting dog:", error);
 
       if (error.statusCode) {
         const response: ApiResponse = {
@@ -293,7 +298,7 @@ export const dogHandler = {
       const response: ApiResponse = {
         success: false,
         error: "database_error",
-        message: "Failed to delete dog",
+        message: "Failed to permanently delete dog",
       };
 
       return {

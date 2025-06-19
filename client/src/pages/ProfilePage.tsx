@@ -1,7 +1,9 @@
 import { Button, Container, Group, Stack, Text, Title } from "@mantine/core";
-import { IconArrowLeft, IconLogout } from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
+import { IconArrowLeft, IconLogout, IconRefresh } from "@tabler/icons-react";
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
+import { tokenManager } from "../lib/api";
 
 export const ProfilePage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -10,6 +12,24 @@ export const ProfilePage: React.FC = () => {
   const handleLogout = () => {
     logout();
     setLocation("/login");
+  };
+  const handleRefreshToken = async () => {
+    try {
+      console.log("Current refresh token:", tokenManager.getRefreshToken());
+      await tokenManager.refreshAccessToken();
+      notifications.show({
+        title: "Success",
+        message: "Token refreshed successfully",
+        color: "green",
+      });
+    } catch (error) {
+      console.error("Refresh token error:", error);
+      notifications.show({
+        title: "Error",
+        message: `Token refresh failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        color: "red",
+      });
+    }
   };
 
   return (
@@ -30,9 +50,16 @@ export const ProfilePage: React.FC = () => {
           <div>
             <Text fw={500}>Email</Text>
             <Text c="dimmed">{user?.email}</Text>
-          </div>
-
-          <Group>
+          </div>          <Group>
+            <Button
+              variant="outline"
+              color="blue"
+              leftSection={<IconRefresh size={16} />}
+              onClick={handleRefreshToken}
+            >
+              Refresh Token (Debug)
+            </Button>
+            
             <Button
               variant="outline"
               color="red"

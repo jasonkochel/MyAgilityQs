@@ -1,12 +1,11 @@
 import {
-  ActionIcon,
   Badge,
   Button,
   Container,
   Group,
   Loader,
+  Modal,
   Paper,
-  Popover,
   Select,
   Stack,
   Switch,
@@ -14,15 +13,17 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
 import type { Dog, Run } from "@my-agility-qs/shared";
 import {
   IconArrowLeft,
   IconChevronDown,
   IconChevronUp,
-  IconEye,
   IconSearch,
+  IconTrash,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { dogsApi, runsApi } from "../lib/api";
@@ -32,11 +33,14 @@ type SortField = "date" | "dog" | "class" | "level";
 type SortDirection = "asc" | "desc";
 
 export const ViewRunsPage: React.FC = () => {
-  const [, setLocation] = useLocation(); // Filter and sort state
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  // Filter and sort state
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
   const [showOnlyQs, setShowOnlyQs] = useState(false); // Changed to false to show all runs by default
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [selectedRun, setSelectedRun] = useState<Run | null>(null);
   const {
     data: runs = [],
     isLoading: runsLoading,
@@ -45,7 +49,6 @@ export const ViewRunsPage: React.FC = () => {
     queryKey: ["runs"],
     queryFn: runsApi.getAllRuns,
   });
-
   const {
     data: dogs = [],
     isLoading: dogsLoading,
@@ -54,6 +57,50 @@ export const ViewRunsPage: React.FC = () => {
     queryKey: ["dogs"],
     queryFn: dogsApi.getAllDogs,
   });
+
+  const hardDeleteRunMutation = useMutation({
+    mutationFn: runsApi.hardDelete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["runs"] });
+      notifications.show({
+        title: "Success",
+        message: "Run has been permanently deleted",
+        color: "green",
+      });
+    },
+    onError: (error) => {
+      notifications.show({
+        title: "Error",
+        message: `Failed to delete run: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        color: "red",
+      });
+    },
+  });
+
+  const handleHardDeleteRun = (run: Run) => {
+    const dogName = dogNameMap[run.dogId] || "Unknown Dog";
+    modals.openConfirmModal({
+      title: "Permanently Delete Run",
+      children: (
+        <Stack gap="sm">
+          <Text size="sm">
+            Are you sure you want to permanently delete this run for <strong>{dogName}</strong>?
+          </Text>
+          <Text size="sm" c="dimmed">
+            {formatDate(run.date)} • {getClassDisplayName(run.class)} • {run.level}
+          </Text>
+          <Text size="sm" c="orange">
+            <strong>Warning:</strong> This action cannot be undone.
+          </Text>
+        </Stack>
+      ),
+      labels: { confirm: "Delete Permanently", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: () => hardDeleteRunMutation.mutate(run.id),
+    });
+  };
 
   const isLoading = runsLoading || dogsLoading;
   const error = runsError || dogsError;
@@ -262,55 +309,56 @@ export const ViewRunsPage: React.FC = () => {
                 <Button onClick={() => setLocation("/add-run")}>Add Your First Run</Button>
               )}
             </Stack>
-          </Paper>
-        ) : (
+          </Paper>        ) : (
           <Paper withBorder shadow="sm" radius="md">
-            <Table.ScrollContainer minWidth={400}>
-              <Table highlightOnHover striped>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th
-                      style={{ cursor: "pointer", userSelect: "none" }}
-                      onClick={() => handleSort("date")}
-                    >
-                      <Group gap={4} wrap="nowrap">
-                        Date
-                        {renderSortIcon("date")}
-                      </Group>
-                    </Table.Th>
-                    <Table.Th
-                      style={{ cursor: "pointer", userSelect: "none" }}
-                      onClick={() => handleSort("dog")}
-                    >
-                      <Group gap={4} wrap="nowrap">
-                        Dog
-                        {renderSortIcon("dog")}
-                      </Group>
-                    </Table.Th>
-                    <Table.Th
-                      style={{ cursor: "pointer", userSelect: "none" }}
-                      onClick={() => handleSort("class")}
-                    >
-                      <Group gap={4} wrap="nowrap">
-                        Class
-                        {renderSortIcon("class")}
-                      </Group>
-                    </Table.Th>
-                    <Table.Th
-                      style={{ cursor: "pointer", userSelect: "none" }}
-                      onClick={() => handleSort("level")}
-                    >
-                      <Group gap={4} wrap="nowrap">
-                        Level
-                        {renderSortIcon("level")}
-                      </Group>
-                    </Table.Th>
-                    <Table.Th style={{ textAlign: "center" }}>Details</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
+            <Table highlightOnHover striped stickyHeader>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th
+                    style={{ cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("date")}
+                  >
+                    <Group gap={4} wrap="nowrap">
+                      Date
+                      {renderSortIcon("date")}
+                    </Group>
+                  </Table.Th>
+                  <Table.Th
+                    style={{ cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("dog")}
+                  >
+                    <Group gap={4} wrap="nowrap">
+                      Dog
+                      {renderSortIcon("dog")}
+                    </Group>
+                  </Table.Th>
+                  <Table.Th
+                    style={{ cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("class")}
+                  >
+                    <Group gap={4} wrap="nowrap">
+                      Class
+                      {renderSortIcon("class")}
+                    </Group>
+                  </Table.Th>
+                  <Table.Th
+                    style={{ cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("level")}
+                  >
+                    <Group gap={4} wrap="nowrap">
+                      Level
+                      {renderSortIcon("level")}
+                    </Group>
+                  </Table.Th>
+                </Table.Tr>
+              </Table.Thead>
                 <Table.Tbody>
                   {filteredAndSortedRuns.map((run: Run) => (
-                    <Table.Tr key={run.id} style={{ cursor: "pointer" }}>
+                    <Table.Tr 
+                      key={run.id}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setSelectedRun(run)}
+                    >
                       <Table.Td>
                         <Text size="sm">{formatDate(run.date)}</Text>
                       </Table.Td>
@@ -321,68 +369,104 @@ export const ViewRunsPage: React.FC = () => {
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">{getClassDisplayName(run.class)}</Text>
-                      </Table.Td>{" "}
+                      </Table.Td>
                       <Table.Td>
                         <Text size="sm">{run.level}</Text>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: "center" }}>
-                        <Popover width={300} position="bottom" withArrow shadow="md">
-                          <Popover.Target>
-                            <ActionIcon variant="subtle" size="sm">
-                              <IconEye size={16} />
-                            </ActionIcon>
-                          </Popover.Target>
-                          <Popover.Dropdown>
-                            <Stack gap="xs">
-                              <Group justify="space-between">
-                                <Text size="sm" fw={500}>
-                                  Result:
-                                </Text>
-                                <Badge
-                                  color={run.qualified ? "green" : "red"}
-                                  variant="light"
-                                  size="sm"
-                                >
-                                  {run.qualified ? "Q" : "NQ"}
-                                </Badge>
-                              </Group>
-                              {run.time && (
-                                <Group justify="space-between">
-                                  <Text size="sm" fw={500}>
-                                    Time:
-                                  </Text>
-                                  <Text size="sm">{formatTime(run.time)}</Text>
-                                </Group>
-                              )}
-                              {run.placement && (
-                                <Group justify="space-between">
-                                  <Text size="sm" fw={500}>
-                                    Placement:
-                                  </Text>
-                                  <Text size="sm">{run.placement}</Text>
-                                </Group>
-                              )}
-                              {run.notes && (
-                                <Stack gap={4}>
-                                  <Text size="sm" fw={500}>
-                                    Notes:
-                                  </Text>
-                                  <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-                                    {run.notes}
-                                  </Text>
-                                </Stack>
-                              )}
-                            </Stack>
-                          </Popover.Dropdown>
-                        </Popover>
                       </Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
               </Table>
-            </Table.ScrollContainer>
           </Paper>
         )}
+
+        {/* Modal for run details */}
+        <Modal
+          opened={selectedRun !== null}
+          onClose={() => setSelectedRun(null)}
+          title={`Run Details - ${selectedRun ? dogNameMap[selectedRun.dogId] || "Unknown Dog" : ""}`}
+          size="md"
+        >
+          {selectedRun && (
+            <Stack gap="md">
+              <Group justify="space-between">
+                <Text fw={500}>Date:</Text>
+                <Text>{formatDate(selectedRun.date)}</Text>
+              </Group>
+              
+              <Group justify="space-between">
+                <Text fw={500}>Class:</Text>
+                <Text>{getClassDisplayName(selectedRun.class)}</Text>
+              </Group>
+              
+              <Group justify="space-between">
+                <Text fw={500}>Level:</Text>
+                <Text>{selectedRun.level}</Text>
+              </Group>
+              
+              <Group justify="space-between">
+                <Text fw={500}>Result:</Text>
+                <Badge
+                  color={selectedRun.qualified ? "green" : "red"}
+                  variant="light"
+                  size="sm"
+                >
+                  {selectedRun.qualified ? "Q" : "NQ"}
+                </Badge>
+              </Group>
+              
+              {selectedRun.time && (
+                <Group justify="space-between">
+                  <Text fw={500}>Time:</Text>
+                  <Text>{formatTime(selectedRun.time)}</Text>
+                </Group>
+              )}
+              
+              {selectedRun.placement && (
+                <Group justify="space-between">
+                  <Text fw={500}>Placement:</Text>
+                  <Text>{selectedRun.placement}</Text>
+                </Group>
+              )}
+              
+              {selectedRun.location && (
+                <Group justify="space-between">
+                  <Text fw={500}>Location:</Text>
+                  <Text>{selectedRun.location}</Text>
+                </Group>
+              )}
+              
+              {selectedRun.notes && (
+                <Stack gap={4}>
+                  <Text fw={500}>Notes:</Text>
+                  <Text style={{ whiteSpace: "pre-wrap" }}>
+                    {selectedRun.notes}
+                  </Text>
+                </Stack>
+              )}
+              
+              <Group justify="flex-end" mt="md">
+                <Button
+                  variant="light"
+                  onClick={() => setSelectedRun(null)}
+                >
+                  Close
+                </Button>
+                <Button
+                  color="red"
+                  variant="light"
+                  leftSection={<IconTrash size={16} />}
+                  onClick={() => {
+                    setSelectedRun(null);
+                    handleHardDeleteRun(selectedRun);
+                  }}
+                >
+                  Delete Run
+                </Button>
+              </Group>
+            </Stack>
+          )}
+        </Modal>
       </Stack>
     </Container>
   );

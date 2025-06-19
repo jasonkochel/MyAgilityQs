@@ -452,7 +452,7 @@ async function runAllTests() {
   if (testDogId) {
     log("\n🧹 Cleaning up test data...", "yellow");
     try {
-      await makeRequest("PATCH", `/dogs/${testDogId}/status`);
+      await makeRequest("PUT", `/dogs/${testDogId}`, { active: false });
       log("   ✅ Test dog deactivated", "green");
     } catch (error) {
       log("   ⚠️  Could not clean up test dog", "yellow");

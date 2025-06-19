@@ -50,12 +50,13 @@ export const tokenManager = {
     if (!expiry) return true;
     // Check if token expires in the next 5 minutes (300 seconds)
     return Date.now() > parseInt(expiry) - 300000;
-  },
-
-  // Refresh access token using refresh token
+  },  // Refresh access token using refresh token
   refreshAccessToken: async (): Promise<boolean> => {
     const refreshToken = tokenManager.getRefreshToken();
-    if (!refreshToken) return false;
+    
+    if (!refreshToken) {
+      return false;
+    }
 
     try {
       const response = await ky
@@ -209,10 +210,14 @@ export const dogsApi = {
   deactivate: async (dogId: string): Promise<Dog> => {
     return apiRequest(api.put(`dogs/${dogId}`, { json: { active: false } }));
   },
-
   // Reactivate a dog
   reactivate: async (dogId: string): Promise<Dog> => {
     return apiRequest(api.put(`dogs/${dogId}`, { json: { active: true } }));
+  },
+
+  // Hard delete a dog (permanent removal)
+  hardDelete: async (dogId: string): Promise<void> => {
+    return apiRequest(api.delete(`dogs/${dogId}`));
   },
 };
 
@@ -225,6 +230,11 @@ export const runsApi = {
 
   getAllRuns: async (): Promise<Run[]> => {
     return apiRequest(api.get("runs")) as Promise<Run[]>;
+  },
+
+  // Hard delete a run (permanent removal)
+  hardDelete: async (runId: string): Promise<void> => {
+    return apiRequest(api.delete(`runs/${runId}`));
   },
 };
 

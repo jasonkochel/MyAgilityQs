@@ -197,23 +197,22 @@ export async function updateDog(
   return dog as Dog;
 }
 
-// Delete a dog (soft delete by setting active to false)
-export async function deleteDog(dogId: string, userId: string): Promise<boolean> {
-  try {
-    const result = await updateDog(dogId, userId, { active: false });
-    return result !== null;
-  } catch (error) {
-    console.error("Error deleting dog:", error);
-    return false;
-  }
-}
-
-// Hard delete a dog (for admin purposes)
+// Hard delete a dog (permanent deletion)
 export async function hardDeleteDog(dogId: string, userId: string): Promise<boolean> {
   const dogKeys = KeyPatterns.dogProfile(dogId);
   const userDogKeys = KeyPatterns.userDog(userId, dogId);
 
   try {
+    // First, get all runs for this dog to delete them
+    const { getRunsByDogId } = await import("./runs.js");
+    const runs = await getRunsByDogId(dogId);
+
+    // Delete all runs for this dog
+    for (const run of runs) {
+      const { deleteRun } = await import("./runs.js");
+      await deleteRun(run.id, userId);
+    }
+
     // Delete dog profile
     await dynamoClient.send(
       new DeleteCommand({
@@ -234,6 +233,7 @@ export async function hardDeleteDog(dogId: string, userId: string): Promise<bool
       })
     );
 
+    console.log(`Hard deleted dog ${dogId} and ${runs.length} associated runs`);
     return true;
   } catch (error) {
     console.error("Error hard deleting dog:", error);

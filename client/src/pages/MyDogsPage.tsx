@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Badge,
   Button,
   Card,
@@ -11,15 +12,18 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
 import type { Dog } from "@my-agility-qs/shared";
-import { IconArrowLeft, IconDog, IconPlus } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { IconArrowLeft, IconDog, IconPlus, IconTrash } from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { dogsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
 
 export const MyDogsPage: React.FC = () => {
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
 
   // Create reverse mapping from full names to display names
   const getDisplayName = (fullName: string): string => {
@@ -28,9 +32,7 @@ export const MyDogsPage: React.FC = () => {
       ([, fullValue]) => fullValue === fullName
     )?.[0];
     return displayKey || fullName; // Fallback to original if not found
-  };
-
-  const {
+  };  const {
     data: dogs = [],
     isLoading,
     error,
@@ -38,6 +40,47 @@ export const MyDogsPage: React.FC = () => {
     queryKey: ["dogs"],
     queryFn: dogsApi.getAllDogs,
   });
+
+  const hardDeleteMutation = useMutation({
+    mutationFn: dogsApi.hardDelete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dogs"] });
+      notifications.show({
+        title: "Success",
+        message: "Dog has been permanently deleted",
+        color: "green",
+      });
+    },
+    onError: (error) => {
+      notifications.show({
+        title: "Error",
+        message: `Failed to delete dog: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        color: "red",
+      });
+    },
+  });
+
+  const handleHardDelete = (dog: Dog) => {
+    modals.openConfirmModal({
+      title: "Permanently Delete Dog",
+      children: (
+        <Stack gap="sm">
+          <Text size="sm">
+            Are you sure you want to permanently delete <strong>{dog.name}</strong>?
+          </Text>
+          <Text size="sm" c="orange">
+            <strong>Warning:</strong> This action cannot be undone. All runs associated with this
+            dog will also be permanently deleted.
+          </Text>
+        </Stack>
+      ),
+      labels: { confirm: "Delete Permanently", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: () => hardDeleteMutation.mutate(dog.id),
+    });
+  };
 
   if (isLoading) {
     return (
@@ -144,26 +187,35 @@ export const MyDogsPage: React.FC = () => {
                 return a.name.localeCompare(b.name);
               })
               .map((dog) => (
-                <Card
-                  key={dog.id}
-                  withBorder
-                  shadow="sm"
-                  radius="md"
-                  padding="lg"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => setLocation(`/dogs/${dog.id}/edit`)}
-                >
+                <Card key={dog.id} withBorder shadow="sm" radius="md" padding="lg">
                   <Group justify="space-between" mb="md">
                     <Group>
                       <IconDog size={24} color="var(--mantine-color-blue-6)" />
                       <Title order={3}>{dog.name}</Title>
                     </Group>
-                    <Badge color={dog.active ? "green" : "gray"} variant="light">
-                      {dog.active ? "Active" : "Inactive"}
-                    </Badge>
-                  </Group>
-
-                  <Stack gap="xs">
+                    <Group>
+                      <Badge color={dog.active ? "green" : "gray"} variant="light">
+                        {dog.active ? "Active" : "Inactive"}
+                      </Badge>
+                      <ActionIcon
+                        color="red"
+                        variant="subtle"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleHardDelete(dog);
+                        }}
+                        title="Delete permanently"
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
+                  </Group>{" "}
+                  <Stack
+                    gap="xs"
+                    onClick={() => setLocation(`/dogs/${dog.id}/edit`)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <Text size="sm" c="dimmed" fw={500}>
                       Classes:
                     </Text>

@@ -77,6 +77,26 @@ The MyAgilityQs application is now a fully functional, production-ready agility 
 - Client-side cache invalidation for seamless UX
 - Comprehensive error handling prevents run failures if progression fails
 
+### 🆕 Hard Delete Functionality
+
+**🗑️ Safe Data Destruction**: Added permanent deletion capabilities for both dogs and runs with comprehensive safety measures.
+
+**Key Features:**
+
+- 🛡️ **Confirmation Dialogs**: Mantine confirmModal with clear warnings about permanent deletion
+- 🎨 **Destructive UI Styling**: Red delete buttons and confirmation prompts
+- 🔒 **Data Integrity**: Hard delete removes all associated data (dog deletion removes all runs)
+- 🚨 **User Safety**: Multiple warnings and cannot-be-undone messaging
+- ⚡ **Immediate Updates**: Cache invalidation ensures UI reflects changes instantly
+- 📍 **Contextual Actions**: Delete buttons strategically placed in My Dogs and View Runs pages
+
+**Technical Implementation:**
+
+- RESTful API design: PUT for updates (including soft delete), DELETE for hard delete
+- Server-side cascade deletion for data integrity
+- Client-side confirmation flow with Mantine modals
+- Success/error notifications with appropriate messaging
+
 ## ✅ Phase 1: Complete & Fully Tested
 
 ## ✅ Phase 2: Complete & Deployed to AWS Production 🚀
@@ -152,8 +172,12 @@ Query Patterns (HIGHLY EFFICIENT):
 - ✅ `GET /dogs` → List user's dogs (database query working)
 - ✅ `POST /dogs` → Create new dog (database insert working)
 - ✅ `GET /dogs/{id}` → Get specific dog
-- ✅ `PUT /dogs/{id}` → Update dog
-- ✅ `DELETE /dogs/{id}` → Delete dog
+- ✅ `PUT /dogs/{id}` → Update dog (includes soft delete via active: false)
+- ✅ `DELETE /dogs/{id}` → Hard delete dog (permanent)
+- ✅ `GET /runs` → List all runs
+- ✅ `POST /runs` → Create new run
+- ✅ `PUT /runs/{id}` → Update run
+- ✅ `DELETE /runs/{id}` → Hard delete run (permanent)
 
 ### **What We Built & Successfully Deployed**
 

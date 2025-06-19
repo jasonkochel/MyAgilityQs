@@ -97,9 +97,9 @@ export const routes: ExtendedRoute[] = [
     handler: dogHandler.updateDog,
   },
   {
-    method: "PATCH",
-    path: "/dogs/{id}/status",
-    handler: dogHandler.updateDogStatus,
+    method: "DELETE",
+    path: "/dogs/{id}",
+    handler: dogHandler.hardDeleteDog,
   },
 
   // Run endpoints - require authentication
