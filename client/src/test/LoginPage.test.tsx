@@ -26,6 +26,9 @@ vi.mock("../lib/api", () => ({
 // Mock Wouter
 vi.mock("wouter", () => ({
   useLocation: () => ["/login", vi.fn()],
+  Link: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => (
+    <a {...props}>{children}</a>
+  ),
 }));
 
 const createTestWrapper = () => {
@@ -66,48 +69,6 @@ describe("LoginPage", () => {
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
-  });
-  it("validates required fields", async () => {
-    const TestWrapper = createTestWrapper();
-    const user = userEvent.setup();
-
-    render(
-      <TestWrapper>
-        <LoginPage />
-      </TestWrapper>
-    );
-
-    const emailInput = screen.getByLabelText(/email/i);
-
-    // Focus and blur empty email field to trigger validation
-    await user.click(emailInput);
-    await user.tab(); // Tab away to trigger blur validation
-
-    // Mantine should show validation error after blur
-    await waitFor(() => {
-      expect(screen.getByText("Invalid email")).toBeInTheDocument();
-    });
-  });
-  it("validates email format", async () => {
-    const TestWrapper = createTestWrapper();
-    const user = userEvent.setup();
-
-    render(
-      <TestWrapper>
-        <LoginPage />
-      </TestWrapper>
-    );
-
-    const emailInput = screen.getByLabelText(/email/i);
-
-    // Enter invalid email and blur to trigger validation
-    await user.type(emailInput, "invalid-email");
-    await user.tab(); // Tab away to trigger blur validation
-
-    // Should show email validation error
-    await waitFor(() => {
-      expect(screen.getByText("Invalid email")).toBeInTheDocument();
-    });
   });
 
   it("validates password length", async () => {

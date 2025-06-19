@@ -1,20 +1,17 @@
+import type { User } from "@my-agility-qs/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { dogsApi, locationsApi, tokenManager } from "../lib/api";
+import { dogsApi, locationsApi, tokenManager, userApi } from "../lib/api";
 import type { AuthResponse } from "../types";
-
-interface User {
-  email: string;
-  id: string;
-}
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (authData: AuthResponse, userEmail: string) => Promise<void>;
+  login: (authData: AuthResponse) => Promise<void>;
   logout: () => void;
   preloadUserData: () => Promise<void>;
+  updateUserPreferences: (preferences: Partial<Pick<User, "trackQsOnly">>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -60,22 +57,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Check if user is logged in on app start
       const token = tokenManager.getToken();
       const refreshToken = tokenManager.getRefreshToken();
-      const userEmail = localStorage.getItem("userEmail");
-      const userId = localStorage.getItem("userId");
 
-      if (token && !tokenManager.isTokenExpired() && userEmail && userId) {
-        setUser({ email: userEmail, id: userId });
-        await preloadUserData();
-      } else if (refreshToken && userEmail && userId) {
+      if (token && !tokenManager.isTokenExpired()) {
+        // Fetch user profile from API - database is single source of truth for email
+        try {
+          const userProfile = await userApi.getProfile();
+          setUser(userProfile);
+          await preloadUserData();
+        } catch (error) {
+          console.error("Failed to fetch user profile:", error);
+          // Fall back to clearing tokens if API call fails
+          tokenManager.removeToken();
+        }
+      } else if (refreshToken) {
         // Try to refresh the token
         const refreshed = await tokenManager.refreshAccessToken();
         if (refreshed) {
-          setUser({ email: userEmail, id: userId });
-          await preloadUserData();
+          try {
+            const userProfile = await userApi.getProfile();
+            setUser(userProfile); // Use database email as single source of truth
+            await preloadUserData();
+          } catch (error) {
+            console.error("Failed to fetch user profile after refresh:", error);
+            tokenManager.removeToken();
+          }
         } else {
           // Refresh failed, clear user data
-          localStorage.removeItem("userEmail");
-          localStorage.removeItem("userId");
+          tokenManager.removeToken();
         }
       }
 
@@ -86,32 +94,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     initializeAuth();
   }, [queryClient, preloadUserData]);
-
-  const login = async (authData: AuthResponse, userEmail: string) => {
+  const login = async (authData: AuthResponse) => {
     tokenManager.setTokens(authData);
 
-    // Decode JWT to get user ID (simple base64 decode for demo)
     try {
-      const payload = JSON.parse(atob(authData.accessToken.split(".")[1]));
-      const userId = payload.sub || payload.username || "unknown";
-
-      const userData = { email: userEmail, id: userId };
-      setUser(userData);
-
-      // Store user info in localStorage
-      localStorage.setItem("userEmail", userEmail);
-      localStorage.setItem("userId", userId);
+      // Fetch user profile from API - database is single source of truth for email
+      const userProfile = await userApi.getProfile();
+      setUser(userProfile);
 
       // Preload user data after successful login
       await preloadUserData();
     } catch (error) {
-      console.error("Error parsing JWT:", error);
-      setUser({ email: userEmail, id: "unknown" });
-      localStorage.setItem("userEmail", userEmail);
-      localStorage.setItem("userId", "unknown");
+      console.error("Error during login:", error);
+      // Clear tokens if something goes wrong
+      tokenManager.removeToken();
+      throw error;
     }
   };
 
+  const updateUserPreferences = async (preferences: Partial<Pick<User, "trackQsOnly">>) => {
+    if (!user) return;
+
+    try {
+      const updatedUser = await userApi.updateProfile(preferences);
+      setUser(updatedUser);
+    } catch (error) {
+      console.error("Failed to update user preferences:", error);
+      throw error;
+    }
+  };
   const logout = () => {
     tokenManager.removeToken();
     localStorage.removeItem("userEmail");
@@ -119,7 +130,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     queryClient.clear(); // Clear all cached data on logout
     setUser(null);
   };
-
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
@@ -127,6 +137,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     preloadUserData,
+    updateUserPreferences,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

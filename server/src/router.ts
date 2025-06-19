@@ -5,6 +5,7 @@ import { dogHandler } from "./routes/dogs";
 import { healthHandler } from "./routes/health";
 import { progressHandler } from "./routes/progress";
 import { runHandler } from "./routes/runs";
+import { userHandler } from "./routes/users";
 
 // Extended Route interface to include allowAnonymous property
 interface ExtendedRoute extends Route<APIGatewayProxyEventV2, APIGatewayProxyResultV2> {
@@ -75,6 +76,18 @@ export const routes: ExtendedRoute[] = [
     handler: authHandler.logout,
     allowAnonymous: true,
   },
+  // User endpoints - require authentication
+  {
+    method: "GET",
+    path: "/user/profile",
+    handler: userHandler.getUserProfile,
+  },
+  {
+    method: "PUT",
+    path: "/user/profile",
+    handler: userHandler.updateUserProfile,
+  },
+
   // Dog endpoints - require authentication
   {
     method: "GET",

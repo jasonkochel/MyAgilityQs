@@ -1,4 +1,4 @@
-import { Button, Container, Group, Stack, Text, Title } from "@mantine/core";
+import { Button, Container, Group, Stack, Switch, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconLogout, IconRefresh } from "@tabler/icons-react";
 import { useLocation } from "wouter";
@@ -7,7 +7,7 @@ import { tokenManager } from "../lib/api";
 
 export const ProfilePage: React.FC = () => {
   const [, setLocation] = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUserPreferences } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -26,7 +26,9 @@ export const ProfilePage: React.FC = () => {
       console.error("Refresh token error:", error);
       notifications.show({
         title: "Error",
-        message: `Token refresh failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: `Token refresh failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
         color: "red",
       });
     }
@@ -43,14 +45,40 @@ export const ProfilePage: React.FC = () => {
         >
           Back
         </Button>
-
-        <Title order={1}>Profile</Title>
-
+        <Title order={1}>Profile</Title>{" "}
         <Stack gap="lg">
           <div>
             <Text fw={500}>Email</Text>
             <Text c="dimmed">{user?.email}</Text>
-          </div>          <Group>
+          </div>{" "}
+          <div>
+            <Text fw={500} mb="xs">
+              Preferences
+            </Text>
+            <Switch
+              label="Track Qs Only"
+              description="When enabled, only qualifying runs will be tracked. Q/NQ options will be hidden."
+              checked={user?.trackQsOnly ?? false}
+              onChange={async (event) => {
+                try {
+                  await updateUserPreferences({ trackQsOnly: event.currentTarget.checked });
+                  notifications.show({
+                    title: "Success",
+                    message: "Preference updated successfully",
+                    color: "green",
+                  });
+                } catch (error) {
+                  notifications.show({
+                    title: "Error",
+                    message: "Failed to update preference",
+                    color: "red",
+                  });
+                }
+              }}
+              color="green"
+            />
+          </div>
+          <Group>
             <Button
               variant="outline"
               color="blue"
@@ -59,7 +87,7 @@ export const ProfilePage: React.FC = () => {
             >
               Refresh Token (Debug)
             </Button>
-            
+
             <Button
               variant="outline"
               color="red"

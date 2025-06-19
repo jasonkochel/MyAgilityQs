@@ -13,7 +13,7 @@ import {
 import { useForm } from "@mantine/form";
 import { IconAlertCircle, IconDog } from "@tabler/icons-react";
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
 import { authApi } from "../lib/api";
 import type { LoginForm } from "../types";
@@ -44,10 +44,9 @@ export const LoginPage: React.FC = () => {
   const handleSubmit = async (values: LoginForm) => {
     setLoading(true);
     setError(null);
-
     try {
       const authData = await authApi.login(values);
-      await login(authData, values.email);
+      await login(authData);
 
       // Success - redirect without showing a toast (the redirect is clear enough)
       setLocation("/");
@@ -124,6 +123,13 @@ export const LoginPage: React.FC = () => {
           </Stack>
         </form>
       </Paper>
+
+      <Text c="dimmed" size="sm" ta="center" mt="md">
+        Don't have an account?{" "}
+        <Text component={Link} href="/signup" c="blue" style={{ textDecoration: "none" }}>
+          Create one here
+        </Text>
+      </Text>
     </Container>
   );
 };

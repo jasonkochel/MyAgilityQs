@@ -8,7 +8,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rimraf dist",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "npm run type-check && echo \"✅ Shared type check passed\""
   },
   "devDependencies": {
     "typescript": "^5.5.2",

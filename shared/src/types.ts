@@ -19,8 +19,14 @@ export type CompetitionLevel = (typeof COMPETITION_LEVELS)[number];
 export interface User {
   id: string; // Cognito UUID
   email: string;
+  trackQsOnly?: boolean; // User preference for tracking only qualifying runs
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UpdateUserRequest {
+  trackQsOnly?: boolean;
+  // Note: email is immutable after signup to maintain Cognito consistency
 }
 
 // Dog types

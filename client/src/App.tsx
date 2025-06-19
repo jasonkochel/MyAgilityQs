@@ -8,6 +8,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { MainMenuPage } from "./pages/MainMenuPage";
 import { MyDogsPage } from "./pages/MyDogsPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { SignupPage } from "./pages/SignupPage";
 import { TitleProgressPage } from "./pages/TitleProgressPage";
 import { ViewRunsPage } from "./pages/ViewRunsPage";
 
@@ -16,6 +17,7 @@ function App() {
     <AuthProvider>
       <Switch>
         <Route path="/login" component={LoginPage} />
+        <Route path="/signup" component={SignupPage} />
         <ProtectedRoute>
           <Switch>
             <Route path="/" component={MainMenuPage} />

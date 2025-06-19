@@ -6,7 +6,7 @@ import {
   Loader,
   Modal,
   Paper,
-  Select,
+  SimpleGrid,
   Stack,
   Switch,
   Table,
@@ -16,16 +16,11 @@ import {
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import type { Dog, Run } from "@my-agility-qs/shared";
-import {
-  IconArrowLeft,
-  IconChevronDown,
-  IconChevronUp,
-  IconSearch,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconArrowLeft, IconChevronDown, IconChevronUp, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "../contexts/AuthContext";
 import { dogsApi, runsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
 
@@ -35,6 +30,7 @@ type SortDirection = "asc" | "desc";
 export const ViewRunsPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   // Filter and sort state
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
   const [showOnlyQs, setShowOnlyQs] = useState(false); // Changed to false to show all runs by default
@@ -137,10 +133,8 @@ export const ViewRunsPage: React.FC = () => {
     // Apply dog filter
     if (selectedDogId) {
       filtered = filtered.filter((run) => run.dogId === selectedDogId);
-    }
-
-    // Apply Q filter
-    if (showOnlyQs) {
+    } // Apply Q filter (only if not tracking Qs only, since in that mode all runs are Qs)
+    if (showOnlyQs && !user?.trackQsOnly) {
       filtered = filtered.filter((run) => run.qualified);
     }
 
@@ -172,7 +166,7 @@ export const ViewRunsPage: React.FC = () => {
     });
 
     return sorted;
-  }, [runs, selectedDogId, showOnlyQs, sortField, sortDirection, dogNameMap]);
+  }, [runs, selectedDogId, showOnlyQs, sortField, sortDirection, dogNameMap, user?.trackQsOnly]);
 
   // Handle column header clicks for sorting
   const handleSort = (field: SortField) => {
@@ -193,13 +187,6 @@ export const ViewRunsPage: React.FC = () => {
       <IconChevronDown size={14} style={{ marginLeft: 4 }} />
     );
   };
-
-  // Dog options for filter
-  const dogOptions = dogs.map((dog) => ({
-    value: dog.id,
-    label: dog.name,
-  }));
-
   if (isLoading) {
     return (
       <Container size="xl" py="md">
@@ -271,23 +258,52 @@ export const ViewRunsPage: React.FC = () => {
           <Text c="dimmed" size="sm">
             {filteredAndSortedRuns.length} run{filteredAndSortedRuns.length !== 1 ? "s" : ""}
           </Text>
-        </Group>
-
+        </Group>{" "}
         {/* Filters */}
         <Paper withBorder p="md" radius="md">
           <Stack gap="md">
-            <Group grow wrap="wrap">
-              <Select
-                label="Filter by Dog"
-                placeholder="All dogs"
-                data={dogOptions}
-                value={selectedDogId}
-                onChange={setSelectedDogId}
-                clearable
-                searchable
-                leftSection={<IconSearch size={16} />}
-              />
-              <div style={{ display: "flex", alignItems: "end", paddingBottom: "2px" }}>
+            {/* Filter by Dog - Button Style */}
+            <Stack gap="xs">
+              <Text fw={500} size="sm">
+                Filter by Dog
+              </Text>
+              <SimpleGrid
+                cols={(() => {
+                  const activeDogs = dogs.filter((dog) => dog.active);
+                  // If exactly 2 active dogs, show 3 columns (All + 2 dogs)
+                  // Otherwise show 2 columns and let them wrap
+                  return activeDogs.length === 2 ? 3 : 2;
+                })()}
+                spacing="xs"
+              >
+                {/* All Dogs button */}
+                <Button
+                  variant={selectedDogId === null ? "filled" : "outline"}
+                  color={selectedDogId === null ? "blue" : "gray"}
+                  size="sm"
+                  onClick={() => setSelectedDogId(null)}
+                >
+                  All Dogs
+                </Button>
+                {/* Active dogs buttons */}
+                {dogs
+                  .filter((dog) => dog.active)
+                  .map((dog) => (
+                    <Button
+                      key={dog.id}
+                      variant={selectedDogId === dog.id ? "filled" : "outline"}
+                      color={selectedDogId === dog.id ? "blue" : "gray"}
+                      size="sm"
+                      onClick={() => setSelectedDogId(dog.id)}
+                    >
+                      {dog.name}
+                    </Button>
+                  ))}
+              </SimpleGrid>
+            </Stack>{" "}
+            {/* Show only Qs toggle */}
+            {!user?.trackQsOnly && (
+              <div style={{ display: "flex", alignItems: "center" }}>
                 <Switch
                   label="Show only Qs"
                   checked={showOnlyQs}
@@ -295,10 +311,9 @@ export const ViewRunsPage: React.FC = () => {
                   color="green"
                 />
               </div>
-            </Group>
+            )}
           </Stack>
         </Paper>
-
         {filteredAndSortedRuns.length === 0 ? (
           <Paper withBorder p="xl" radius="md">
             <Stack align="center">
@@ -309,7 +324,8 @@ export const ViewRunsPage: React.FC = () => {
                 <Button onClick={() => setLocation("/add-run")}>Add Your First Run</Button>
               )}
             </Stack>
-          </Paper>        ) : (
+          </Paper>
+        ) : (
           <Paper withBorder shadow="sm" radius="md">
             <Table highlightOnHover striped stickyHeader>
               <Table.Thead>
@@ -352,39 +368,40 @@ export const ViewRunsPage: React.FC = () => {
                   </Table.Th>
                 </Table.Tr>
               </Table.Thead>
-                <Table.Tbody>
-                  {filteredAndSortedRuns.map((run: Run) => (
-                    <Table.Tr 
-                      key={run.id}
-                      style={{ cursor: "pointer" }}
-                      onClick={() => setSelectedRun(run)}
-                    >
-                      <Table.Td>
-                        <Text size="sm">{formatDate(run.date)}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>
-                          {dogNameMap[run.dogId] || "Unknown Dog"}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{getClassDisplayName(run.class)}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{run.level}</Text>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
+              <Table.Tbody>
+                {filteredAndSortedRuns.map((run: Run) => (
+                  <Table.Tr
+                    key={run.id}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setSelectedRun(run)}
+                  >
+                    <Table.Td>
+                      <Text size="sm">{formatDate(run.date)}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm" fw={500}>
+                        {dogNameMap[run.dogId] || "Unknown Dog"}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{getClassDisplayName(run.class)}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{run.level}</Text>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
           </Paper>
         )}
-
         {/* Modal for run details */}
         <Modal
           opened={selectedRun !== null}
           onClose={() => setSelectedRun(null)}
-          title={`Run Details - ${selectedRun ? dogNameMap[selectedRun.dogId] || "Unknown Dog" : ""}`}
+          title={`Run Details - ${
+            selectedRun ? dogNameMap[selectedRun.dogId] || "Unknown Dog" : ""
+          }`}
           size="md"
         >
           {selectedRun && (
@@ -393,63 +410,54 @@ export const ViewRunsPage: React.FC = () => {
                 <Text fw={500}>Date:</Text>
                 <Text>{formatDate(selectedRun.date)}</Text>
               </Group>
-              
+
               <Group justify="space-between">
                 <Text fw={500}>Class:</Text>
                 <Text>{getClassDisplayName(selectedRun.class)}</Text>
               </Group>
-              
+
               <Group justify="space-between">
                 <Text fw={500}>Level:</Text>
                 <Text>{selectedRun.level}</Text>
               </Group>
-              
+
               <Group justify="space-between">
                 <Text fw={500}>Result:</Text>
-                <Badge
-                  color={selectedRun.qualified ? "green" : "red"}
-                  variant="light"
-                  size="sm"
-                >
+                <Badge color={selectedRun.qualified ? "green" : "red"} variant="light" size="sm">
                   {selectedRun.qualified ? "Q" : "NQ"}
                 </Badge>
               </Group>
-              
+
               {selectedRun.time && (
                 <Group justify="space-between">
                   <Text fw={500}>Time:</Text>
                   <Text>{formatTime(selectedRun.time)}</Text>
                 </Group>
               )}
-              
+
               {selectedRun.placement && (
                 <Group justify="space-between">
                   <Text fw={500}>Placement:</Text>
                   <Text>{selectedRun.placement}</Text>
                 </Group>
               )}
-              
+
               {selectedRun.location && (
                 <Group justify="space-between">
                   <Text fw={500}>Location:</Text>
                   <Text>{selectedRun.location}</Text>
                 </Group>
               )}
-              
+
               {selectedRun.notes && (
                 <Stack gap={4}>
                   <Text fw={500}>Notes:</Text>
-                  <Text style={{ whiteSpace: "pre-wrap" }}>
-                    {selectedRun.notes}
-                  </Text>
+                  <Text style={{ whiteSpace: "pre-wrap" }}>{selectedRun.notes}</Text>
                 </Stack>
               )}
-              
+
               <Group justify="flex-end" mt="md">
-                <Button
-                  variant="light"
-                  onClick={() => setSelectedRun(null)}
-                >
+                <Button variant="light" onClick={() => setSelectedRun(null)}>
                   Close
                 </Button>
                 <Button

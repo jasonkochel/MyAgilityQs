@@ -6,6 +6,8 @@ import type {
   LoginRequest,
   Run,
   UpdateDogRequest,
+  UpdateUserRequest,
+  User,
 } from "@my-agility-qs/shared";
 import ky from "ky";
 import type { AuthResponse } from "../types";
@@ -29,12 +31,12 @@ export const tokenManager = {
   getRefreshToken: (): string | null => {
     return localStorage.getItem("refreshToken");
   },
-
   removeToken: (): void => {
     sessionStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
-    localStorage.removeItem("idToken");
     localStorage.removeItem("tokenExpiry");
+    localStorage.removeItem("userEmail"); // Clean up legacy userEmail
+    localStorage.removeItem("userId"); // Clean up userId (can be extracted from JWT)
   },
 
   setTokens: (authData: AuthResponse): void => {
@@ -42,18 +44,32 @@ export const tokenManager = {
     sessionStorage.setItem("accessToken", authData.accessToken);
     // Refresh token in localStorage (needed for persistence)
     localStorage.setItem("refreshToken", authData.refreshToken);
-    localStorage.setItem("idToken", authData.idToken);
     localStorage.setItem("tokenExpiry", (Date.now() + authData.expiresIn * 1000).toString());
+    // Note: Removed idToken storage - not used in the app
   },
   isTokenExpired: (): boolean => {
     const expiry = localStorage.getItem("tokenExpiry");
     if (!expiry) return true;
     // Check if token expires in the next 5 minutes (300 seconds)
     return Date.now() > parseInt(expiry) - 300000;
-  },  // Refresh access token using refresh token
+  },
+
+  // Extract user ID from JWT token (decode sub claim)
+  getUserIdFromToken: (): string | null => {
+    const token = tokenManager.getToken();
+    if (!token) return null;
+
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return payload.sub || payload.username || null;
+    } catch (error) {
+      console.error("Failed to decode JWT token:", error);
+      return null;
+    }
+  }, // Refresh access token using refresh token
   refreshAccessToken: async (): Promise<boolean> => {
     const refreshToken = tokenManager.getRefreshToken();
-    
+
     if (!refreshToken) {
       return false;
     }
@@ -167,6 +183,10 @@ export const authApi = {
     return apiRequest(api.post("auth/login", { json: credentials }));
   },
 
+  signup: async (signupData: { email: string; password: string; name?: string }): Promise<void> => {
+    return apiRequest(api.post("auth/signup", { json: signupData }));
+  },
+
   logout: (): void => {
     tokenManager.removeToken();
   },
@@ -243,6 +263,19 @@ export const locationsApi = {
   // Get all unique locations from user's runs
   getAll: async (): Promise<string[]> => {
     return apiRequest(api.get("locations"));
+  },
+};
+
+// User API
+export const userApi = {
+  // Get current user profile
+  getProfile: async (): Promise<User> => {
+    return apiRequest(api.get("user/profile"));
+  },
+
+  // Update user preferences
+  updateProfile: async (preferences: UpdateUserRequest): Promise<User> => {
+    return apiRequest(api.put("user/profile", { json: preferences }));
   },
 };
 

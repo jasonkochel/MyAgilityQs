@@ -8,6 +8,7 @@ import {
 } from "@aws-sdk/client-cognito-identity-provider";
 import { ApiResponse } from "@my-agility-qs/shared";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
+import { createOrUpdateUserProfile } from "../database/users.js";
 import { AuthenticatedEvent } from "../middleware/jwtAuth";
 
 // Initialize Cognito client
@@ -220,8 +221,13 @@ export const authHandler = {
         Password: password,
         Permanent: true,
       });
-
       await cognitoClient.send(setPasswordCommand);
+
+      // Create user record in database
+      // Use email as the user ID since that's what Cognito uses as username
+      await createOrUpdateUserProfile(email, email, {
+        trackQsOnly: false, // Default setting
+      });
 
       const response: ApiResponse = {
         success: true,

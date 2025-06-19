@@ -9,7 +9,7 @@
 - ✅ "Location" is missing from the screens, including the "pick from prior locations in my data" feature
 - ✅ When adding a run, just show the class; we already know the level for each class; show the level in small text inside the class button to make it obvious, but don't make the user select it
 - ✅ Add logic to auto-change the level of the dog upon saving a Q. Per-class, you need 3 Novice Qs to move into Open, 3 Open Qs to move into Excellent, and 3 Excellent Qs to move into Masters. Then you stay in Masters forever.
-- Add a profile option for whether you want to track "NQ" runs or not. If not, don't show the Q/NQ buttons or filters; just assume everything is "Q"
+- ✅ Add a profile option for whether you want to track "NQ" runs or not. If not, don't show the Q/NQ buttons or filters; just assume everything is "Q"
 - There is code generated for "progress" but I'm not sure what it is intended to be
 - Add "Log In With Google", still via Cognito
 
@@ -40,3 +40,32 @@
 - ✅ **User safety**: Clear warnings about permanent deletion
 - ✅ **Data integrity**: Hard delete removes all associated data
 - ✅ **UX polish**: Immediate cache invalidation and success notifications
+
+### Track Qs Only Feature
+
+- ✅ **User preference storage**: Stored in database USER profile record, not localStorage
+- ✅ **Profile toggle**: Added switch in Profile page with proper API integration
+- ✅ **AddRunPage integration**: Q/NQ buttons hidden when trackQsOnly is enabled
+- ✅ **ViewRunsPage integration**: "Show only Qs" filter hidden when trackQsOnly is enabled
+- ✅ **Default behavior**: When trackQsOnly is true, all runs are assumed to be qualifying
+- ✅ **Backend API**: New user profile endpoints for getting and updating preferences
+- ✅ **AuthContext integration**: User profile fetched from API with trackQsOnly preference
+
+## ✅ COMPLETED: User Registration & Email Management System
+
+### Proper User Registration Flow
+
+- ✅ **Server-side signup endpoint**: Creates both Cognito user AND database user record
+- ✅ **Client-side signup page**: Complete registration form with validation
+- ✅ **Email as single source of truth**: Stored in database, not localStorage/JWT
+- ✅ **Automatic email sync**: Client syncs email with server on login/initialization
+- ✅ **Database schema**: User profile includes email field with proper storage
+- ✅ **Route integration**: Signup page accessible at `/signup` with login page links
+
+### Email Management Architecture
+
+- ✅ **Database-first approach**: Email stored in DynamoDB user profile
+- ✅ **Fallback handling**: Legacy users get "unknown" email placeholder
+- ✅ **Update capability**: Server endpoint allows email updates via user profile API
+- ✅ **Client-side sync**: AuthContext automatically syncs email discrepancies
+- ✅ **Proper typing**: UpdateUserRequest extends to include email field

@@ -32,7 +32,8 @@ export const MyDogsPage: React.FC = () => {
       ([, fullValue]) => fullValue === fullName
     )?.[0];
     return displayKey || fullName; // Fallback to original if not found
-  };  const {
+  };
+  const {
     data: dogs = [],
     isLoading,
     error,

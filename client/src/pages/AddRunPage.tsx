@@ -24,6 +24,7 @@ import { IconArrowLeft, IconCheck, IconTrophy } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "../contexts/AuthContext";
 import { dogsApi, locationsApi, runsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
 
@@ -53,6 +54,7 @@ export const AddRunPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   // Fetch user's dogs and filter to only active ones
   const { data: allDogs = [], isLoading: dogsLoading } = useQuery({
@@ -247,166 +249,177 @@ export const AddRunPage: React.FC = () => {
                   </Text>
                 )}
               </Stack>{" "}
-              {/* Class Selection - Smart Class/Level Buttons */}
-              <Stack gap="xs">
-                <Text fw={500}>Select Class</Text>
-                {!form.values.dogId ? (
-                  <Text size="sm" c="dimmed">
-                    Please select a dog first
-                  </Text>
-                ) : (
-                  <SimpleGrid cols={2} spacing="xs">
-                    {(() => {
-                      const selectedDog = dogs.find((d) => d.id === form.values.dogId);
-                      if (!selectedDog || !selectedDog.classes) return null;
+              {/* Only show remaining fields after dog is selected */}
+              {form.values.dogId && (
+                <>
+                  {/* Class Selection - Smart Class/Level Buttons */}
+                  <Stack gap="xs">
+                    <Text fw={500}>Select Class</Text>
+                    <SimpleGrid cols={2} spacing="xs">
+                      {(() => {
+                        const selectedDog = dogs.find((d) => d.id === form.values.dogId);
+                        if (!selectedDog || !selectedDog.classes) return null;
 
-                      // Get available classes for this dog and map to display names
-                      const availableClasses = selectedDog.classes
-                        .map((dogClass) => {
-                          // Find the display name for this actual class name
-                          const displayName = Object.keys(AKC_CLASS_MAPPING).find(
-                            (key) =>
-                              AKC_CLASS_MAPPING[key as keyof typeof AKC_CLASS_MAPPING] ===
-                              dogClass.name
-                          );
-                          return displayName
-                            ? {
-                                displayName,
-                                actualName: dogClass.name,
-                                level: dogClass.level,
+                        // Get available classes for this dog and map to display names
+                        const availableClasses = selectedDog.classes
+                          .map((dogClass) => {
+                            // Find the display name for this actual class name
+                            const displayName = Object.keys(AKC_CLASS_MAPPING).find(
+                              (key) =>
+                                AKC_CLASS_MAPPING[key as keyof typeof AKC_CLASS_MAPPING] ===
+                                dogClass.name
+                            );
+                            return displayName
+                              ? {
+                                  displayName,
+                                  actualName: dogClass.name,
+                                  level: dogClass.level,
+                                }
+                              : null;
+                          })
+                          .filter(Boolean);
+
+                        return availableClasses.map((classInfo) => {
+                          if (!classInfo) return null;
+                          return (
+                            <Button
+                              key={classInfo.displayName}
+                              variant={
+                                form.values.className === classInfo.actualName
+                                  ? "filled"
+                                  : "outline"
                               }
-                            : null;
-                        })
-                        .filter(Boolean);
+                              color={
+                                form.values.className === classInfo.actualName ? "blue" : "gray"
+                              }
+                              size="lg"
+                              h={60}
+                              onClick={() => {
+                                form.setFieldValue("className", classInfo.actualName);
+                                // Auto-select level based on dog's class level
+                                form.setFieldValue("level", classInfo.level);
+                              }}
+                            >
+                              {" "}
+                              <Stack gap={2} align="center">
+                                <Text fw={600} size="md">
+                                  {classInfo.displayName}
+                                </Text>
+                                <Text
+                                  size="xs"
+                                  fw={500}
+                                  c={
+                                    form.values.className === classInfo.actualName
+                                      ? "white"
+                                      : "dimmed"
+                                  }
+                                >
+                                  {classInfo.level}
+                                </Text>
+                              </Stack>
+                            </Button>
+                          );
+                        });
+                      })()}
+                    </SimpleGrid>
+                    {form.errors.className && (
+                      <Text c="red" size="sm">
+                        {form.errors.className}
+                      </Text>
+                    )}
+                  </Stack>
 
-                      return availableClasses.map((classInfo) => {
-                        if (!classInfo) return null;
-                        return (
+                  {/* Qualified/Not Qualified Toggle - Only show if user is not tracking Qs only */}
+                  {!user?.trackQsOnly && (
+                    <Stack gap="xs">
+                      <Text fw={500}>Result</Text>
+                      <Group>
+                        <Button
+                          variant={form.values.qualified ? "filled" : "outline"}
+                          color={form.values.qualified ? "green" : "gray"}
+                          size="lg"
+                          onClick={() => form.setFieldValue("qualified", true)}
+                          flex={1}
+                        >
+                          Qualified
+                        </Button>
+                        <Button
+                          variant={!form.values.qualified ? "filled" : "outline"}
+                          color={!form.values.qualified ? "red" : "gray"}
+                          size="lg"
+                          onClick={() => {
+                            form.setFieldValue("qualified", false);
+                            // Clear placement when NQ is selected since you can't place if you don't qualify
+                            form.setFieldValue("placement", undefined);
+                          }}
+                          flex={1}
+                        >
+                          NQ
+                        </Button>
+                      </Group>
+                    </Stack>
+                  )}
+
+                  {/* Placement Selection - Show when qualified OR when tracking Qs only */}
+                  {(form.values.qualified || user?.trackQsOnly) && (
+                    <Stack gap="xs">
+                      <Text fw={500}>Placement</Text>
+                      <SimpleGrid cols={5} spacing="xs">
+                        {PLACEMENT_OPTIONS.map((option) => (
                           <Button
-                            key={classInfo.displayName}
-                            variant={
-                              form.values.className === classInfo.actualName ? "filled" : "outline"
-                            }
-                            color={form.values.className === classInfo.actualName ? "blue" : "gray"}
-                            size="lg"
-                            h={60}
-                            onClick={() => {
-                              form.setFieldValue("className", classInfo.actualName);
-                              // Auto-select level based on dog's class level
-                              form.setFieldValue("level", classInfo.level);
+                            key={option.label}
+                            variant={form.values.placement === option.value ? "filled" : "outline"}
+                            color={form.values.placement === option.value ? option.color : "gray"}
+                            size="md"
+                            h={44}
+                            onClick={() => form.setFieldValue("placement", option.value)}
+                            styles={{
+                              inner: { padding: "2px" },
+                              label: { fontSize: "16px", fontWeight: 600 },
                             }}
                           >
-                            {" "}
-                            <Stack gap={2} align="center">
-                              <Text fw={600} size="md">
-                                {classInfo.displayName}
-                              </Text>
-                              <Text
-                                size="xs"
-                                fw={500}
-                                c={
-                                  form.values.className === classInfo.actualName
-                                    ? "white"
-                                    : "dimmed"
-                                }
-                              >
-                                {classInfo.level}
-                              </Text>
-                            </Stack>
+                            {option.label}
                           </Button>
-                        );
-                      });
-                    })()}
-                  </SimpleGrid>
-                )}
-                {form.errors.className && (
-                  <Text c="red" size="sm">
-                    {form.errors.className}
-                  </Text>
-                )}
-              </Stack>{" "}
-              {/* Qualified/Not Qualified Toggle */}
-              <Stack gap="xs">
-                <Text fw={500}>Result</Text>
-                <Group>
-                  <Button
-                    variant={form.values.qualified ? "filled" : "outline"}
-                    color={form.values.qualified ? "green" : "gray"}
-                    size="lg"
-                    onClick={() => form.setFieldValue("qualified", true)}
-                    flex={1}
-                  >
-                    Qualified
-                  </Button>
-                  <Button
-                    variant={!form.values.qualified ? "filled" : "outline"}
-                    color={!form.values.qualified ? "red" : "gray"}
-                    size="lg"
-                    onClick={() => {
-                      form.setFieldValue("qualified", false);
-                      // Clear placement when NQ is selected since you can't place if you don't qualify
-                      form.setFieldValue("placement", undefined);
-                    }}
-                    flex={1}
-                  >
-                    NQ
-                  </Button>
-                </Group>
-              </Stack>
-              {/* Placement Selection - Only show when qualified */}
-              {form.values.qualified && (
-                <Stack gap="xs">
-                  <Text fw={500}>Placement</Text>
-                  <SimpleGrid cols={5} spacing="xs">
-                    {PLACEMENT_OPTIONS.map((option) => (
-                      <Button
-                        key={option.label}
-                        variant={form.values.placement === option.value ? "filled" : "outline"}
-                        color={form.values.placement === option.value ? option.color : "gray"}
-                        size="md"
-                        h={44}
-                        onClick={() => form.setFieldValue("placement", option.value)}
-                        styles={{
-                          inner: { padding: "2px" },
-                          label: { fontSize: "16px", fontWeight: 600 },
-                        }}
-                      >
-                        {option.label}
-                      </Button>
-                    ))}
-                  </SimpleGrid>
-                </Stack>
+                        ))}
+                      </SimpleGrid>
+                    </Stack>
+                  )}
+
+                  {/* Location */}
+                  <Stack gap="xs">
+                    <Text fw={500}>Location (Optional)</Text>
+                    <Autocomplete
+                      placeholder="e.g., Springfield Dog Training Center"
+                      data={locationSuggestions}
+                      {...form.getInputProps("location")}
+                      size="lg"
+                    />
+                  </Stack>
+
+                  {/* Notes */}
+                  <Stack gap="xs">
+                    <Text fw={500}>Notes (Optional)</Text>
+                    <Textarea
+                      placeholder="Add any notes about this run..."
+                      rows={3}
+                      {...form.getInputProps("notes")}
+                    />
+                  </Stack>
+                </>
+              )}{" "}
+              {/* Submit Button - Only show when dog is selected */}
+              {form.values.dogId && (
+                <Button
+                  type="submit"
+                  size="xl"
+                  h={60}
+                  loading={createRunMutation.isPending}
+                  leftSection={<IconCheck size={20} />}
+                  color="blue"
+                >
+                  Add Run
+                </Button>
               )}
-              {/* Location */}
-              <Stack gap="xs">
-                <Text fw={500}>Location (Optional)</Text>
-                <Autocomplete
-                  placeholder="e.g., Springfield Dog Training Center"
-                  data={locationSuggestions}
-                  {...form.getInputProps("location")}
-                  size="lg"
-                />
-              </Stack>
-              {/* Notes */}
-              <Stack gap="xs">
-                <Text fw={500}>Notes (Optional)</Text>
-                <Textarea
-                  placeholder="Add any notes about this run..."
-                  rows={3}
-                  {...form.getInputProps("notes")}
-                />
-              </Stack>
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                size="xl"
-                h={60}
-                loading={createRunMutation.isPending}
-                leftSection={<IconCheck size={20} />}
-                color="blue"
-              >
-                Add Run
-              </Button>
             </Stack>
           </form>
         </Paper>

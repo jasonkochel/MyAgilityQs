@@ -71,23 +71,26 @@ describe("tokenManager", () => {
       tokenManager.setTokens(authData);
 
       // Access token in sessionStorage
-      expect(mockSessionStorage.setItem).toHaveBeenCalledWith("accessToken", "access-token-123");
-
-      // Other tokens in localStorage
+      expect(mockSessionStorage.setItem).toHaveBeenCalledWith("accessToken", "access-token-123"); // Other tokens in localStorage
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith("refreshToken", "refresh-token-123");
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith("idToken", "id-token-123");
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith("tokenExpiry", expect.any(String));
+
+      // Verify idToken is NOT stored (removed from implementation)
+      expect(mockLocalStorage.setItem).not.toHaveBeenCalledWith("idToken", expect.anything());
     });
   });
 
   describe("removeToken", () => {
     it("removes all tokens from storage", () => {
       tokenManager.removeToken();
-
       expect(mockSessionStorage.removeItem).toHaveBeenCalledWith("accessToken");
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith("refreshToken");
-      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith("idToken");
       expect(mockLocalStorage.removeItem).toHaveBeenCalledWith("tokenExpiry");
+      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith("userEmail");
+      expect(mockLocalStorage.removeItem).toHaveBeenCalledWith("userId");
+
+      // Verify idToken removal is NOT called (removed from implementation)
+      expect(mockLocalStorage.removeItem).not.toHaveBeenCalledWith("idToken");
     });
   });
 
