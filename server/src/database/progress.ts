@@ -36,7 +36,7 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
     const currentQs = levelMap.get(run.level) || 0;
     levelMap.set(run.level, currentQs + 1);
 
-    // Track MACH points
+    // Track MACH points (only from qualified runs)
     if (run.machPoints) {
       totalMachPoints += run.machPoints;
     }
@@ -55,9 +55,10 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
     });
   }
 
-  // Calculate Double Qs (need both Standard and Jumpers Q on same day)
+  // Calculate Double Qs (need both Standard and Jumpers Q on same day at Masters level)
+  // Only Masters level Standard and Jumpers qualify for Double Qs
   const runsByDate = new Map<string, typeof runs>();
-  for (const run of runs.filter((r) => r.qualified)) {
+  for (const run of runs.filter((r) => r.qualified && r.level === "Masters" && (r.class === "Standard" || r.class === "Jumpers"))) {
     if (!runsByDate.has(run.date)) {
       runsByDate.set(run.date, []);
     }
@@ -65,8 +66,8 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
   }
 
   for (const [date, dateRuns] of runsByDate.entries()) {
-    const hasStandardQ = dateRuns.some((r) => r.class === "Standard" && r.qualified);
-    const hasJumpersQ = dateRuns.some((r) => r.class === "Jumpers" && r.qualified);
+    const hasStandardQ = dateRuns.some((r) => r.class === "Standard" && r.qualified && r.level === "Masters");
+    const hasJumpersQ = dateRuns.some((r) => r.class === "Jumpers" && r.qualified && r.level === "Masters");
     if (hasStandardQ && hasJumpersQ) {
       doubleQs++;
     }
@@ -151,31 +152,35 @@ export async function calculateUserProgressSummary(userId: string): Promise<{
   const activeDogs = dogs.filter((d) => d.active);
   const qualifiedRuns = runs.filter((r) => r.qualified);
 
-  // Calculate double Qs across all dogs
-  const runsByDate = new Map<string, typeof runs>();
-  for (const run of qualifiedRuns) {
-    if (!runsByDate.has(run.date)) {
-      runsByDate.set(run.date, []);
-    }
-    runsByDate.get(run.date)!.push(run);
-  }
-
+  // Calculate double Qs by dog (must be same dog on same date at Masters level)
   let totalDoubleQs = 0;
-  for (const [date, dateRuns] of runsByDate.entries()) {
-    const hasStandardQ = dateRuns.some((r) => r.class === "Standard" && r.qualified);
-    const hasJumpersQ = dateRuns.some((r) => r.class === "Jumpers" && r.qualified);
-    if (hasStandardQ && hasJumpersQ) {
-      totalDoubleQs++;
+  for (const dog of activeDogs) {
+    const dogRuns = qualifiedRuns.filter((r) => r.dogId === dog.id && r.level === "Masters" && (r.class === "Standard" || r.class === "Jumpers"));
+    const runsByDate = new Map<string, typeof dogRuns>();
+    
+    for (const run of dogRuns) {
+      if (!runsByDate.has(run.date)) {
+        runsByDate.set(run.date, []);
+      }
+      runsByDate.get(run.date)!.push(run);
+    }
+
+    for (const [date, dateRuns] of runsByDate.entries()) {
+      const hasStandardQ = dateRuns.some((r) => r.class === "Standard" && r.qualified && r.level === "Masters");
+      const hasJumpersQ = dateRuns.some((r) => r.class === "Jumpers" && r.qualified && r.level === "Masters");
+      if (hasStandardQ && hasJumpersQ) {
+        totalDoubleQs++;
+      }
     }
   }
 
-  const totalMachPoints = runs.reduce((sum, run) => sum + (run.machPoints || 0), 0);
+  const totalMachPoints = qualifiedRuns.reduce((sum, run) => sum + (run.machPoints || 0), 0);
 
-  // Calculate dogs with MACH
+  // Calculate dogs with MACH (only count qualified runs)
   let dogsWithMach = 0;
   for (const dog of activeDogs) {
-    const dogRuns = runs.filter((r) => r.dogId === dog.id);
-    const dogMachPoints = dogRuns.reduce((sum, run) => sum + (run.machPoints || 0), 0);
+    const dogQualifiedRuns = qualifiedRuns.filter((r) => r.dogId === dog.id);
+    const dogMachPoints = dogQualifiedRuns.reduce((sum, run) => sum + (run.machPoints || 0), 0);
     if (dogMachPoints >= 20) {
       dogsWithMach++;
     }

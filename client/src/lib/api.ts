@@ -304,4 +304,22 @@ export const userApi = {
   },
 };
 
+// Progress API
+export const progressApi = {
+  // Get progress for a specific dog
+  getDogProgress: async (dogId: string) => {
+    return apiRequest(api.get(`progress/dog/${dogId}`));
+  },
+
+  // Get progress for all user's dogs
+  getAllProgress: async () => {
+    return apiRequest(api.get("progress"));
+  },
+
+  // Get user progress summary
+  getProgressSummary: async () => {
+    return apiRequest(api.get("progress/summary"));
+  },
+};
+
 export default api;

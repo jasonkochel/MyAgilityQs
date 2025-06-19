@@ -44,7 +44,7 @@ describe("tokenManager", () => {
 
       const result = tokenManager.getToken();
 
-      expect(mockSessionStorage.getItem).toHaveBeenCalledWith("accessToken");
+      expect(mockSessionStorage.getItem).toHaveBeenCalledWith("idToken");
       expect(result).toBe(token);
     });
 

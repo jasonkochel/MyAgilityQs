@@ -4,6 +4,7 @@ import {
   Button,
   Container,
   Group,
+  NumberInput,
   Paper,
   SimpleGrid,
   Stack,
@@ -46,6 +47,7 @@ interface RunFormData {
   date: string; // Changed to string for new Mantine DateInput
   qualified: boolean;
   placement?: number;
+  machPoints?: number;
   location: string;
   notes: string;
 }
@@ -78,6 +80,7 @@ export const AddRunPage: React.FC = () => {
       date: new Date().toISOString().split("T")[0], // Today's date as YYYY-MM-DD string
       qualified: true, // Default to qualified
       placement: undefined, // Default to None
+      machPoints: undefined,
       location: "",
       notes: "",
     },
@@ -90,21 +93,22 @@ export const AddRunPage: React.FC = () => {
   const createRunMutation = useMutation({
     mutationFn: runsApi.createRun,
     onSuccess: async (response, variables) => {
-      // Refetch runs query to refresh the View Runs page
-      await queryClient.refetchQueries({ queryKey: ["runs"] });
+      // Invalidate caches to refresh data when pages are next visited
+      queryClient.invalidateQueries({ queryKey: ["runs"] });
+      queryClient.invalidateQueries({ queryKey: ["progress"] });
 
       // If there was a level progression, invalidate dogs cache to refresh My Dogs page
       if (response.meta?.levelProgression) {
-        await queryClient.refetchQueries({ queryKey: ["dogs"] });
+        queryClient.invalidateQueries({ queryKey: ["dogs"] });
       }
 
-      // Only refetch locations if a new location was added
+      // Only invalidate locations if a new location was added
       if (
         variables.location &&
         variables.location.trim() &&
         !locationSuggestions.includes(variables.location.trim())
       ) {
-        await queryClient.refetchQueries({ queryKey: ["locations"] });
+        queryClient.invalidateQueries({ queryKey: ["locations"] });
       } // Show success notification with progression info if applicable
       const levelProgression = response.meta?.levelProgression;
       const isProgression = !!levelProgression;
@@ -119,7 +123,7 @@ export const AddRunPage: React.FC = () => {
         icon: isProgression ? <IconTrophy size="1rem" /> : <IconCheck size="1rem" />,
         autoClose: isProgression ? 8000 : 4000, // Show progression longer
       });
-      setLocation("/view-runs");
+      setLocation("/");
     },
     onError: (err) => {
       console.error("AddRunPage - error creating run:", err);
@@ -136,6 +140,7 @@ export const AddRunPage: React.FC = () => {
       date: values.date, // Already in YYYY-MM-DD string format
       qualified: values.qualified,
       placement: values.placement,
+      machPoints: values.machPoints,
       location: values.location,
       notes: values.notes,
     };
@@ -385,11 +390,27 @@ export const AddRunPage: React.FC = () => {
                     </Stack>
                   )}
 
+                  {/* MACH Points - Only show for qualified Masters Standard/Jumpers */}
+                  {(form.values.qualified || user?.trackQsOnly) &&
+                    form.values.level === "Masters" &&
+                    (form.values.className === "Standard" ||
+                      form.values.className === "Jumpers") && (
+                      <Stack gap="xs">
+                        <Text fw={500}>MACH Points</Text>
+                        <NumberInput
+                          placeholder="Enter MACH points earned"
+                          min={0}
+                          max={50}
+                          {...form.getInputProps("machPoints")}
+                          size="lg"
+                        />
+                      </Stack>
+                    )}
+
                   {/* Location */}
                   <Stack gap="xs">
-                    <Text fw={500}>Location (Optional)</Text>
+                    <Text fw={500}>Location</Text>
                     <Autocomplete
-                      placeholder="e.g., Springfield Dog Training Center"
                       data={locationSuggestions}
                       {...form.getInputProps("location")}
                       size="lg"
@@ -398,7 +419,7 @@ export const AddRunPage: React.FC = () => {
 
                   {/* Notes */}
                   <Stack gap="xs">
-                    <Text fw={500}>Notes (Optional)</Text>
+                    <Text fw={500}>Notes</Text>
                     <Textarea
                       placeholder="Add any notes about this run..."
                       rows={3}
