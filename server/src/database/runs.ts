@@ -162,11 +162,15 @@ export async function recalculateDogLevels(userId: string, dogId: string): Promi
       classMap.set(currentLevel, currentCount + 1);
       
       // Check if dog should advance after this Q
+      console.log(`🔍 ${dog.name} ${run.class}: Q #${currentCount + 1} at ${currentLevel} on ${run.date}`);
       if (currentCount + 1 >= 3 && currentLevel !== "Masters") {
         const nextLevel = getNextLevel(currentLevel);
+        console.log(`🎯 ${dog.name} reached 3 Qs at ${currentLevel}, next level would be: ${nextLevel}`);
         if (nextLevel) {
           finalLevels.set(run.class, nextLevel);
           console.log(`📈 ${dog.name} advanced from ${currentLevel} to ${nextLevel} in ${run.class} after Q #${currentCount + 1} on ${run.date}`);
+        } else {
+          console.log(`❌ No next level found for ${currentLevel}`);
         }
       }
     }
