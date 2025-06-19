@@ -125,8 +125,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
   const logout = () => {
     tokenManager.removeToken();
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("userId");
     queryClient.clear(); // Clear all cached data on logout
     setUser(null);
   };

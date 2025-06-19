@@ -19,10 +19,9 @@ Parameters:
       - development
       - staging
       - production
-
   CorsOrigin:
     Type: String
-    Default: http://localhost:5173
+    Default: http://localhost:5174
     Description: CORS origin for the frontend
 
 Conditions:
@@ -104,6 +103,8 @@ Resources:
         Variables:
           COGNITO_USER_POOL_ID: us-east-1_808uxrU8E
           COGNITO_CLIENT_ID: 31rckg6cckn32b8fsil5blhh4t
+          COGNITO_DOMAIN: https://myagilityqs.auth.us-east-1.amazoncognito.com
+          FRONTEND_URL: !Ref CorsOrigin
           # Note: No client secret needed for React app (public client)
           COGNITO_REGION: us-east-1
           CORS_ORIGIN: !Ref CorsOrigin
@@ -129,7 +130,6 @@ Outputs:
   DynamoTableName:
     Description: "DynamoDB Table Name"
     Value: !Ref DynamoTable
-
   DynamoTableArn:
     Description: "DynamoDB Table ARN"
     Value: !GetAtt DynamoTable.Arn

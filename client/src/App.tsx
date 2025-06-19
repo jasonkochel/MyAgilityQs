@@ -3,6 +3,7 @@ import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import { AddDogPage } from "./pages/AddDogPage";
 import { AddRunPage } from "./pages/AddRunPage";
+import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { EditDogPage } from "./pages/EditDogPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MainMenuPage } from "./pages/MainMenuPage";
@@ -18,6 +19,7 @@ function App() {
       <Switch>
         <Route path="/login" component={LoginPage} />
         <Route path="/signup" component={SignupPage} />
+        <Route path="/auth/callback" component={AuthCallbackPage} />
         <ProtectedRoute>
           <Switch>
             <Route path="/" component={MainMenuPage} />

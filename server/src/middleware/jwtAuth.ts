@@ -4,18 +4,19 @@ import createError from "http-errors";
 import { anonymousRoutes } from "../router";
 
 // Create verifiers outside the handler to reuse them
-const accessTokenVerifier = CognitoJwtVerifier.create({
+const idTokenVerifier = CognitoJwtVerifier.create({
   userPoolId: process.env.COGNITO_USER_POOL_ID!,
-  tokenUse: "access",
+  tokenUse: "id",
   clientId: process.env.COGNITO_CLIENT_ID!,
   includeRawJwtInErrors: true,
 });
 
 export interface AuthenticatedEvent extends APIGatewayProxyEventV2 {
   user?: {
-    userId: string;
+    userId: string; // This will be the email for consistent database operations
     email: string;
     username: string;
+    cognitoSub: string; // Original Cognito user ID for reference
   };
 }
 
@@ -49,22 +50,35 @@ export const conditionalJwtAuth = () => {
       if (!token) {
         console.error("[JWT ERROR] Protected route accessed without token:", routeKey);
         throw createError(401, "Authorization header missing");
-      }
-
-      try {
+      }      try {
         let payload;
+        
         try {
-          payload = await accessTokenVerifier.verify(token);
-        } catch (accessError) {
-          console.error("[JWT ERROR] Access token error:", accessError);
-          throw accessError; // Throw the original access token error
+          // Verify the ID token (contains user profile information like email)
+          payload = await idTokenVerifier.verify(token);
+          console.log("ID token verified successfully");
+        } catch (idError) {
+          console.error("[JWT ERROR] ID token verification failed:", idError);
+          throw idError;
         }
 
-        // Add user context to the event
+        // Extract email from ID token
+        const email = String(payload.email || "");
+        
+        console.log("JWT payload email:", email, "JWT payload sub:", payload.sub);
+        console.log("Token type:", payload.token_use);
+        
+        // Validate email exists and is not empty
+        if (!email || email.trim() === '') {
+          console.error("JWT token missing email field:", { payload });
+          throw createError(401, "Token missing required email field");
+        }
+        
         event.user = {
-          userId: payload.sub,
-          email: String(payload.email || ""),
+          userId: email, // Use email as userId for consistent database operations
+          email: email,
           username: String(payload["cognito:username"] || payload.username || ""),
+          cognitoSub: payload.sub, // Keep original Cognito user ID for reference
         };
       } catch (error: any) {
         console.error("[JWT ERROR] Authentication failed for protected route:", routeKey);

@@ -56,6 +56,11 @@ export async function getUserProfile(userId: string): Promise<User | null> {
   return user as User;
 }
 
+// Get user profile by email (since we're using email as the primary key)
+export async function getUserProfileByEmail(email: string): Promise<User | null> {
+  return getUserProfile(email);
+}
+
 // Update user preferences
 export async function updateUserPreferences(
   userId: string,

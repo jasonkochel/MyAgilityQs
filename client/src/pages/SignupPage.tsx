@@ -21,19 +21,16 @@ interface SignupFormData {
   email: string;
   password: string;
   confirmPassword: string;
-  name: string;
 }
 
 export const SignupPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const [error, setError] = useState<string | null>(null);
-
   const form = useForm<SignupFormData>({
     initialValues: {
       email: "",
       password: "",
       confirmPassword: "",
-      name: "",
     },
     validate: {
       email: (value) => {
@@ -74,13 +71,11 @@ export const SignupPage: React.FC = () => {
       setError(errorMessage);
     },
   });
-
   const handleSubmit = (values: SignupFormData) => {
     setError(null);
     signupMutation.mutate({
       email: values.email,
       password: values.password,
-      name: values.name || undefined,
     });
   };
 
@@ -101,35 +96,28 @@ export const SignupPage: React.FC = () => {
                 <Alert color="red" variant="light">
                   {error}
                 </Alert>
-              )}
-
+              )}{" "}
               <TextInput
                 label="Email"
                 placeholder="your@email.com"
                 required
+                autoComplete="email"
                 {...form.getInputProps("email")}
               />
-
-              <TextInput
-                label="Name (Optional)"
-                placeholder="Your name"
-                {...form.getInputProps("name")}
-              />
-
               <PasswordInput
                 label="Password"
                 placeholder="Create a strong password"
                 required
+                autoComplete="new-password"
                 {...form.getInputProps("password")}
               />
-
               <PasswordInput
                 label="Confirm Password"
                 placeholder="Confirm your password"
                 required
+                autoComplete="new-password"
                 {...form.getInputProps("confirmPassword")}
               />
-
               <Button
                 type="submit"
                 fullWidth

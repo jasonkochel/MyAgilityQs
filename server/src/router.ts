@@ -44,7 +44,6 @@ export const routes: ExtendedRoute[] = [
     handler: healthHandler,
     allowAnonymous: true,
   },
-
   // Auth endpoints - no auth required
   {
     method: "POST",
@@ -56,6 +55,18 @@ export const routes: ExtendedRoute[] = [
     method: "POST",
     path: "/auth/signup",
     handler: authHandler.signup,
+    allowAnonymous: true,
+  },
+  {
+    method: "GET",
+    path: "/auth/google/login",
+    handler: authHandler.googleLogin,
+    allowAnonymous: true,
+  },
+  {
+    method: "POST",
+    path: "/auth/google/callback",
+    handler: authHandler.googleCallback,
     allowAnonymous: true,
   },
   {

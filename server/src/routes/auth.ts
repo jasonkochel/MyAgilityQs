@@ -26,11 +26,22 @@ interface LoginRequest {
 interface SignupRequest {
   email: string;
   password: string;
-  name?: string;
 }
 
 interface RefreshRequest {
   refreshToken: string;
+}
+
+interface GoogleCallbackRequest {
+  code: string;
+}
+
+interface CognitoTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  id_token: string;
+  token_type: string;
+  expires_in: number;
 }
 
 // Auth handlers - real implementations
@@ -171,7 +182,7 @@ export const authHandler = {
         parsedBody = event.body as SignupRequest;
       }
 
-      const { email, password, name } = parsedBody;
+      const { email, password } = parsedBody;
 
       if (!email || !password) {
         const response: ApiResponse = {
@@ -199,14 +210,6 @@ export const authHandler = {
             Name: "email_verified",
             Value: "true",
           },
-          ...(name
-            ? [
-                {
-                  Name: "name",
-                  Value: name,
-                },
-              ]
-            : []),
         ],
         TemporaryPassword: password,
         MessageAction: MessageActionType.SUPPRESS, // Don't send welcome email
@@ -271,19 +274,179 @@ export const authHandler = {
       };
     }
   },
-
   googleLogin: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
-    const response: ApiResponse = {
-      success: false,
-      error: "not_implemented",
-      message: "Google login will be implemented in a future version",
-    };
+    try {
+      // Get redirect URI from query parameters
+      const redirectUri =
+        event.queryStringParameters?.redirect_uri ||
+        `${process.env.FRONTEND_URL || "http://localhost:5173"}/auth/callback`;
 
-    return {
-      statusCode: 501,
-      body: JSON.stringify(response),
-      headers: { "Content-Type": "application/json" },
-    };
+      // Build the Cognito Hosted UI URL for Google OAuth
+      const cognitoDomain = process.env.COGNITO_DOMAIN!;
+      const clientId = process.env.COGNITO_CLIENT_ID!;
+
+      const googleAuthUrl = new URL(`${cognitoDomain}/oauth2/authorize`);
+      googleAuthUrl.searchParams.set("client_id", clientId);
+      googleAuthUrl.searchParams.set("response_type", "code");
+      googleAuthUrl.searchParams.set("scope", "openid email profile");
+      googleAuthUrl.searchParams.set("redirect_uri", redirectUri);
+      googleAuthUrl.searchParams.set("identity_provider", "Google");
+
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          url: googleAuthUrl.toString(),
+        },
+      };
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+        headers: { "Content-Type": "application/json" },
+      };
+    } catch (error) {
+      console.error("Google login URL generation error:", error);
+      const response: ApiResponse = {
+        success: false,
+        error: "google_login_failed",
+        message: "Failed to generate Google login URL",
+      };
+
+      return {
+        statusCode: 500,
+        body: JSON.stringify(response),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+  },
+
+  googleCallback: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    try {
+      if (!event.body) {
+        const response: ApiResponse = {
+          success: false,
+          error: "bad_request",
+          message: "Request body is required",
+        };
+        return {
+          statusCode: 400,
+          body: JSON.stringify(response),
+          headers: { "Content-Type": "application/json" },
+        };
+      }
+
+      // Handle both parsed and unparsed body
+      let parsedBody: GoogleCallbackRequest;
+      if (typeof event.body === "string") {
+        parsedBody = JSON.parse(event.body);
+      } else {
+        parsedBody = event.body as GoogleCallbackRequest;
+      }
+
+      const { code } = parsedBody;
+
+      if (!code) {
+        const response: ApiResponse = {
+          success: false,
+          error: "bad_request",
+          message: "Authorization code is required",
+        };
+        return {
+          statusCode: 400,
+          body: JSON.stringify(response),
+          headers: { "Content-Type": "application/json" },
+        };
+      }
+
+      // Exchange the authorization code for tokens via Cognito
+      const cognitoDomain = process.env.COGNITO_DOMAIN!;
+      const clientId = process.env.COGNITO_CLIENT_ID!;
+      const redirectUri = `${process.env.FRONTEND_URL || "http://localhost:5173"}/auth/callback`;
+
+      const tokenRequest = new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        code: code,
+        redirect_uri: redirectUri,
+      });
+
+      const tokenResponse = await fetch(`${cognitoDomain}/oauth2/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: tokenRequest.toString(),
+      });
+
+      if (!tokenResponse.ok) {
+        throw new Error(`Token exchange failed: ${tokenResponse.statusText}`);
+      }
+      const tokenData = (await tokenResponse.json()) as CognitoTokenResponse;      // Decode the ID token to get user information
+      const idTokenPayload = JSON.parse(
+        Buffer.from(tokenData.id_token.split(".")[1], "base64").toString()
+      );
+
+      console.log("Google ID token payload:", JSON.stringify(idTokenPayload, null, 2));
+
+      // Create or update user in our database
+      const email = idTokenPayload.email;
+      const cognitoUserId = idTokenPayload.sub;
+
+      console.log("Extracted email:", email, "Cognito sub:", cognitoUserId);
+
+      // Validate that we have a valid email
+      if (!email || typeof email !== 'string' || email.trim() === '') {
+        console.error("Invalid or missing email in Google ID token:", { email, payload: idTokenPayload });
+        const response: ApiResponse = {
+          success: false,
+          error: "authentication_error",
+          message: "Email not found in Google authentication response",
+        };
+        return {
+          statusCode: 400,
+          body: JSON.stringify(response),
+          headers: { "Content-Type": "application/json" },
+        };
+      }
+
+      // Create user profile in our database using email as the user ID for consistency
+      // This ensures users with same email from different IdPs share the same database record
+      await createOrUpdateUserProfile(email, email, {
+        trackQsOnly: false, // Default setting
+      });      const response: ApiResponse = {
+        success: true,
+        message: "Google authentication successful",
+        data: {
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token,
+          idToken: tokenData.id_token, // Include ID token for user profile info
+          expiresIn: tokenData.expires_in,
+          user: {
+            id: email, // Use email as the consistent user ID
+            email: email,
+          },
+        },
+      };
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+        headers: { "Content-Type": "application/json" },
+      };
+    } catch (error) {
+      console.error("Google callback error:", error);
+      const response: ApiResponse = {
+        success: false,
+        error: "google_callback_failed",
+        message: "Failed to process Google authentication",
+      };
+
+      return {
+        statusCode: 500,
+        body: JSON.stringify(response),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
   },
 
   refresh: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {

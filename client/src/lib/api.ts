@@ -18,9 +18,18 @@ const API_BASE_URL =
 
 // Enhanced token management with security improvements
 export const tokenManager = {
-  // Use sessionStorage for access tokens (cleared on browser close)
+  // Use sessionStorage for tokens (cleared on browser close)
   getToken: (): string | null => {
+    // Use ID token for API requests since we need user profile info (email)
+    return sessionStorage.getItem("idToken") || sessionStorage.getItem("accessToken");
+  },
+
+  getAccessToken: (): string | null => {
     return sessionStorage.getItem("accessToken");
+  },
+
+  getIdToken: (): string | null => {
+    return sessionStorage.getItem("idToken");
   },
 
   setToken: (token: string): void => {
@@ -30,9 +39,9 @@ export const tokenManager = {
   // Keep refresh token in localStorage (longer persistence needed)
   getRefreshToken: (): string | null => {
     return localStorage.getItem("refreshToken");
-  },
-  removeToken: (): void => {
+  },  removeToken: (): void => {
     sessionStorage.removeItem("accessToken");
+    sessionStorage.removeItem("idToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("tokenExpiry");
     localStorage.removeItem("userEmail"); // Clean up legacy userEmail
@@ -42,10 +51,11 @@ export const tokenManager = {
   setTokens: (authData: AuthResponse): void => {
     // Access token in sessionStorage (more secure, session-only)
     sessionStorage.setItem("accessToken", authData.accessToken);
+    // ID token in sessionStorage - needed for user profile API calls
+    sessionStorage.setItem("idToken", authData.idToken);
     // Refresh token in localStorage (needed for persistence)
     localStorage.setItem("refreshToken", authData.refreshToken);
     localStorage.setItem("tokenExpiry", (Date.now() + authData.expiresIn * 1000).toString());
-    // Note: Removed idToken storage - not used in the app
   },
   isTokenExpired: (): boolean => {
     const expiry = localStorage.getItem("tokenExpiry");
@@ -183,8 +193,17 @@ export const authApi = {
     return apiRequest(api.post("auth/login", { json: credentials }));
   },
 
-  signup: async (signupData: { email: string; password: string; name?: string }): Promise<void> => {
+  signup: async (signupData: { email: string; password: string }): Promise<void> => {
     return apiRequest(api.post("auth/signup", { json: signupData }));
+  },
+  // Google OAuth methods
+  getGoogleLoginUrl: async (redirectUri?: string): Promise<{ url: string }> => {
+    const searchParams = redirectUri ? { redirect_uri: redirectUri } : undefined;
+    return apiRequest(api.get("auth/google/login", searchParams ? { searchParams } : {}));
+  },
+
+  googleCallback: async (code: string): Promise<AuthResponse> => {
+    return apiRequest(api.post("auth/google/callback", { json: { code } }));
   },
 
   logout: (): void => {
