@@ -116,7 +116,7 @@ const DogProgressCard: React.FC<{
           {dog.classes.map((dogClass) => {
             const classProgress = dogProgress.classProgress.find(cp => cp.class === dogClass.name);
             return (
-              <Grid.Col key={dogClass.name} span={{ base: 12, sm: 6, md: 4 }}>
+              <Grid.Col key={dogClass.name} span={{ base: 12, sm: 6 }}>
                 <ClassProgressDisplay
                   className={dogClass.name}
                   currentLevel={dogClass.level}
@@ -134,7 +134,7 @@ const DogProgressCard: React.FC<{
               MACH Progress
             </Text>
             <Grid gutter={8}>
-              <Grid.Col span={6}>
+              <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
                 <div style={{ backgroundColor: 'var(--mantine-color-gray-0)', padding: '12px', borderRadius: '8px' }}>
                   <Stack gap={4}>
                     <Group justify="space-between">
@@ -145,7 +145,7 @@ const DogProgressCard: React.FC<{
                   </Stack>
                 </div>
               </Grid.Col>
-              <Grid.Col span={6}>
+              <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
                 <div style={{ backgroundColor: 'var(--mantine-color-gray-0)', padding: '12px', borderRadius: '8px' }}>
                   <Stack gap={4}>
                     <Group justify="space-between">
