@@ -158,8 +158,8 @@ export async function recalculateDogLevels(userId: string, dogId: string): Promi
     
     // Only count Qs at the current level (you can't get credit for higher level Qs)
     if (run.level === currentLevel) {
-      const currentCount = classMap.get(run.level) || 0;
-      classMap.set(run.level, currentCount + 1);
+      const currentCount = classMap.get(currentLevel) || 0;
+      classMap.set(currentLevel, currentCount + 1);
       
       // Check if dog should advance after this Q
       if (currentCount + 1 >= 3 && currentLevel !== "Masters") {
