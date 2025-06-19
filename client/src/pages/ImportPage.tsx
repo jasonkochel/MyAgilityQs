@@ -301,6 +301,7 @@ export const ImportPage: React.FC = () => {
             <br />
             • Dog names must match existing dogs in your account
             <br />• All imported runs will be marked as qualifying (assumes imports are Qs)
+            <br />• Dog levels will be recalculated after import to ensure proper progression
           </Text>
         </Alert>
 
