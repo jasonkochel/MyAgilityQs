@@ -9,7 +9,9 @@ import {
   getRunsByDogId,
   getRunsByUserId,
   updateRun,
+  recalculateDogLevels,
 } from "../database/index.js";
+// No additional imports needed for cache invalidation
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
 
 // Run management handlers - full database implementation
@@ -46,79 +48,6 @@ export const runHandler = {
       };
     } catch (error: any) {
       console.error("Error getting runs:", error);
-
-      const response: ApiResponse = {
-        success: false,
-        error: "database_error",
-        message: "Failed to retrieve runs",
-      };
-
-      return {
-        statusCode: 500,
-        body: JSON.stringify(response),
-      };
-    }
-  },
-
-  // GET /runs/dog/{dogId} - Get runs for a specific dog
-  getRunsByDog: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
-    try {
-      const userId = event.user!.userId;
-      const dogId = event.pathParameters?.dogId;
-
-      if (!dogId) {
-        throw createError(400, "Dog ID is required");
-      }
-
-      // Verify dog belongs to user
-      const dog = await getDogById(dogId);
-      if (!dog) {
-        throw createError(404, "Dog not found");
-      }
-
-      if (dog.userId !== userId) {
-        throw createError(403, "Not authorized to view runs for this dog");
-      }
-
-      // Parse query parameters
-      const query: RunsQuery = {};
-      if (event.queryStringParameters) {
-        const params = event.queryStringParameters;
-        if (params.class) query.class = params.class as any;
-        if (params.level) query.level = params.level as any;
-        if (params.qualified) query.qualified = params.qualified === "true";
-        if (params.limit) query.limit = parseInt(params.limit);
-        if (params.sort) query.sort = params.sort as any;
-        if (params.order) query.order = params.order as any;
-      }
-
-      const runs = await getRunsByDogId(dogId, query);
-
-      const response: ApiResponse = {
-        success: true,
-        data: runs,
-        message: `Found ${runs.length} runs for ${dog.name}`,
-      };
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    } catch (error: any) {
-      console.error("Error getting runs by dog:", error);
-
-      if (error.statusCode) {
-        const response: ApiResponse = {
-          success: false,
-          error: error.statusCode === 404 ? "not_found" : "validation_error",
-          message: error.message,
-        };
-
-        return {
-          statusCode: error.statusCode,
-          body: JSON.stringify(response),
-        };
-      }
 
       const response: ApiResponse = {
         success: false,
@@ -393,11 +322,11 @@ export const runHandler = {
               error: "Dog not found or does not belong to user",
             });
             continue;
-          } // Create the run
+          } // Create the run with auto-progression disabled for batch imports
           const result = await createRun(userId, {
             ...runRequest,
             qualified: runRequest.qualified ?? false, // Default to false if not specified
-          });
+          }, true); // Skip auto-progression during batch import
 
           successful.push(result.run);
         } catch (error: any) {
@@ -405,6 +334,19 @@ export const runHandler = {
             request: runRequest,
             error: error.message || "Failed to create run",
           });
+        }
+      }
+
+      // Recalculate dog levels for all affected dogs after batch import
+      if (successful.length > 0) {
+        const affectedDogIds = new Set(successful.map(run => run.dogId));
+        for (const dogId of affectedDogIds) {
+          try {
+            await recalculateDogLevels(userId, dogId);
+          } catch (error) {
+            console.warn(`Failed to recalculate levels for dog ${dogId}:`, error);
+            // Don't fail the import if level recalculation fails - just log the warning
+          }
         }
       }
 

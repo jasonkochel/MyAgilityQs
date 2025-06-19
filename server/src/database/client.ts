@@ -31,54 +31,10 @@ export const KeyPatterns = {
     SK: `DOG#${dogId}`,
   }),
 
-  // Runs
-  runDetails: (runId: string) => ({
-    PK: `RUN#${runId}`,
-    SK: "DETAILS",
-  }),
-
-  dogRun: (dogId: string, timestamp: string) => ({
-    PK: `DOG#${dogId}`,
-    SK: `RUN#${timestamp}`,
-  }),
-
-  userRun: (userId: string, timestamp: string) => ({
-    PK: `USER#${userId}`,
-    SK: `RUN#${timestamp}`,
-  }),
-
-  // Progress
-  dogProgress: (userId: string, dogId: string) => ({
-    PK: `PROGRESS#${userId}`,
-    SK: `DOG#${dogId}`,
-  }),
-
-  userProgressSummary: (userId: string) => ({
-    PK: `PROGRESS#${userId}`,
-    SK: "SUMMARY",
-  }),
+  // No additional patterns needed - simplified
 };
 
-// GSI patterns for efficient queries
-export const GSIPatterns = {
-  // Query all dogs for a user
-  userDogs: (userId: string) => ({
-    GSI1PK: `USER#${userId}`,
-    GSI1SK: "DOG#",
-  }),
-
-  // Query all runs for a dog
-  dogRuns: (dogId: string) => ({
-    GSI1PK: `DOG#${dogId}`,
-    GSI1SK: "RUN#",
-  }),
-
-  // Query all runs for a user
-  userRuns: (userId: string) => ({
-    GSI1PK: `USER#${userId}`,
-    GSI1SK: "RUN#",
-  }),
-};
+// GSI patterns removed - queries are hardcoded in database functions for better performance
 
 // Helper function to create timestamps
 export const createTimestamp = (date?: Date): string => {

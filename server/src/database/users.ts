@@ -1,4 +1,4 @@
-import { DeleteCommand, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { User } from "@my-agility-qs/shared";
 import { createTimestamp, dynamoClient, KeyPatterns, TABLE_NAME } from "./client.js";
 
@@ -56,11 +56,6 @@ export async function getUserProfile(userId: string): Promise<User | null> {
   return user as User;
 }
 
-// Get user profile by email (since we're using email as the primary key)
-export async function getUserProfileByEmail(email: string): Promise<User | null> {
-  return getUserProfile(email);
-}
-
 // Update user preferences
 export async function updateUserPreferences(
   userId: string,
@@ -114,23 +109,5 @@ export async function updateUserPreferences(
       return null;
     }
     throw error;
-  }
-}
-
-// Delete user profile (for cleanup)
-export async function deleteUserProfile(userId: string): Promise<boolean> {
-  const keys = KeyPatterns.userProfile(userId);
-
-  try {
-    await dynamoClient.send(
-      new DeleteCommand({
-        TableName: TABLE_NAME,
-        Key: keys,
-      })
-    );
-    return true;
-  } catch (error) {
-    console.error("Error deleting user profile:", error);
-    return false;
   }
 }

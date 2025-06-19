@@ -1,11 +1,11 @@
-import { GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+// No DynamoDB imports needed for pure calculation
 import {
   ClassProgress,
   CompetitionClass,
   CompetitionLevel,
   DogProgress,
 } from "@my-agility-qs/shared";
-import { createTimestamp, dynamoClient, KeyPatterns, TABLE_NAME } from "./client.js";
+// No client imports needed for pure calculation
 import { getDogsByUserId } from "./dogs.js";
 import { getRunsByDogId, getRunsByUserId } from "./runs.js";
 
@@ -81,47 +81,7 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
     machProgress: Math.min(totalMachPoints, 20), // Cap at 20 for MACH
   };
 
-  // Store calculated progress
-  await storeDogProgress(userId, progress);
-
   return progress;
-}
-
-// Store dog progress in database
-async function storeDogProgress(userId: string, progress: DogProgress): Promise<void> {
-  const keys = KeyPatterns.dogProgress(userId, progress.dogId);
-
-  await dynamoClient.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        ...keys,
-        ...progress,
-        calculatedAt: createTimestamp(),
-        EntityType: "DOG_PROGRESS",
-      },
-    })
-  );
-}
-
-// Get stored dog progress (returns cached version)
-export async function getDogProgress(userId: string, dogId: string): Promise<DogProgress | null> {
-  const keys = KeyPatterns.dogProgress(userId, dogId);
-
-  const result = await dynamoClient.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: keys,
-    })
-  );
-
-  if (!result.Item) {
-    return null;
-  }
-
-  // Remove DynamoDB-specific fields
-  const { PK, SK, EntityType, calculatedAt, ...progress } = result.Item;
-  return progress as DogProgress;
 }
 
 // Get progress for all dogs owned by a user
@@ -195,39 +155,5 @@ export async function calculateUserProgressSummary(userId: string): Promise<{
     dogsWithMach,
   };
 
-  // Store summary
-  const keys = KeyPatterns.userProgressSummary(userId);
-  await dynamoClient.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        ...keys,
-        ...summary,
-        calculatedAt: createTimestamp(),
-        EntityType: "USER_PROGRESS_SUMMARY",
-      },
-    })
-  );
-
-  return summary;
-}
-
-// Get stored user progress summary
-export async function getUserProgressSummary(userId: string) {
-  const keys = KeyPatterns.userProgressSummary(userId);
-
-  const result = await dynamoClient.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: keys,
-    })
-  );
-
-  if (!result.Item) {
-    return null;
-  }
-
-  // Remove DynamoDB-specific fields
-  const { PK, SK, EntityType, calculatedAt, ...summary } = result.Item;
   return summary;
 }

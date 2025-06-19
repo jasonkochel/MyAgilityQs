@@ -20,7 +20,7 @@ import {
   IconUpload,
   IconX,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { useLocation } from "wouter";
 import { dogsApi, runsApi } from "../lib/api";
@@ -50,6 +50,7 @@ interface ImportStats {
 
 export const ImportPage: React.FC = () => {
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
 
   // Import feature state
   const [importText, setImportText] = useState("");
@@ -232,7 +233,7 @@ export const ImportPage: React.FC = () => {
           date: row.parsed.date,
           level: row.parsed.level,
           class: row.parsed.class,
-          qualified: false, // Default to false, user can edit later
+          qualified: true, // Imports assumed to be Qs
         };
 
         try {
@@ -243,6 +244,13 @@ export const ImportPage: React.FC = () => {
           console.error(`Failed to import row ${row.rowNumber}`);
           // Continue with other rows
         }
+      }
+
+      // Invalidate caches to refresh data when pages are next visited
+      if (imported > 0) {
+        queryClient.invalidateQueries({ queryKey: ["runs"] });
+        queryClient.invalidateQueries({ queryKey: ["progress"] });
+        queryClient.invalidateQueries({ queryKey: ["dogs"] }); // In case of level progression
       }
 
       notifications.show({
@@ -267,7 +275,7 @@ export const ImportPage: React.FC = () => {
     } finally {
       setIsImporting(false);
     }
-  }, [importRows]);
+  }, [importRows, queryClient]);
 
   return (
     <Container size="md" py="md">
@@ -292,8 +300,7 @@ export const ImportPage: React.FC = () => {
             • Date format: M/D/YYYY
             <br />
             • Dog names must match existing dogs in your account
-            <br />• All imported runs will be marked as non-qualifying by default (you can edit them
-            later)
+            <br />• All imported runs will be marked as qualifying (assumes imports are Qs)
           </Text>
         </Alert>
 

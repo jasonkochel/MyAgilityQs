@@ -539,21 +539,5 @@ export const authHandler = {
     }
   },
 
-  logout: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
-    // For Cognito, logout is primarily client-side (clearing tokens)
-    // Server-side logout would require revoking tokens, which we'll implement later
-    const response: ApiResponse = {
-      success: true,
-      message: "Logged out successfully",
-      data: {
-        message: "Please clear your local tokens",
-      },
-    };
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-      headers: { "Content-Type": "application/json" },
-    };
-  },
+  // logout handler removed - client handles logout locally
 };

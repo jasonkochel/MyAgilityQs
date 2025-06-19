@@ -119,6 +119,73 @@ async function checkAndUpdateDogLevel(
   return { progressed: false };
 }
 
+// Recalculate dog levels from scratch based on all runs in chronological order
+// This is used after batch imports to ensure correct levels regardless of import order
+export async function recalculateDogLevels(userId: string, dogId: string): Promise<void> {
+  // Get all qualifying runs for this dog, sorted chronologically
+  const allRuns = await getRunsByDogId(dogId);
+  const qualifyingRuns = allRuns
+    .filter(run => run.qualified)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Get current dog data
+  const dog = await getDogById(dogId);
+  if (!dog) {
+    throw new Error(`Dog not found: ${dogId}`);
+  }
+
+  // Track Qs by class and level
+  const classLevelQs = new Map<string, Map<string, number>>();
+  const finalLevels = new Map<string, string>();
+
+  // Initialize starting levels for each class
+  for (const dogClass of dog.classes) {
+    finalLevels.set(dogClass.name, "Novice"); // Everyone starts at Novice
+    classLevelQs.set(dogClass.name, new Map([
+      ["Novice", 0],
+      ["Open", 0], 
+      ["Excellent", 0],
+      ["Masters", 0]
+    ]));
+  }
+
+  // Process runs chronologically to determine correct final levels
+  for (const run of qualifyingRuns) {
+    const classMap = classLevelQs.get(run.class);
+    if (!classMap) continue; // Skip if dog doesn't compete in this class
+
+    const currentLevel = finalLevels.get(run.class) || "Novice";
+    
+    // Only count Qs at the current level (you can't get credit for higher level Qs)
+    if (run.level === currentLevel) {
+      const currentCount = classMap.get(run.level) || 0;
+      classMap.set(run.level, currentCount + 1);
+      
+      // Check if dog should advance after this Q
+      if (currentCount + 1 >= 3 && currentLevel !== "Masters") {
+        const nextLevel = getNextLevel(currentLevel);
+        if (nextLevel) {
+          finalLevels.set(run.class, nextLevel);
+          console.log(`📈 ${dog.name} advanced from ${currentLevel} to ${nextLevel} in ${run.class} after Q #${currentCount + 1} on ${run.date}`);
+        }
+      }
+    }
+    // Note: Qs at levels higher than current are ignored (can't skip levels)
+    // Qs at levels lower than current are also ignored (already advanced past)
+  }
+
+  // Update dog's class levels in database
+  const updatedClasses = dog.classes.map(dogClass => ({
+    ...dogClass,
+    level: (finalLevels.get(dogClass.name) || "Novice") as any
+  }));
+
+  await updateDog(dogId, userId, { classes: updatedClasses });
+  
+  console.log(`📊 Recalculated levels for ${dog.name}:`, 
+    Object.fromEntries(finalLevels));
+}
+
 // Response type for createRun with progression info
 interface CreateRunResponse {
   run: Run;
@@ -133,7 +200,8 @@ interface CreateRunResponse {
 // Create a new run
 export async function createRun(
   userId: string,
-  request: CreateRunRequest
+  request: CreateRunRequest,
+  skipAutoProgression = false // Allow disabling auto-progression for batch imports
 ): Promise<CreateRunResponse> {
   const runId = generateId();
   const now = createTimestamp();
@@ -174,8 +242,8 @@ export async function createRun(
 
   let levelProgression: CreateRunResponse["levelProgression"] = undefined;
 
-  // Check for auto-level progression if this was a qualifying run
-  if (run.qualified) {
+  // Check for auto-level progression if this was a qualifying run and auto-progression is enabled
+  if (run.qualified && !skipAutoProgression) {
     try {
       const progressionResult = await checkAndUpdateDogLevel(
         userId,

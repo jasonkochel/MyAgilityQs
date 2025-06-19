@@ -69,24 +69,14 @@ export const routes: ExtendedRoute[] = [
     handler: authHandler.googleCallback,
     allowAnonymous: true,
   },
-  {
-    method: "POST",
-    path: "/auth/google",
-    handler: authHandler.googleLogin,
-    allowAnonymous: true,
-  },
+  // POST /auth/google removed - duplicates /auth/google/login functionality
   {
     method: "POST",
     path: "/auth/refresh",
     handler: authHandler.refresh,
     allowAnonymous: true,
   },
-  {
-    method: "POST",
-    path: "/auth/logout",
-    handler: authHandler.logout,
-    allowAnonymous: true,
-  },
+  // POST /auth/logout removed - client handles logout locally
   // User endpoints - require authentication
   {
     method: "GET",
@@ -132,11 +122,7 @@ export const routes: ExtendedRoute[] = [
     path: "/runs",
     handler: runHandler.getRuns,
   },
-  {
-    method: "GET",
-    path: "/runs/dog/{dogId}",
-    handler: runHandler.getRunsByDog,
-  },
+  // GET /runs/dog/{dogId} removed - not used by client
   {
     method: "POST",
     path: "/runs",

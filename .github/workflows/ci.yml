@@ -9,9 +9,56 @@ env:
   NODE_VERSION: '22'
 
 jobs:
-  deploy:
-    name: Deploy Infrastructure and Frontend
+  detect-changes:
+    name: Detect Changes
     runs-on: ubuntu-latest
+    outputs:
+      shared-changed: ${{ steps.changes.outputs.shared }}
+      server-changed: ${{ steps.changes.outputs.server }}
+      client-changed: ${{ steps.changes.outputs.client }}
+      infrastructure-changed: ${{ steps.changes.outputs.infrastructure }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changes
+        id: changes
+        run: |
+          # Check if shared package changed
+          if git diff --name-only HEAD~1 HEAD | grep -E '^shared/'; then
+            echo "shared=true" >> $GITHUB_OUTPUT
+          else
+            echo "shared=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if server package changed (or shared, since server depends on shared)
+          if git diff --name-only HEAD~1 HEAD | grep -E '^(shared/|server/)'; then
+            echo "server=true" >> $GITHUB_OUTPUT
+          else
+            echo "server=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if client package changed (or shared, since client depends on shared)
+          if git diff --name-only HEAD~1 HEAD | grep -E '^(shared/|client/)'; then
+            echo "client=true" >> $GITHUB_OUTPUT
+          else
+            echo "client=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if infrastructure changed (template.yaml, samconfig.toml)
+          if git diff --name-only HEAD~1 HEAD | grep -E '^(template\.yaml|samconfig\.toml)'; then
+            echo "infrastructure=true" >> $GITHUB_OUTPUT
+          else
+            echo "infrastructure=false" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.server-changed == 'true' || needs.detect-changes.outputs.infrastructure-changed == 'true'
     
     steps:
       - name: Checkout code
@@ -39,16 +86,88 @@ jobs:
         with:
           use-installer: true
 
-      - name: Build all packages
-        run: npm run build
+      - name: Build shared package
+        if: needs.detect-changes.outputs.shared-changed == 'true'
+        run: npm run build:shared
+
+      - name: Build server package
+        run: npm run build:server
 
       - name: Deploy infrastructure
         run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
 
+      - name: Infrastructure deployment complete
+        run: echo "🏗️ Infrastructure deployed successfully!"
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-infrastructure]
+    if: always() && needs.detect-changes.outputs.client-changed == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: "**/package-lock.json"
+          
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build shared package
+        if: needs.detect-changes.outputs.shared-changed == 'true'
+        run: npm run build:shared
+
+      - name: Build client package
+        run: npm run build:client
+
       - name: Deploy frontend
         run: npm run deploy:frontend
 
-      - name: Deployment complete
+      - name: Frontend deployment complete
+        run: echo "🌐 Frontend deployed successfully!"
+
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-infrastructure, deploy-frontend]
+    if: always()
+    
+    steps:
+      - name: Deployment summary
         run: |
-          echo "🚀 Deployment completed successfully!"
-          echo "🌐 Website: https://myagilityqs.com"
+          echo "📋 Deployment Summary:"
+          echo "🔄 Shared changed: ${{ needs.detect-changes.outputs.shared-changed }}"
+          echo "🖥️  Server changed: ${{ needs.detect-changes.outputs.server-changed }}"
+          echo "🌐 Client changed: ${{ needs.detect-changes.outputs.client-changed }}"
+          echo "🏗️  Infrastructure changed: ${{ needs.detect-changes.outputs.infrastructure-changed }}"
+          echo ""
+          if [[ "${{ needs.deploy-infrastructure.result }}" == "success" ]]; then
+            echo "✅ Infrastructure deployment: SUCCESS"
+          elif [[ "${{ needs.deploy-infrastructure.result }}" == "skipped" ]]; then
+            echo "⏭️  Infrastructure deployment: SKIPPED (no changes)"
+          else
+            echo "❌ Infrastructure deployment: FAILED"
+          fi
+          
+          if [[ "${{ needs.deploy-frontend.result }}" == "success" ]]; then
+            echo "✅ Frontend deployment: SUCCESS"
+          elif [[ "${{ needs.deploy-frontend.result }}" == "skipped" ]]; then
+            echo "⏭️  Frontend deployment: SKIPPED (no changes)"
+          else
+            echo "❌ Frontend deployment: FAILED"
+          fi
+          echo ""
+          echo "🚀 Visit: https://myagilityqs.com"
