@@ -219,6 +219,14 @@ export const ImportPage: React.FC = () => {
   // Import runs
   const handleImportRuns = useCallback(async () => {
     const validRows = importRows.filter((row) => row.errors.length === 0 && row.parsed);
+    
+    // Sort runs by dog name, then by date to ensure chronological progression
+    validRows.sort((a, b) => {
+      if (a.parsed!.dogId !== b.parsed!.dogId) {
+        return a.dog.localeCompare(b.dog); // Sort by dog name first
+      }
+      return new Date(a.parsed!.date).getTime() - new Date(b.parsed!.date).getTime(); // Then by date
+    });
     if (validRows.length === 0) return;
 
     setIsImporting(true);

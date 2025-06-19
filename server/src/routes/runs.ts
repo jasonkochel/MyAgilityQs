@@ -322,11 +322,11 @@ export const runHandler = {
               error: "Dog not found or does not belong to user",
             });
             continue;
-          } // Create the run with auto-progression disabled for batch imports
+          } // Create the run with normal auto-progression (data is pre-sorted chronologically)
           const result = await createRun(userId, {
             ...runRequest,
             qualified: runRequest.qualified ?? false, // Default to false if not specified
-          }, true); // Skip auto-progression during batch import
+          }); // Auto-progression works correctly with chronologically sorted data
 
           successful.push(result.run);
         } catch (error: any) {
@@ -337,18 +337,7 @@ export const runHandler = {
         }
       }
 
-      // Recalculate dog levels for all affected dogs after batch import
-      if (successful.length > 0) {
-        const affectedDogIds = new Set(successful.map(run => run.dogId));
-        for (const dogId of affectedDogIds) {
-          try {
-            await recalculateDogLevels(userId, dogId);
-          } catch (error) {
-            console.warn(`Failed to recalculate levels for dog ${dogId}:`, error);
-            // Don't fail the import if level recalculation fails - just log the warning
-          }
-        }
-      }
+      // Auto-progression handled correctly by each run creation (data pre-sorted chronologically)
 
       const batchResponse = {
         successful,
