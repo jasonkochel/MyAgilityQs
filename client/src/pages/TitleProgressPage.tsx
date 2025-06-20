@@ -1,5 +1,6 @@
 import {
   Alert,
+  Badge,
   Button,
   Container,
   Grid,
@@ -98,22 +99,32 @@ const DogProgressCard: React.FC<{
   const jumpersClass = dog.classes.find((c) => c.name === "Jumpers");
   const isMachEligible = standardClass?.level === "Masters" && jumpersClass?.level === "Masters";
 
-  // MACH progress (750 points + 20 Double Qs)
-  const machPointsProgress = Math.min((dogProgress.machProgress / 750) * 100, 100);
-  const machDoubleQProgress = Math.min((dogProgress.doubleQs / 20) * 100, 100);
-  const hasMach = dogProgress.machProgress >= 750 && dogProgress.doubleQs >= 20;
+  // Calculate how many complete MACHs this dog has earned
+  const completeMachs = dogProgress.completeMachs || 0;
+  
+  // Calculate progress toward next MACH
+  const pointsTowardNext = dogProgress.machProgress - (completeMachs * 750);
+  const doubleQsTowardNext = dogProgress.doubleQs - (completeMachs * 20);
+  
+  // Progress bars for next MACH
+  const machPointsProgress = Math.min((pointsTowardNext / 750) * 100, 100);
+  const machDoubleQProgress = Math.min((doubleQsTowardNext / 20) * 100, 100);
 
   return (
     <Paper withBorder p="sm" radius="md">
       <Stack gap="xs">
         <Group justify="space-between" align="center">
           <Title order={3}>{dog.name}</Title>
-          {hasMach && (
-            <Group gap={4}>
+          {completeMachs > 0 && (
+            <Group gap="xs">
               <IconTrophy size={16} color="var(--mantine-color-green-6)" />
-              <Text size="sm" fw={600} c="green">
-                MACH
-              </Text>
+              <Group gap={4}>
+                {Array.from({length: completeMachs}, (_, i) => (
+                  <Badge key={i} color="green" variant="filled" size="sm">
+                    MACH{i + 1}
+                  </Badge>
+                ))}
+              </Group>
             </Group>
           )}
         </Group>
@@ -139,9 +150,17 @@ const DogProgressCard: React.FC<{
         {/* MACH Progress - Only for Masters Standard + Jumpers dogs */}
         {isMachEligible && (
           <div>
-            <Text fw={600} size="md" mb={4}>
-              MACH Progress
-            </Text>
+            <Group justify="space-between" align="center" mb={4}>
+              <Text fw={600} size="md">
+                MACH Progress
+              </Text>
+              <Text size="sm" c="dimmed">
+                {completeMachs > 0 ? 
+                  `Working toward MACH${completeMachs + 1}` : 
+                  'Working toward first MACH'
+                }
+              </Text>
+            </Group>
             <Grid gutter={8}>
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <div
@@ -157,7 +176,7 @@ const DogProgressCard: React.FC<{
                         Points
                       </Text>
                       <Text size="sm" fw={500}>
-                        {dogProgress.machProgress}/750
+                        {pointsTowardNext}/750
                       </Text>
                     </Group>
                     <Progress value={machPointsProgress} size="sm" color="purple" />
@@ -178,7 +197,7 @@ const DogProgressCard: React.FC<{
                         Double Qs
                       </Text>
                       <Text size="sm" fw={500}>
-                        {dogProgress.doubleQs}/20
+                        {doubleQsTowardNext}/20
                       </Text>
                     </Group>
                     <Progress value={machDoubleQProgress} size="sm" color="orange" />

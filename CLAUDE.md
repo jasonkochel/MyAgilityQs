@@ -63,7 +63,6 @@ Uses single-table design with composite keys:
 // Dogs: PK: DOG#${dogId}, SK: PROFILE  
 // Runs: PK: USER#${userId}, SK: RUN#${timestamp}#${runId}
 // User-Dog Links: PK: USER#${userId}, SK: DOG#${dogId}
-// Progress: PK: PROGRESS#${userId}, SK: DOG#${dogId}
 ```
 
 **Database Files**:
@@ -71,7 +70,7 @@ Uses single-table design with composite keys:
 - `server/src/database/dogs.ts` - Dog CRUD operations
 - `server/src/database/runs.ts` - Run CRUD with GSI queries
 - `server/src/database/users.ts` - User management
-- `server/src/database/progress.ts` - Progress tracking
+- `server/src/database/progress.ts` - Progress calculation functions (no database storage)
 
 ### API Routes & Authentication
 
@@ -100,14 +99,15 @@ interface ExtendedRoute extends Route {
 ### Shared Types System
 
 **Location**: `shared/src/`
-- Domain entities: `User`, `Dog`, `Run`
+- Domain entities: `User`, `Dog`, `Run`, `DogProgress`
 - API DTOs: `CreateDogRequest`, `UpdateDogRequest`, `ApiResponse<T>`
 - Enums: `COMPETITION_CLASSES`, `COMPETITION_LEVELS`
-- Utilities: validation, business logic, formatting
+- Progress utilities: `calculateMachProgress`, `calculateDoubleQs`, `isMachEligible`
+- Business logic: validation, formatting, progress calculations
 
 **Import Pattern**:
 ```typescript
-import { Dog, CreateRunRequest, ApiResponse } from '@my-agility-qs/shared';
+import { Dog, CreateRunRequest, ApiResponse, calculateMachProgress } from '@my-agility-qs/shared';
 ```
 
 ### Client Architecture
@@ -168,13 +168,37 @@ import { Dog, CreateRunRequest, ApiResponse } from '@my-agility-qs/shared';
 - Affects AddRunPage and ViewRunsPage behavior
 
 ### Title Progress Tracking
-- **Complete progress system** for AKC agility title advancement
+- **Complete progress system** for AKC agility title advancement with MACH2+ support
 - **Per-dog level tracking**: Shows current level in each class with progress toward next level
-- **MACH progress**: For Masters Standard + Jumpers dogs (750 points + 20 Double Qs)
+- **Multiple MACH tracking**: Full support for MACH, MACH2, MACH3, etc. with individual badges
 - **MACH Points entry**: User-entered field on Add Run form (Masters Standard/Jumpers only)
 - **Accurate AKC rules**: Double Qs only count Masters level, same-day Standard + Jumpers
-- **Real-time updates**: Progress invalidates automatically when runs are added
-- **Clean UI**: Streamlined display focusing on actionable progression information
+- **Computed progress**: All progress calculated on-the-fly from runs data (no stored progress)
+- **Real-time updates**: Progress reflects actual runs data, cache invalidation for seamless UX
+- **Clean UI**: Streamlined display with MACH badges and progress toward next achievement
+
+### Progress Calculation Architecture
+
+**Computed vs Stored**: Progress is calculated on-demand from runs data, not stored in database
+- **Benefits**: Always accurate, retroactive for existing data, no sync issues
+- **Shared utilities**: `shared/src/utils/progressCalculations.ts` contains reusable calculation logic
+- **Server**: `server/src/database/progress.ts` computes progress for API responses
+- **Client**: Uses shared utilities for real-time MACH progress display
+
+**Key Calculation Functions**:
+```typescript
+// Shared utilities used by both client and server
+calculateDoubleQs(runs: Run[]): number
+calculateTotalMachPoints(runs: Run[]): number  
+calculateMachProgress(runs: Run[]): MachProgress
+isMachEligible(dogClasses): boolean
+```
+
+**MACH Progress Logic**:
+- Each MACH requires exactly 750 points + 20 Double Qs
+- `completeMachs = Math.min(floor(totalPoints/750), floor(totalDoubleQs/20))`
+- Progress toward next MACH resets every 750 points / 20 Double Qs
+- Double Qs = Masters Standard + Jumpers qualifying runs on same date
 
 ## Important Development Notes
 

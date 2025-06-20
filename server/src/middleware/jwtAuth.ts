@@ -57,7 +57,6 @@ export const conditionalJwtAuth = () => {
         try {
           // Verify the ID token (contains user profile information like email)
           payload = await idTokenVerifier.verify(token);
-          console.log("ID token verified successfully");
         } catch (idError) {
           console.error("[JWT ERROR] ID token verification failed:", idError);
           throw idError;
@@ -65,9 +64,6 @@ export const conditionalJwtAuth = () => {
 
         // Extract email from ID token
         const email = String(payload.email || "");
-
-        console.log("JWT payload email:", email, "JWT payload sub:", payload.sub);
-        console.log("Token type:", payload.token_use);
 
         // Validate email exists and is not empty
         if (!email || email.trim() === "") {

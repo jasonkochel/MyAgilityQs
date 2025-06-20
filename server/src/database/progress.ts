@@ -1,11 +1,12 @@
-// No DynamoDB imports needed for pure calculation
 import {
   ClassProgress,
   CompetitionClass,
   CompetitionLevel,
   DogProgress,
+  calculateDoubleQs,
+  calculateTotalMachPoints,
+  calculateMachProgress,
 } from "@my-agility-qs/shared";
-// No client imports needed for pure calculation
 import { getDogsByUserId } from "./dogs.js";
 import { getRunsByDogId, getRunsByUserId } from "./runs.js";
 
@@ -21,10 +22,8 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
 
   // Initialize class progress tracking
   const classProgressMap = new Map<CompetitionClass, Map<CompetitionLevel, number>>();
-  let doubleQs = 0;
-  let totalMachPoints = 0;
 
-  // Process each run
+  // Process each qualified run for class/level progress
   for (const run of runs) {
     if (!run.qualified) continue;
 
@@ -35,11 +34,6 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
     const levelMap = classProgressMap.get(run.class)!;
     const currentQs = levelMap.get(run.level) || 0;
     levelMap.set(run.level, currentQs + 1);
-
-    // Track MACH points (only from qualified runs)
-    if (run.machPoints) {
-      totalMachPoints += run.machPoints;
-    }
   }
 
   // Convert to ClassProgress format
@@ -55,30 +49,18 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
     });
   }
 
-  // Calculate Double Qs (need both Standard and Jumpers Q on same day at Masters level)
-  // Only Masters level Standard and Jumpers qualify for Double Qs
-  const runsByDate = new Map<string, typeof runs>();
-  for (const run of runs.filter((r) => r.qualified && r.level === "Masters" && (r.class === "Standard" || r.class === "Jumpers"))) {
-    if (!runsByDate.has(run.date)) {
-      runsByDate.set(run.date, []);
-    }
-    runsByDate.get(run.date)!.push(run);
-  }
-
-  for (const [date, dateRuns] of runsByDate.entries()) {
-    const hasStandardQ = dateRuns.some((r) => r.class === "Standard" && r.qualified && r.level === "Masters");
-    const hasJumpersQ = dateRuns.some((r) => r.class === "Jumpers" && r.qualified && r.level === "Masters");
-    if (hasStandardQ && hasJumpersQ) {
-      doubleQs++;
-    }
-  }
+  // Calculate MACH-related progress using shared utilities
+  const doubleQs = calculateDoubleQs(runs);
+  const totalMachPoints = calculateTotalMachPoints(runs);
+  const machProgressData = calculateMachProgress(runs);
 
   const progress: DogProgress = {
     dogId,
     dogName,
     classProgress,
     doubleQs,
-    machProgress: Math.min(totalMachPoints, 20), // Cap at 20 for MACH
+    machProgress: totalMachPoints, // Total MACH points (not capped)
+    completeMachs: machProgressData.completeMachs,
   };
 
   return progress;
@@ -112,36 +94,22 @@ export async function calculateUserProgressSummary(userId: string): Promise<{
   const activeDogs = dogs.filter((d) => d.active);
   const qualifiedRuns = runs.filter((r) => r.qualified);
 
-  // Calculate double Qs by dog (must be same dog on same date at Masters level)
+  // Calculate double Qs and MACH points by dog using shared utilities
   let totalDoubleQs = 0;
-  for (const dog of activeDogs) {
-    const dogRuns = qualifiedRuns.filter((r) => r.dogId === dog.id && r.level === "Masters" && (r.class === "Standard" || r.class === "Jumpers"));
-    const runsByDate = new Map<string, typeof dogRuns>();
-    
-    for (const run of dogRuns) {
-      if (!runsByDate.has(run.date)) {
-        runsByDate.set(run.date, []);
-      }
-      runsByDate.get(run.date)!.push(run);
-    }
-
-    for (const [date, dateRuns] of runsByDate.entries()) {
-      const hasStandardQ = dateRuns.some((r) => r.class === "Standard" && r.qualified && r.level === "Masters");
-      const hasJumpersQ = dateRuns.some((r) => r.class === "Jumpers" && r.qualified && r.level === "Masters");
-      if (hasStandardQ && hasJumpersQ) {
-        totalDoubleQs++;
-      }
-    }
-  }
-
-  const totalMachPoints = qualifiedRuns.reduce((sum, run) => sum + (run.machPoints || 0), 0);
-
-  // Calculate dogs with MACH (only count qualified runs)
+  let totalMachPoints = 0;
   let dogsWithMach = 0;
+
   for (const dog of activeDogs) {
-    const dogQualifiedRuns = qualifiedRuns.filter((r) => r.dogId === dog.id);
-    const dogMachPoints = dogQualifiedRuns.reduce((sum, run) => sum + (run.machPoints || 0), 0);
-    if (dogMachPoints >= 20) {
+    const dogRuns = runs.filter((r) => r.dogId === dog.id);
+    const dogDoubleQs = calculateDoubleQs(dogRuns);
+    const dogMachPoints = calculateTotalMachPoints(dogRuns);
+    const dogMachProgress = calculateMachProgress(dogRuns);
+
+    totalDoubleQs += dogDoubleQs;
+    totalMachPoints += dogMachPoints;
+
+    // Count dogs with at least one complete MACH
+    if (dogMachProgress.completeMachs > 0) {
       dogsWithMach++;
     }
   }

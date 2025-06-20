@@ -386,13 +386,9 @@ export const authHandler = {
         Buffer.from(tokenData.id_token.split(".")[1], "base64").toString()
       );
 
-      console.log("Google ID token payload:", JSON.stringify(idTokenPayload, null, 2));
-
       // Create or update user in our database
       const email = idTokenPayload.email;
       const cognitoUserId = idTokenPayload.sub;
-
-      console.log("Extracted email:", email, "Cognito sub:", cognitoUserId);
 
       // Validate that we have a valid email
       if (!email || typeof email !== "string" || email.trim() === "") {
