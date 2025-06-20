@@ -136,7 +136,8 @@ export interface DogProgress {
   dogName: string;
   classProgress: ClassProgress[];
   doubleQs: number;
-  machProgress: number; // 0-20
+  machProgress: number; // Total MACH points (not capped)
+  completeMachs?: number; // Number of complete MACHs earned
 }
 
 // API Response types
