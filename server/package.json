@@ -27,19 +27,19 @@
     "@types/http-errors": "^2.0.5",
     "aws-jwt-verify": "^5.1.0",
     "http-errors": "^2.0.0",
-    "uuid": "^10.0.0"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.140",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^20.14.7",
+    "@types/node": "^24.0.3",
     "@types/uuid": "^10.0.0",
-    "@typescript-eslint/eslint-plugin": "^7.13.1",
-    "@typescript-eslint/parser": "^7.13.1",
-    "concurrently": "^8.2.2",
+    "@typescript-eslint/eslint-plugin": "^8.34.1",
+    "@typescript-eslint/parser": "^8.34.1",
+    "concurrently": "^9.1.2",
     "esbuild": "^0.25.5",
-    "eslint": "^8.57.0",
-    "rimraf": "^5.0.7",
+    "eslint": "^9.29.0",
+    "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.2"
   }

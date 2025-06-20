@@ -6,6 +6,7 @@ import type {
   LoginRequest,
   Run,
   UpdateDogRequest,
+  UpdateRunRequest,
   UpdateUserRequest,
   User,
 } from "@my-agility-qs/shared";
@@ -275,6 +276,11 @@ export const runsApi = {
   // Batch import runs
   batchImportRuns: async (runs: CreateRunRequest[]): Promise<any> => {
     return apiRequest(api.post("runs/batch", { json: { runs } }));
+  },
+
+  // Update an existing run
+  updateRun: async (runId: string, runData: UpdateRunRequest): Promise<Run> => {
+    return apiRequest(api.put(`runs/${runId}`, { json: runData }));
   },
 
   // Hard delete a run (permanent removal)

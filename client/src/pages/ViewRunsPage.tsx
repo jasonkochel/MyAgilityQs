@@ -1,10 +1,8 @@
 import {
-  Badge,
   Button,
   Container,
   Group,
   Loader,
-  Modal,
   Paper,
   SimpleGrid,
   Stack,
@@ -16,16 +14,18 @@ import {
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import type { Dog, Run } from "@my-agility-qs/shared";
-import { IconArrowLeft, IconChevronDown, IconChevronUp, IconTrash } from "@tabler/icons-react";
+import { IconArrowLeft, IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
+import { RunDetailsModal } from "../components/RunDetailsModal";
 import { useAuth } from "../contexts/AuthContext";
 import { dogsApi, runsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
 
 type SortField = "date" | "dog" | "class" | "level";
 type SortDirection = "asc" | "desc";
+
 
 export const ViewRunsPage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -54,10 +54,12 @@ export const ViewRunsPage: React.FC = () => {
     queryFn: dogsApi.getAllDogs,
   });
 
+
   const hardDeleteRunMutation = useMutation({
     mutationFn: runsApi.hardDelete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["runs"] });
+      queryClient.invalidateQueries({ queryKey: ["progress"] });
       notifications.show({
         title: "Success",
         message: "Run has been permanently deleted",
@@ -74,6 +76,7 @@ export const ViewRunsPage: React.FC = () => {
       });
     },
   });
+
 
   const handleHardDeleteRun = (run: Run) => {
     const dogName = dogNameMap[run.dogId] || "Unknown Dog";
@@ -114,12 +117,6 @@ export const ViewRunsPage: React.FC = () => {
       ([, fullValue]) => fullValue === className
     )?.[0];
     return displayKey || className; // Fallback to original if not found
-  };
-
-  const formatTime = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = (seconds % 60).toFixed(2);
-    return `${minutes}:${remainingSeconds.padStart(5, "0")}`;
   };
 
   const formatDate = (dateString: string): string => {
@@ -395,86 +392,12 @@ export const ViewRunsPage: React.FC = () => {
             </Table>
           </Paper>
         )}
-        {/* Modal for run details */}
-        <Modal
-          opened={selectedRun !== null}
+        <RunDetailsModal
+          run={selectedRun}
+          dogNameMap={dogNameMap}
           onClose={() => setSelectedRun(null)}
-          title={`Run Details - ${
-            selectedRun ? dogNameMap[selectedRun.dogId] || "Unknown Dog" : ""
-          }`}
-          size="md"
-        >
-          {selectedRun && (
-            <Stack gap="md">
-              <Group justify="space-between">
-                <Text fw={500}>Date:</Text>
-                <Text>{formatDate(selectedRun.date)}</Text>
-              </Group>
-
-              <Group justify="space-between">
-                <Text fw={500}>Class:</Text>
-                <Text>{getClassDisplayName(selectedRun.class)}</Text>
-              </Group>
-
-              <Group justify="space-between">
-                <Text fw={500}>Level:</Text>
-                <Text>{selectedRun.level}</Text>
-              </Group>
-
-              <Group justify="space-between">
-                <Text fw={500}>Result:</Text>
-                <Badge color={selectedRun.qualified ? "green" : "red"} variant="light" size="sm">
-                  {selectedRun.qualified ? "Q" : "NQ"}
-                </Badge>
-              </Group>
-
-              {selectedRun.time && (
-                <Group justify="space-between">
-                  <Text fw={500}>Time:</Text>
-                  <Text>{formatTime(selectedRun.time)}</Text>
-                </Group>
-              )}
-
-              {selectedRun.placement && (
-                <Group justify="space-between">
-                  <Text fw={500}>Placement:</Text>
-                  <Text>{selectedRun.placement}</Text>
-                </Group>
-              )}
-
-              {selectedRun.location && (
-                <Group justify="space-between">
-                  <Text fw={500}>Location:</Text>
-                  <Text>{selectedRun.location}</Text>
-                </Group>
-              )}
-
-              {selectedRun.notes && (
-                <Stack gap={4}>
-                  <Text fw={500}>Notes:</Text>
-                  <Text style={{ whiteSpace: "pre-wrap" }}>{selectedRun.notes}</Text>
-                </Stack>
-              )}
-
-              <Group justify="flex-end" mt="md">
-                <Button variant="light" onClick={() => setSelectedRun(null)}>
-                  Close
-                </Button>
-                <Button
-                  color="red"
-                  variant="light"
-                  leftSection={<IconTrash size={16} />}
-                  onClick={() => {
-                    setSelectedRun(null);
-                    handleHardDeleteRun(selectedRun);
-                  }}
-                >
-                  Delete Run
-                </Button>
-              </Group>
-            </Stack>
-          )}
-        </Modal>
+          onDelete={handleHardDeleteRun}
+        />
       </Stack>
     </Container>
   );

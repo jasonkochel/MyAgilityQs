@@ -10,9 +10,9 @@ import {
   Stack,
   Text,
   Textarea,
+  TextInput,
   Title,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import type {
@@ -31,6 +31,7 @@ import { CLASS_DISPLAY_NAMES } from "../lib/constants";
 
 // AKC Agility Classes - use shared constants
 const AKC_CLASS_MAPPING = CLASS_DISPLAY_NAMES;
+
 
 const PLACEMENT_OPTIONS = [
   { label: "1", value: 1, color: "blue" }, // Blue ribbon
@@ -191,20 +192,17 @@ export const AddRunPage: React.FC = () => {
               )}
               {/* Date First */}
               <Stack gap="xs">
-                <Text fw={500}>Date</Text>{" "}
-                <DateInput
-                  placeholder="Select date"
+                <Text fw={500}>Date</Text>
+                <TextInput
+                  type="date"
                   value={form.values.date}
-                  onChange={(date) => {
-                    if (date) {
-                      // DateInput now returns a string in YYYY-MM-DD format
-                      form.setFieldValue("date", date);
-                    }
+                  onChange={(event) => {
+                    form.setFieldValue("date", event.currentTarget.value);
                   }}
                   error={form.errors.date}
                   size="lg"
                 />
-              </Stack>{" "}
+              </Stack>
               {/* Dog Selection - Large Touch-Friendly Buttons */}
               <Stack gap="xs">
                 <Text fw={500}>Select Dog</Text>
