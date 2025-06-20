@@ -39,25 +39,5 @@ export const formatDate = (dateString: string): string => {
   return date.toLocaleDateString();
 };
 
-export const calculateDoubleQs = (runs: Array<{ date: string; class: CompetitionClass; level: CompetitionLevel; qualified: boolean }>): number => {
-  const qualifiedMastersRuns = runs.filter(run => 
-    run.qualified && run.level === 'Masters'
-  );
-
-  const runsByDate = qualifiedMastersRuns.reduce((acc, run) => {
-    if (!acc[run.date]) {
-      acc[run.date] = new Set();
-    }
-    acc[run.date].add(run.class);
-    return acc;
-  }, {} as Record<string, Set<CompetitionClass>>);
-
-  let doubleQs = 0;
-  Object.values(runsByDate).forEach(classesOnDate => {
-    if (classesOnDate.has('Standard') && classesOnDate.has('Jumpers')) {
-      doubleQs++;
-    }
-  });
-
-  return doubleQs;
-};
+// Export all utilities from utils folder
+export * from './utils/index.js';
