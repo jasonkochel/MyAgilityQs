@@ -11,11 +11,11 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { IconArrowLeft, IconTrophy, IconTarget } from "@tabler/icons-react";
+import type { CompetitionLevel, Dog, DogProgress } from "@my-agility-qs/shared";
+import { IconArrowLeft, IconTarget, IconTrophy } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import type { DogProgress, Dog, CompetitionLevel } from "@my-agility-qs/shared";
 import { useLocation } from "wouter";
-import { progressApi, dogsApi } from "../lib/api";
+import { dogsApi, progressApi } from "../lib/api";
 
 const LEVEL_ORDER: CompetitionLevel[] = ["Novice", "Open", "Excellent", "Masters"];
 
@@ -24,19 +24,22 @@ const getNextLevel = (currentLevel: CompetitionLevel): CompetitionLevel | null =
   return currentIndex < LEVEL_ORDER.length - 1 ? LEVEL_ORDER[currentIndex + 1] : null;
 };
 
-const getProgressTowardsNextLevel = (classProgress: any, currentLevel: CompetitionLevel): { current: number; needed: number } => {
+const getProgressTowardsNextLevel = (
+  classProgress: any,
+  currentLevel: CompetitionLevel
+): { current: number; needed: number } => {
   // Handle case where no progress data exists for this class yet
   if (!classProgress || !classProgress.levels) {
     return { current: 0, needed: 3 };
   }
-  
+
   const qsAtCurrentLevel = classProgress.levels[currentLevel] || 0;
-  
+
   // Need 3 Qs to advance to next level
   if (qsAtCurrentLevel >= 3) {
     return { current: 3, needed: 3 }; // Already qualified for next level
   }
-  
+
   return { current: qsAtCurrentLevel, needed: 3 };
 };
 
@@ -48,31 +51,35 @@ const ClassProgressDisplay: React.FC<{
   const nextLevel = getNextLevel(currentLevel);
   const progress = getProgressTowardsNextLevel(classProgress, currentLevel);
   const progressPercentage = (progress.current / progress.needed) * 100;
-  
+
   return (
-    <div style={{ backgroundColor: 'var(--mantine-color-gray-0)', padding: '12px', borderRadius: '8px' }}>
+    <div
+      style={{
+        backgroundColor: "var(--mantine-color-gray-0)",
+        padding: "12px",
+        borderRadius: "8px",
+      }}
+    >
       <Stack gap={6}>
         <Group justify="space-between" align="center">
-          <Text fw={600} size="md">{className}</Text>
-          <Text 
-            size="sm"
-            fw={600}
-            c={currentLevel === "Masters" ? "green" : "blue"}
-          >
+          <Text fw={600} size="md">
+            {className}
+          </Text>
+          <Text size="sm" fw={600} c={currentLevel === "Masters" ? "green" : "blue"}>
             {currentLevel}
           </Text>
         </Group>
-        
+
         {nextLevel && (
           <div>
             <Group justify="space-between" mb={4}>
               <Text size="sm" fw={500}>
-                {progress.current}/{progress.needed}
+                {progress.current}/{progress.needed} Qs for {nextLevel}
               </Text>
             </Group>
-            <Progress 
-              value={progressPercentage} 
-              size="sm" 
+            <Progress
+              value={progressPercentage}
+              size="sm"
               color={progressPercentage >= 100 ? "green" : "blue"}
             />
           </div>
@@ -82,20 +89,20 @@ const ClassProgressDisplay: React.FC<{
   );
 };
 
-const DogProgressCard: React.FC<{ 
-  dog: Dog; 
+const DogProgressCard: React.FC<{
+  dog: Dog;
   dogProgress: DogProgress;
 }> = ({ dog, dogProgress }) => {
   // Check if dog is Masters in both Standard and Jumpers for MACH eligibility
-  const standardClass = dog.classes.find(c => c.name === "Standard");
-  const jumpersClass = dog.classes.find(c => c.name === "Jumpers");
+  const standardClass = dog.classes.find((c) => c.name === "Standard");
+  const jumpersClass = dog.classes.find((c) => c.name === "Jumpers");
   const isMachEligible = standardClass?.level === "Masters" && jumpersClass?.level === "Masters";
-  
+
   // MACH progress (750 points + 20 Double Qs)
   const machPointsProgress = Math.min((dogProgress.machProgress / 750) * 100, 100);
   const machDoubleQProgress = Math.min((dogProgress.doubleQs / 20) * 100, 100);
   const hasMach = dogProgress.machProgress >= 750 && dogProgress.doubleQs >= 20;
-  
+
   return (
     <Paper withBorder p="sm" radius="md">
       <Stack gap="xs">
@@ -110,11 +117,13 @@ const DogProgressCard: React.FC<{
             </Group>
           )}
         </Group>
-        
+
         {/* Class Level Progress */}
         <Grid gutter={8}>
           {dog.classes.map((dogClass) => {
-            const classProgress = dogProgress.classProgress.find(cp => cp.class === dogClass.name);
+            const classProgress = dogProgress.classProgress.find(
+              (cp) => cp.class === dogClass.name
+            );
             return (
               <Grid.Col key={dogClass.name} span={{ base: 12, sm: 6 }}>
                 <ClassProgressDisplay
@@ -126,7 +135,7 @@ const DogProgressCard: React.FC<{
             );
           })}
         </Grid>
-        
+
         {/* MACH Progress - Only for Masters Standard + Jumpers dogs */}
         {isMachEligible && (
           <div>
@@ -135,22 +144,42 @@ const DogProgressCard: React.FC<{
             </Text>
             <Grid gutter={8}>
               <Grid.Col span={{ base: 12, sm: 6 }}>
-                <div style={{ backgroundColor: 'var(--mantine-color-gray-0)', padding: '12px', borderRadius: '8px' }}>
+                <div
+                  style={{
+                    backgroundColor: "var(--mantine-color-gray-0)",
+                    padding: "12px",
+                    borderRadius: "8px",
+                  }}
+                >
                   <Stack gap={4}>
                     <Group justify="space-between">
-                      <Text size="sm" fw={500}>Points</Text>
-                      <Text size="sm" fw={500}>{dogProgress.machProgress}/750</Text>
+                      <Text size="sm" fw={500}>
+                        Points
+                      </Text>
+                      <Text size="sm" fw={500}>
+                        {dogProgress.machProgress}/750
+                      </Text>
                     </Group>
                     <Progress value={machPointsProgress} size="sm" color="purple" />
                   </Stack>
                 </div>
               </Grid.Col>
               <Grid.Col span={{ base: 12, sm: 6 }}>
-                <div style={{ backgroundColor: 'var(--mantine-color-gray-0)', padding: '12px', borderRadius: '8px' }}>
+                <div
+                  style={{
+                    backgroundColor: "var(--mantine-color-gray-0)",
+                    padding: "12px",
+                    borderRadius: "8px",
+                  }}
+                >
                   <Stack gap={4}>
                     <Group justify="space-between">
-                      <Text size="sm" fw={500}>Double Qs</Text>
-                      <Text size="sm" fw={500}>{dogProgress.doubleQs}/20</Text>
+                      <Text size="sm" fw={500}>
+                        Double Qs
+                      </Text>
+                      <Text size="sm" fw={500}>
+                        {dogProgress.doubleQs}/20
+                      </Text>
                     </Group>
                     <Progress value={machDoubleQProgress} size="sm" color="orange" />
                   </Stack>
@@ -168,20 +197,28 @@ export const TitleProgressPage: React.FC = () => {
   const [, setLocation] = useLocation();
 
   // Fetch dogs and progress data
-  const { data: dogs, isLoading: dogsLoading, error: dogsError } = useQuery({
+  const {
+    data: dogs,
+    isLoading: dogsLoading,
+    error: dogsError,
+  } = useQuery({
     queryKey: ["dogs"],
     queryFn: dogsApi.getAllDogs,
   });
 
-  const { data: dogsProgress, isLoading: progressLoading, error: progressError } = useQuery({
+  const {
+    data: dogsProgress,
+    isLoading: progressLoading,
+    error: progressError,
+  } = useQuery({
     queryKey: ["progress"],
     queryFn: progressApi.getAllProgress,
   });
 
   const isLoading = dogsLoading || progressLoading;
   const hasError = dogsError || progressError;
-  
-  const activeDogs = dogs?.filter(dog => dog.active) || [];
+
+  const activeDogs = dogs?.filter((dog) => dog.active) || [];
 
   if (isLoading) {
     return (
@@ -207,7 +244,9 @@ export const TitleProgressPage: React.FC = () => {
             Back
           </Button>
           <Alert color="red" title="Error loading progress">
-            {(dogsError as Error)?.message || (progressError as Error)?.message || "Failed to load progress data"}
+            {(dogsError as Error)?.message ||
+              (progressError as Error)?.message ||
+              "Failed to load progress data"}
           </Alert>
         </Stack>
       </Container>
@@ -247,16 +286,10 @@ export const TitleProgressPage: React.FC = () => {
         {activeDogs.length > 0 && typedDogsProgress ? (
           <Stack gap="sm">
             {activeDogs.map((dog) => {
-              const dogProgress = typedDogsProgress.find(dp => dp.dogId === dog.id);
+              const dogProgress = typedDogsProgress.find((dp) => dp.dogId === dog.id);
               if (!dogProgress) return null;
-              
-              return (
-                <DogProgressCard 
-                  key={dog.id} 
-                  dog={dog} 
-                  dogProgress={dogProgress} 
-                />
-              );
+
+              return <DogProgressCard key={dog.id} dog={dog} dogProgress={dogProgress} />;
             })}
           </Stack>
         ) : (
@@ -270,12 +303,8 @@ export const TitleProgressPage: React.FC = () => {
                 Add dogs and runs to start tracking title progress!
               </Text>
               <Group>
-                <Button onClick={() => setLocation("/my-dogs")}>
-                  Manage Dogs
-                </Button>
-                <Button onClick={() => setLocation("/add-run")}>
-                  Add Run
-                </Button>
+                <Button onClick={() => setLocation("/my-dogs")}>Manage Dogs</Button>
+                <Button onClick={() => setLocation("/add-run")}>Add Run</Button>
               </Group>
             </Stack>
           </Paper>
