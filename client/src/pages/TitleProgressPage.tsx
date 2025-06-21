@@ -12,11 +12,13 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import type { CompetitionLevel, Dog, DogProgress } from "@my-agility-qs/shared";
+import type { CompetitionLevel, CompetitionClass, Dog, DogProgress } from "@my-agility-qs/shared";
 import { IconArrowLeft, IconTarget, IconTrophy } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { dogsApi, progressApi } from "../lib/api";
+import { createViewRunsLink } from "../utils/viewRunsLinks";
+import { useNavigationHistory } from "../hooks/useNavigationHistory";
 
 const LEVEL_ORDER: CompetitionLevel[] = ["Novice", "Open", "Excellent", "Masters"];
 
@@ -49,7 +51,9 @@ const ClassProgressDisplay: React.FC<{
   currentLevel: CompetitionLevel;
   classProgress: any;
   dogProgress: DogProgress;
-}> = ({ className, currentLevel, classProgress, dogProgress }) => {
+  dogId: string;
+}> = ({ className, currentLevel, classProgress, dogProgress, dogId }) => {
+  const [, setLocation] = useLocation();
   const nextLevel = getNextLevel(currentLevel);
   const progress = getProgressTowardsNextLevel(classProgress, currentLevel);
   const progressPercentage = (progress.current / progress.needed) * 100;
@@ -74,12 +78,31 @@ const ClassProgressDisplay: React.FC<{
     }
   }
 
+  const handleClick = () => {
+    // Navigate to ViewRunsPage filtered by this dog, class, and current level
+    const link = createViewRunsLink({ 
+      dog: dogId, 
+      class: className as CompetitionClass, 
+      level: 'current' 
+    });
+    setLocation(link);
+  };
+
   return (
     <div
       style={{
         backgroundColor: "var(--mantine-color-gray-0)",
         padding: "12px",
         borderRadius: "8px",
+        cursor: "pointer",
+        transition: "background-color 0.2s ease",
+      }}
+      onClick={handleClick}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = "var(--mantine-color-gray-1)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = "var(--mantine-color-gray-0)";
       }}
     >
       <Stack gap={6}>
@@ -173,6 +196,7 @@ const DogProgressCard: React.FC<{
                   currentLevel={dogClass.level}
                   classProgress={classProgress}
                   dogProgress={dogProgress}
+                  dogId={dog.id}
                 />
               </Grid.Col>
             );
@@ -246,6 +270,7 @@ const DogProgressCard: React.FC<{
 
 export const TitleProgressPage: React.FC = () => {
   const [, setLocation] = useLocation();
+  const { goBack } = useNavigationHistory();
 
   // Fetch dogs and progress data
   const {
@@ -289,7 +314,7 @@ export const TitleProgressPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={() => setLocation("/")}
+            onClick={goBack}
             w="fit-content"
           >
             Back
@@ -313,7 +338,7 @@ export const TitleProgressPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={() => setLocation("/")}
+            onClick={goBack}
             w="fit-content"
             size="sm"
           >

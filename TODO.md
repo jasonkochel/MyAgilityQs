@@ -8,7 +8,10 @@
 - [x] **MACH Points entry** - User input field on Add Run form for Masters Standard/Jumpers
 - [x] **Progress backend logic** - Fixed Double Q and MACH point calculation with correct AKC rules
 - [x] **Cache management** - Improved efficiency with invalidateQueries instead of refetchQueries
-- [x] Support multiple MACHs, e.g. progress toward MACH2 once a dog earns its first MACH
+- [x] **Multiple MACH support** - Progress toward MACH2+ once a dog earns its first MACH
+- [x] **Profile page improvements** - Enhanced profile settings with better UI and functionality
+- [x] **My Dogs page enhancements** - Improved dog management interface
+- [x] **View Runs filtering** - Added new filtering capabilities and improved UI
 
 ## 🐛 Bugs & Issues
 

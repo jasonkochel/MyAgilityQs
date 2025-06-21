@@ -28,6 +28,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
 import { dogsApi, locationsApi, runsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
+import { useNavigationHistory } from "../hooks/useNavigationHistory";
 
 // AKC Agility Classes - use shared constants
 const AKC_CLASS_MAPPING = CLASS_DISPLAY_NAMES;
@@ -58,6 +59,7 @@ export const AddRunPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { goBack } = useNavigationHistory();
 
   // Fetch user's dogs and filter to only active ones
   const { data: allDogs = [], isLoading: dogsLoading } = useQuery({
@@ -163,7 +165,7 @@ export const AddRunPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={() => setLocation("/")}
+            onClick={goBack}
             w="fit-content"
             size="sm"
           >

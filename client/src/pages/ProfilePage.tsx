@@ -4,10 +4,12 @@ import { IconArrowLeft, IconFileImport, IconLogout, IconRefresh } from "@tabler/
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
 import { tokenManager } from "../lib/api";
+import { useNavigationHistory } from "../hooks/useNavigationHistory";
 
 export const ProfilePage: React.FC = () => {
   const [, setLocation] = useLocation();
   const { user, logout, updateUserPreferences } = useAuth();
+  const { goBack } = useNavigationHistory();
 
   const handleLogout = () => {
     logout();
@@ -41,7 +43,7 @@ export const ProfilePage: React.FC = () => {
         <Button
           variant="subtle"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => setLocation("/")}
+          onClick={goBack}
           w="fit-content"
         >
           Back

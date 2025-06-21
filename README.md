@@ -52,7 +52,7 @@ This starts:
 ## 🛠 Tech Stack
 
 ### Frontend
-- **React 18** with TypeScript
+- **React 19** with TypeScript
 - **Mantine** UI components
 - **TanStack Query** for data fetching
 - **Vite** for development and building

@@ -20,10 +20,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { dogsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
+import { useNavigationHistory } from "../hooks/useNavigationHistory";
 
 export const MyDogsPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { goBack } = useNavigationHistory();
 
   // Create reverse mapping from full names to display names
   const getDisplayName = (fullName: string): string => {
@@ -101,7 +103,7 @@ export const MyDogsPage: React.FC = () => {
             <Button
               variant="subtle"
               leftSection={<IconArrowLeft size={16} />}
-              onClick={() => setLocation("/")}
+              onClick={goBack}
               size="sm"
             >
               Back
@@ -134,7 +136,7 @@ export const MyDogsPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={() => setLocation("/")}
+            onClick={goBack}
             size="sm"
           >
             Back

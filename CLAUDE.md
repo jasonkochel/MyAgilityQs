@@ -242,6 +242,10 @@ isMachEligible(dogClasses): boolean
 - **WSL network access**: Ensure Vite runs with `--host 0.0.0.0` for Windows browser access
 - **Google OAuth**: Callback URL needs updating for WSL IP (`http://172.31.91.177:5174/auth/callback`)
 
+## Development Workflow Memories
+
+- **I will run the dev server myself**
+
 When working on this codebase, maintain the established patterns for database operations, API routes, and shared type usage. Always test locally before deployment and ensure the build order is respected for workspace dependencies.
 
 ## File Structure Reference
@@ -256,3 +260,7 @@ MyAgilityQs/
 ├── README.md         # Public-facing project overview
 └── package.json      # Workspace configuration
 ```
+
+## Development Workflow Memories
+
+- **Use "pwd" to determine the current directory before running npm commands**
