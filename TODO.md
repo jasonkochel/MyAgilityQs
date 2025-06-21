@@ -2,20 +2,26 @@
 
 ## ✅ Recently Completed
 
+- [x] **Location autocomplete cache fix** - Fixed issue where new locations weren't appearing in autocomplete suggestions in Edit Runs modal
+- [x] **View Runs responsive columns** - Show more columns (Result, Placement, Time, Location) on wider screens, with Result column only showing when tracking NQ runs
 - [x] **Title Progress tracking system** - Complete implementation with current levels, advancement progress, and MACH tracking
 - [x] **MACH Points entry** - User input field on Add Run form for Masters Standard/Jumpers
 - [x] **Progress backend logic** - Fixed Double Q and MACH point calculation with correct AKC rules
 - [x] **Cache management** - Improved efficiency with invalidateQueries instead of refetchQueries
+- [x] Support multiple MACHs, e.g. progress toward MACH2 once a dog earns its first MACH
 
 ## 🐛 Bugs & Issues
 
 - No known issues at this time
 
+## Next Up
+
+- View Runs: Better filtering on more fields, but it has to stay clean and simple for the basic use case; perhaps a mode to view the data grouped by dog+class+level?
+
 ## ✨ Feature Ideas
 
 - [ ] Photo management: Attach a photo of each dog
 - [ ] Data export: CSV export for backup purposes
-- [ ] Support multiple MACHs, e.g. progress toward MACH2 once a dog earns its first MACH
 
 ## 🔧 Technical Improvements
 
@@ -37,7 +43,6 @@
 - [ ] Dark mode support
 - [ ] Better mobile navigation patterns
 - [ ] Quick entry shortcuts/gestures
-- [ ] Advanced filtering and search
 - [ ] Bulk operations (edit multiple runs)
 
 ## 🚀 Infrastructure

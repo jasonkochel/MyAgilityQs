@@ -1,4 +1,5 @@
 import {
+  Badge,
   Button,
   Container,
   Group,
@@ -11,6 +12,7 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import type { Dog, Run } from "@my-agility-qs/shared";
@@ -26,11 +28,14 @@ import { CLASS_DISPLAY_NAMES } from "../lib/constants";
 type SortField = "date" | "dog" | "class" | "level";
 type SortDirection = "asc" | "desc";
 
-
 export const ViewRunsPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Responsive breakpoints
+  const isLargeScreen = useMediaQuery("(min-width: 1200px)"); // xl breakpoint
+  const isMediumScreen = useMediaQuery("(min-width: 768px)"); // md breakpoint
   // Filter and sort state
   const [selectedDogId, setSelectedDogId] = useState<string | null>(null);
   const [showOnlyQs, setShowOnlyQs] = useState(false); // Changed to false to show all runs by default
@@ -54,7 +59,6 @@ export const ViewRunsPage: React.FC = () => {
     queryFn: dogsApi.getAllDogs,
   });
 
-
   const hardDeleteRunMutation = useMutation({
     mutationFn: runsApi.hardDelete,
     onSuccess: () => {
@@ -76,7 +80,6 @@ export const ViewRunsPage: React.FC = () => {
       });
     },
   });
-
 
   const handleHardDeleteRun = (run: Run) => {
     const dogName = dogNameMap[run.dogId] || "Unknown Dog";
@@ -121,6 +124,29 @@ export const ViewRunsPage: React.FC = () => {
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = (seconds % 60).toFixed(2);
+    return `${minutes}:${remainingSeconds.padStart(5, "0")}`;
+  };
+
+  const getPlacementBadge = (placement: number | null) => {
+    if (!placement) return null;
+
+    const colors = {
+      1: "blue",
+      2: "red",
+      3: "yellow",
+      4: "gray",
+    } as const;
+
+    return (
+      <Badge color={colors[placement as keyof typeof colors] || "gray"} variant="filled" size="sm">
+        {placement}
+      </Badge>
+    );
   };
 
   // Filter and sort runs
@@ -363,6 +389,16 @@ export const ViewRunsPage: React.FC = () => {
                       {renderSortIcon("level")}
                     </Group>
                   </Table.Th>
+                  {/* Result column - only show if tracking NQ runs */}
+                  {!user?.trackQsOnly && (
+                    <Table.Th>Result</Table.Th>
+                  )}
+                  {/* Placement column - visible on medium+ screens */}
+                  {isMediumScreen && <Table.Th>Place</Table.Th>}
+                  {/* Time column - visible on large screens */}
+                  {isLargeScreen && <Table.Th>Time</Table.Th>}
+                  {/* Location column - visible on large screens */}
+                  {isLargeScreen && <Table.Th>Location</Table.Th>}
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -386,6 +422,44 @@ export const ViewRunsPage: React.FC = () => {
                     <Table.Td>
                       <Text size="sm">{run.level}</Text>
                     </Table.Td>
+                    {/* Result column - only show if tracking NQ runs */}
+                    {!user?.trackQsOnly && (
+                      <Table.Td>
+                        <Badge
+                          color={run.qualified ? "green" : "red"}
+                          variant={run.qualified ? "filled" : "outline"}
+                          size="sm"
+                        >
+                          {run.qualified ? "Q" : "NQ"}
+                        </Badge>
+                      </Table.Td>
+                    )}
+                    {/* Placement column - visible on medium+ screens */}
+                    {isMediumScreen && <Table.Td>{getPlacementBadge(run.placement)}</Table.Td>}
+                    {/* Time column - visible on large screens */}
+                    {isLargeScreen && (
+                      <Table.Td>
+                        <Text size="sm">{run.time ? formatTime(run.time) : "—"}</Text>
+                      </Table.Td>
+                    )}
+                    {/* Location column - visible on large screens */}
+                    {isLargeScreen && (
+                      <Table.Td>
+                        <Text
+                          size="sm"
+                          c="dimmed"
+                          style={{
+                            maxWidth: "120px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                          title={run.location || ""}
+                        >
+                          {run.location || "—"}
+                        </Text>
+                      </Table.Td>
+                    )}
                   </Table.Tr>
                 ))}
               </Table.Tbody>

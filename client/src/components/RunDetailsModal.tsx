@@ -52,9 +52,19 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
   const updateRunMutation = useMutation({
     mutationFn: ({ runId, data }: { runId: string; data: UpdateRunRequest }) =>
       runsApi.updateRun(runId, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["runs"] });
       queryClient.invalidateQueries({ queryKey: ["progress"] });
+      
+      // Invalidate locations cache if a new location was added
+      if (
+        variables.data.location &&
+        variables.data.location.trim() &&
+        !locationSuggestions.includes(variables.data.location.trim())
+      ) {
+        queryClient.invalidateQueries({ queryKey: ["locations"] });
+      }
+      
       setIsEditing(false);
       onClose();
       notifications.show({
