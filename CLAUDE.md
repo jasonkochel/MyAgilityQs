@@ -245,6 +245,7 @@ isMachEligible(dogClasses): boolean
 ## Development Workflow Memories
 
 - **I will run the dev server myself**
+- **The AI Agent should not run the dev server for the client. That should be kept running in a separate terminal window by the human attendant**
 
 When working on this codebase, maintain the established patterns for database operations, API routes, and shared type usage. Always test locally before deployment and ensure the build order is respected for workspace dependencies.
 
