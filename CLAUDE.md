@@ -130,6 +130,15 @@ import { Dog, CreateRunRequest, ApiResponse, calculateMachProgress } from '@my-a
 
 ## Development Workflow
 
+**WSL Development Environment**:
+- **OS**: Ubuntu on Windows Subsystem for Linux (WSL2)
+- **IDE**: VS Code on Windows with WSL extension (WSL-linked mode)
+- **Terminal**: Bash shells within WSL Ubuntu
+- **File System**: Project located at `~/src/MyAgilityQs` (Ubuntu partition, not `/mnt/c`)
+- **Benefits**: Native Linux performance, better build speeds, no Windows file IO hangs
+- **Network Access**: Vite dev server accessible from Windows at `http://172.31.91.177:5174/` (WSL IP)
+- **Windows Path Access**: When Windows paths like `C:\Users\...` are provided, translate to `/mnt/c/Users/...` to access from WSL
+
 **Local Development Setup**:
 1. **Client**: Vite dev server with live AWS backend
 2. **Server**: SAM CLI + Docker for local Lambda simulation
@@ -211,12 +220,27 @@ isMachEligible(dogClasses): boolean
 - **SAM CLI**: Required for local Lambda development
 - **Docker**: Required for SAM local containers
 - **Node.js 22+**: Required for both client and server
+- **Puppeteer MCP**: Browser automation for testing and screenshots
+
+### Puppeteer MCP Setup Status
+- **Installation**: `claude mcp add puppeteer -s user -- npx -y @modelcontextprotocol/server-puppeteer`
+- **Status**: ✅ **FULLY FUNCTIONAL** - Tools working in Claude Code sessions
+- **Available Tools**: `mcp__puppeteer__puppeteer_navigate`, `mcp__puppeteer__puppeteer_screenshot`, `mcp__puppeteer__puppeteer_click`, `mcp__puppeteer__puppeteer_fill`, `mcp__puppeteer__puppeteer_evaluate`, etc.
+- **WSL Dependencies**: Required Chrome dependencies installed via `sudo apt install -y libnss3 libxss1 libxtst6 libxrandr2 libasound2t64 libpangocairo-1.0-0 libatk1.0-0 libcairo-gobject2 libgtk-3-0 libgdk-pixbuf2.0-0 libxcomposite1 libxcursor1 libxdamage1 libxi6 libdrm2`
+- **Verified Functions**:
+  - ✅ Navigate to localhost:5174 (Vite dev server)
+  - ✅ Screenshot capture with visual output
+  - ✅ Console logs access via MCP resource `console://logs`
+- **Purpose**: Enable Claude to visually inspect and interact with the running app for UI testing and debugging
 
 ### Common Issues and Solutions
 - Always run `npm ci` from workspace root to create proper symlinks
 - Shared package must build before client/server
 - Use environment-based table selection for dev/prod databases
 - Test credentials available in `server/.env` for development
+- **Vite cache issues**: Clear with `rm -rf client/node_modules/.vite` if modules fail to load
+- **WSL network access**: Ensure Vite runs with `--host 0.0.0.0` for Windows browser access
+- **Google OAuth**: Callback URL needs updating for WSL IP (`http://172.31.91.177:5174/auth/callback`)
 
 When working on this codebase, maintain the established patterns for database operations, API routes, and shared type usage. Always test locally before deployment and ensure the build order is respected for workspace dependencies.
 

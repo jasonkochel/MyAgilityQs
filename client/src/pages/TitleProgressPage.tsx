@@ -48,10 +48,31 @@ const ClassProgressDisplay: React.FC<{
   className: string;
   currentLevel: CompetitionLevel;
   classProgress: any;
-}> = ({ className, currentLevel, classProgress }) => {
+  dogProgress: DogProgress;
+}> = ({ className, currentLevel, classProgress, dogProgress }) => {
   const nextLevel = getNextLevel(currentLevel);
   const progress = getProgressTowardsNextLevel(classProgress, currentLevel);
   const progressPercentage = (progress.current / progress.needed) * 100;
+
+  // For Masters level, show title progress instead of level progression
+  const isMasters = currentLevel === "Masters";
+  let mastersProgress = null;
+  
+  if (isMasters && dogProgress.mastersTitles) {
+    const titleData = className === "Standard" 
+      ? dogProgress.mastersTitles.standardTitles 
+      : dogProgress.mastersTitles.jumpersTitles;
+    
+    if (titleData) {
+      const earnedTitles = titleData.filter(t => t.earned);
+      const nextTitle = titleData.find(t => !t.earned);
+      
+      mastersProgress = {
+        earnedTitles,
+        nextTitle
+      };
+    }
+  }
 
   return (
     <div
@@ -71,15 +92,24 @@ const ClassProgressDisplay: React.FC<{
           </Text>
         </Group>
 
-        {nextLevel && (
+
+        {/* Show progress - either toward next level or next Masters title */}
+        {(nextLevel || mastersProgress?.nextTitle) && (
           <div>
             <Group justify="space-between" mb={4}>
               <Text size="sm" fw={500}>
-                {progress.current}/{progress.needed} Qs for {nextLevel}
+                {mastersProgress?.nextTitle ? (
+                  `${mastersProgress.nextTitle.progress}/${mastersProgress.nextTitle.needed} Qs for ${mastersProgress.nextTitle.title}`
+                ) : (
+                  `${progress.current}/${progress.needed} Qs for ${nextLevel}`
+                )}
               </Text>
             </Group>
             <Progress
-              value={progressPercentage}
+              value={mastersProgress?.nextTitle ? 
+                (mastersProgress.nextTitle.progress / mastersProgress.nextTitle.needed) * 100 : 
+                progressPercentage
+              }
               size="sm"
               color={progressPercentage >= 100 ? "green" : "blue"}
             />
@@ -89,6 +119,7 @@ const ClassProgressDisplay: React.FC<{
     </div>
   );
 };
+
 
 const DogProgressCard: React.FC<{
   dog: Dog;
@@ -141,6 +172,7 @@ const DogProgressCard: React.FC<{
                   className={dogClass.name}
                   currentLevel={dogClass.level}
                   classProgress={classProgress}
+                  dogProgress={dogProgress}
                 />
               </Grid.Col>
             );
@@ -262,10 +294,10 @@ export const TitleProgressPage: React.FC = () => {
           >
             Back
           </Button>
-          <Alert color="red" title="Error loading progress">
+          <Alert color="red" title="Error loading data">
             {(dogsError as Error)?.message ||
               (progressError as Error)?.message ||
-              "Failed to load progress data"}
+              "Failed to load data"}
           </Alert>
         </Stack>
       </Container>

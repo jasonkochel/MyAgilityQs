@@ -6,6 +6,7 @@ import {
   calculateDoubleQs,
   calculateTotalMachPoints,
   calculateMachProgress,
+  calculateMastersTitleProgress,
 } from "@my-agility-qs/shared";
 import { getDogsByUserId } from "./dogs.js";
 import { getRunsByDogId, getRunsByUserId } from "./runs.js";
@@ -54,6 +55,9 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
   const totalMachPoints = calculateTotalMachPoints(runs);
   const machProgressData = calculateMachProgress(runs);
 
+  // Calculate Masters title progress if dog has Masters classes
+  const mastersTitles = dog ? calculateMastersTitleProgress(runs, dog.classes) : undefined;
+
   const progress: DogProgress = {
     dogId,
     dogName,
@@ -61,6 +65,7 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
     doubleQs,
     machProgress: totalMachPoints, // Total MACH points (not capped)
     completeMachs: machProgressData.completeMachs,
+    mastersTitles,
   };
 
   return progress;

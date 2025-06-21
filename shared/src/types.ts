@@ -131,6 +131,19 @@ export interface ClassProgress {
   };
 }
 
+export interface MastersTitle {
+  title: string;
+  level: string;
+  earned: boolean;
+  progress: number; // Qs toward this title
+  needed: number; // Total Qs needed for this title
+}
+
+export interface MastersTitleProgress {
+  standardTitles: MastersTitle[];
+  jumpersTitles: MastersTitle[];
+}
+
 export interface DogProgress {
   dogId: string;
   dogName: string;
@@ -138,6 +151,7 @@ export interface DogProgress {
   doubleQs: number;
   machProgress: number; // Total MACH points (not capped)
   completeMachs?: number; // Number of complete MACHs earned
+  mastersTitles?: MastersTitleProgress; // Masters title progression
 }
 
 // API Response types
