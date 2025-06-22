@@ -7,10 +7,9 @@
 - ✅ **Removed "Refresh Token (Debug)" button** - Cleaned up Profile page by removing debug functionality and related imports
 - ✅ **Enhanced PWA installation visibility** - Added service worker registration, created InstallPrompt component, and integrated PWA install options into Main Menu and Profile pages
 - ✅ **Updated TODO.md checklists** - Reflected recent progress and completed items
+- ✅ **Track Qs Only setting persistence** - Discovered that Google Auth was always resetting trackQsOnly to false; fixed.
 
 ## 🐛 Bugs & Issues
-
-- **Track Qs Only setting persistence** - Still investigating. Added comprehensive debugging logging throughout client/server stack to identify root cause. The UI updates correctly during sessions but the database persistence appears to be failing silently.
 
 
 ## ✨ Feature Ideas

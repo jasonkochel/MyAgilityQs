@@ -86,7 +86,7 @@ export const ProfilePage: React.FC = () => {
             <Text fw={500} mb="xs">
               Install App
             </Text>
-            <PWAInstallButton compact showDebugInfo />
+            <PWAInstallButton compact />
             <Text size="xs" c="dimmed" mt="xs">
               Install MyAgilityQs on your device for quick access and offline use
             </Text>

@@ -101,7 +101,7 @@ export const MainMenuPage: React.FC = () => {
         </Stack>
 
         {/* PWA Installation Prompt */}
-        <PWAInstallButton showDebugInfo />
+        <PWAInstallButton />
 
         {/* Logout Button */}
         <Button

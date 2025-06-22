@@ -37,15 +37,12 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    console.log('[PWAProvider] Setting up PWA event listeners...');
-
     // Check if already installed
     const checkIfInstalled = () => {
       const isRunningStandalone = window.matchMedia('(display-mode: standalone)').matches;
       const isIOSStandalone = (window.navigator as any).standalone === true;
       const installed = isRunningStandalone || isIOSStandalone;
       setIsInstalled(installed);
-      console.log('[PWAProvider] Install status:', { isRunningStandalone, isIOSStandalone, installed });
       return installed;
     };
 
@@ -54,7 +51,6 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {
-      console.log('[PWAProvider] beforeinstallprompt event caught!', e);
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       
@@ -63,7 +59,6 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
     };
 
     const handleAppInstalled = () => {
-      console.log('[PWAProvider] App was installed');
       setIsInstalled(true);
       setDeferredPrompt(null);
       
@@ -79,7 +74,6 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
-      console.log('[PWAProvider] Cleaning up PWA event listeners');
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
@@ -98,11 +92,9 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
     }
 
     try {
-      console.log('[PWAProvider] Triggering install prompt...');
       await deferredPrompt.prompt();
       
       const { outcome } = await deferredPrompt.userChoice;
-      console.log('[PWAProvider] Install prompt result:', outcome);
       
       // Clear the prompt since it can only be used once
       setDeferredPrompt(null);
@@ -115,7 +107,6 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
         });
       }
     } catch (error) {
-      console.error('[PWAProvider] Error showing install prompt:', error);
       // Fallback to manual instructions
       notifications.show({
         title: 'Install MyAgilityQs',
