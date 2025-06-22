@@ -2,24 +2,16 @@
 
 ## ✅ Recently Completed
 
-- [x] **Location autocomplete cache fix** - Fixed issue where new locations weren't appearing in autocomplete suggestions in Edit Runs modal
-- [x] **View Runs responsive columns** - Show more columns (Result, Placement, Time, Location) on wider screens, with Result column only showing when tracking NQ runs
-- [x] **Title Progress tracking system** - Complete implementation with current levels, advancement progress, and MACH tracking
-- [x] **MACH Points entry** - User input field on Add Run form for Masters Standard/Jumpers
-- [x] **Progress backend logic** - Fixed Double Q and MACH point calculation with correct AKC rules
-- [x] **Cache management** - Improved efficiency with invalidateQueries instead of refetchQueries
-- [x] **Multiple MACH support** - Progress toward MACH2+ once a dog earns its first MACH
-- [x] **Profile page improvements** - Enhanced profile settings with better UI and functionality
-- [x] **My Dogs page enhancements** - Improved dog management interface
-- [x] **View Runs filtering** - Added new filtering capabilities and improved UI
 
 ## 🐛 Bugs & Issues
 
-- No known issues at this time
+- Main Menu is slightly too tall - it "wiggles" on a phone browser whereas it should fit on one screen with no scrolling
+- We do not need to show Login Success toast
+- The "Track Qs Only" setting is still not sticking.  It remains false in the database even when I turn it on in the UI.  The UI does remember the "true" setting for the remainder of the session, but it does not stick
+- Remove "Refresh Token (Debug)" button from Profile page
+- Make it more obvious that you can Add To Home Page (install PWA)
+- Update the checklists in this doc to reflect recent progress
 
-## Next Up
-
-- View Runs: Better filtering on more fields, but it has to stay clean and simple for the basic use case; perhaps a mode to view the data grouped by dog+class+level?
 
 ## ✨ Feature Ideas
 
@@ -43,7 +35,6 @@
 
 ## 📱 UX Enhancements
 
-- [ ] Dark mode support
 - [ ] Better mobile navigation patterns
 - [ ] Quick entry shortcuts/gestures
 - [ ] Bulk operations (edit multiple runs)

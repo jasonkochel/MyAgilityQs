@@ -1,10 +1,10 @@
 import { Button, Container, Group, Stack, Switch, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconArrowLeft, IconFileImport, IconLogout, IconRefresh } from "@tabler/icons-react";
+import { IconArrowLeft, IconFileImport, IconLogout } from "@tabler/icons-react";
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
-import { tokenManager } from "../lib/api";
 import { useNavigationHistory } from "../hooks/useNavigationHistory";
+import InstallPrompt from "../components/InstallPrompt";
 
 export const ProfilePage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -16,26 +16,6 @@ export const ProfilePage: React.FC = () => {
     setLocation("/login");
   };
 
-  const handleRefreshToken = async () => {
-    try {
-      console.log("Current refresh token:", tokenManager.getRefreshToken());
-      await tokenManager.refreshAccessToken();
-      notifications.show({
-        title: "Success",
-        message: "Token refreshed successfully",
-        color: "green",
-      });
-    } catch (error) {
-      console.error("Refresh token error:", error);
-      notifications.show({
-        title: "Error",
-        message: `Token refresh failed: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-        color: "red",
-      });
-    }
-  };
 
   return (
     <Container size="sm" py="md">
@@ -65,14 +45,22 @@ export const ProfilePage: React.FC = () => {
               description="When enabled, only qualifying runs will be tracked. Q/NQ options will be hidden."
               checked={user?.trackQsOnly ?? false}
               onChange={async (event) => {
+                const newValue = event.currentTarget.checked;
+                console.log("[ProfilePage] Track Qs Only toggle clicked, new value:", newValue);
+                console.log("[ProfilePage] Current user state:", user);
+                
                 try {
-                  await updateUserPreferences({ trackQsOnly: event.currentTarget.checked });
+                  console.log("[ProfilePage] Calling updateUserPreferences with:", { trackQsOnly: newValue });
+                  const result = await updateUserPreferences({ trackQsOnly: newValue });
+                  console.log("[ProfilePage] updateUserPreferences result:", result);
+                  
                   notifications.show({
                     title: "Success",
                     message: "Preference updated successfully",
                     color: "green",
                   });
-                } catch {
+                } catch (error) {
+                  console.error("[ProfilePage] updateUserPreferences error:", error);
                   notifications.show({
                     title: "Error",
                     message: "Failed to update preference",
@@ -101,16 +89,18 @@ export const ProfilePage: React.FC = () => {
             </Text>
           </div>
 
-          <Group>
-            <Button
-              variant="outline"
-              color="blue"
-              leftSection={<IconRefresh size={16} />}
-              onClick={handleRefreshToken}
-            >
-              Refresh Token (Debug)
-            </Button>
+          {/* PWA Installation */}
+          <div>
+            <Text fw={500} mb="xs">
+              Install App
+            </Text>
+            <InstallPrompt compact />
+            <Text size="xs" c="dimmed" mt="xs">
+              Install MyAgilityQs on your device for quick access and offline use
+            </Text>
+          </div>
 
+          <Group>
             <Button
               variant="outline"
               color="red"

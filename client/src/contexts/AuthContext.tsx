@@ -113,13 +113,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateUserPreferences = async (preferences: Partial<Pick<User, "trackQsOnly">>) => {
-    if (!user) return;
+    if (!user) {
+      console.error("[AuthContext] updateUserPreferences called but no user found");
+      return;
+    }
+
+    console.log("[AuthContext] updateUserPreferences called with:", preferences);
+    console.log("[AuthContext] Current user before update:", user);
 
     try {
       const updatedUser = await userApi.updateProfile(preferences);
+      console.log("[AuthContext] API returned updated user:", updatedUser);
+      
       setUser(updatedUser);
+      console.log("[AuthContext] User state updated successfully");
     } catch (error) {
-      console.error("Failed to update user preferences:", error);
+      console.error("[AuthContext] Failed to update user preferences:", error);
       throw error;
     }
   };

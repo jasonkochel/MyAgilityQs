@@ -1,5 +1,5 @@
 import { notifications } from "@mantine/notifications";
-import { IconCheck, IconX } from "@tabler/icons-react";
+import { IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
@@ -39,14 +39,6 @@ export const AuthCallbackPage: React.FC = () => {
 
         // Login with the received tokens
         await login(authData);
-
-        // Show success notification
-        notifications.show({
-          title: "Welcome!",
-          message: "Successfully signed in with Google",
-          color: "green",
-          icon: <IconCheck size="1rem" />,
-        });
 
         // Redirect to main menu
         setLocation("/");

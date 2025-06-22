@@ -2,6 +2,7 @@ import { Button, Container, Group, Stack, Text, Title } from "@mantine/core";
 import { IconDog, IconList, IconLogout, IconPlus, IconTrophy, IconUser } from "@tabler/icons-react";
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
+import InstallPrompt from "../components/InstallPrompt";
 
 export const MainMenuPage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -50,8 +51,8 @@ export const MainMenuPage: React.FC = () => {
   ];
 
   return (
-    <Container size="sm" py="xl">
-      <Stack align="center" gap="xl">
+    <Container size="sm" py="md">
+      <Stack align="center" gap="md">
         {/* Header */}
         <Group justify="center" align="center" gap="md">
           <IconDog size={32} color="var(--mantine-color-blue-6)" />
@@ -73,7 +74,7 @@ export const MainMenuPage: React.FC = () => {
               variant="filled"
               color={item.color}
               size="xl"
-              h={80}
+              h={64}
               leftSection={<item.icon size={24} />}
               onClick={() => setLocation(item.href)}
               styles={{
@@ -99,13 +100,16 @@ export const MainMenuPage: React.FC = () => {
           ))}
         </Stack>
 
+        {/* PWA Installation Prompt */}
+        <InstallPrompt />
+
         {/* Logout Button */}
         <Button
           variant="subtle"
           color="gray"
           leftSection={<IconLogout size={16} />}
           onClick={handleLogout}
-          mt="xl"
+          mt="md"
         >
           Sign Out
         </Button>
