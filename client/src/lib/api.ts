@@ -306,10 +306,7 @@ export const userApi = {
 
   // Update user preferences
   updateProfile: async (preferences: UpdateUserRequest): Promise<User> => {
-    console.log("[userApi.updateProfile] Sending request with preferences:", preferences);
-    const result = await apiRequest(api.put("user/profile", { json: preferences }));
-    console.log("[userApi.updateProfile] Received response:", result);
-    return result as User;
+    return apiRequest(api.put("user/profile", { json: preferences })) as Promise<User>;
   },
 };
 

@@ -2,15 +2,15 @@
 
 ## ✅ Recently Completed
 
+- ✅ **Fixed Main Menu height issue** - Reduced container padding (`py="xl"` → `py="md"`), stack gaps (`gap="xl"` → `gap="md"`), button heights (80px → 64px), and logout button margin (`mt="xl"` → `mt="md"`) to eliminate mobile browser wiggling
+- ✅ **Removed Login Success toast** - Eliminated unnecessary "Welcome! Successfully signed in with Google" notification from OAuth callback
+- ✅ **Removed "Refresh Token (Debug)" button** - Cleaned up Profile page by removing debug functionality and related imports
+- ✅ **Enhanced PWA installation visibility** - Added service worker registration, created InstallPrompt component, and integrated PWA install options into Main Menu and Profile pages
+- ✅ **Updated TODO.md checklists** - Reflected recent progress and completed items
 
 ## 🐛 Bugs & Issues
 
-- Main Menu is slightly too tall - it "wiggles" on a phone browser whereas it should fit on one screen with no scrolling
-- We do not need to show Login Success toast
-- The "Track Qs Only" setting is still not sticking.  It remains false in the database even when I turn it on in the UI.  The UI does remember the "true" setting for the remainder of the session, but it does not stick
-- Remove "Refresh Token (Debug)" button from Profile page
-- Make it more obvious that you can Add To Home Page (install PWA)
-- Update the checklists in this doc to reflect recent progress
+- **Track Qs Only setting persistence** - Still investigating. Added comprehensive debugging logging throughout client/server stack to identify root cause. The UI updates correctly during sessions but the database persistence appears to be failing silently.
 
 
 ## ✨ Feature Ideas
@@ -25,10 +25,10 @@
 - [ ] Add more comprehensive testing
 - [ ] Performance optimization for large datasets
 - [ ] Add analytics/metrics tracking
-- [ ] **PWA Implementation**:
-  - [ ] Web App Manifest (`client/public/manifest.json`) - app metadata, icons, display mode
-  - [ ] Service Worker (`client/public/sw.js`) - cache static assets and API responses
-  - [ ] Installation prompt - detect installability and show custom install button
+- [x] **PWA Implementation** (Basic functionality completed):
+  - [x] Web App Manifest (`client/public/manifest.json`) - app metadata, icons, display mode
+  - [x] Service Worker (`client/public/sw.js`) - cache static assets and API responses
+  - [x] Installation prompt - detect installability and show custom install button
   - [ ] Offline strategy - cache-first for assets, network-first for API with fallbacks
   - [ ] App shell architecture - cache core UI, lazy load content
   - [ ] Offline run entry - store pending runs locally, sync when connection returns

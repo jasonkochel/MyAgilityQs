@@ -20,9 +20,13 @@ interface InstallPromptProps {
 export const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss, compact = false }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [showFallback, setShowFallback] = useState(false);
 
   useEffect(() => {
+    console.log('[InstallPrompt] Component mounted, waiting for beforeinstallprompt event');
+    
     const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('[InstallPrompt] beforeinstallprompt event fired!', e);
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
       
@@ -30,6 +34,14 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss, compact
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setShowPrompt(true);
     };
+
+    // Show fallback after a delay if no browser prompt appears
+    const fallbackTimer = setTimeout(() => {
+      if (!deferredPrompt && !showPrompt) {
+        console.log('[InstallPrompt] No browser prompt detected, showing fallback');
+        setShowFallback(true);
+      }
+    }, 3000); // Wait 3 seconds for browser prompt
 
     const handleAppInstalled = () => {
       console.log('PWA was installed');
@@ -47,10 +59,11 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss, compact
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
+      clearTimeout(fallbackTimer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
-  }, []);
+  }, [deferredPrompt, showPrompt]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -83,11 +96,22 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss, compact
 
   const handleDismiss = () => {
     setShowPrompt(false);
+    setShowFallback(false);
     onDismiss?.();
   };
 
-  // Don't show if no prompt is available or if already dismissed
-  if (!showPrompt || !deferredPrompt) {
+  const handleFallbackInstall = () => {
+    // Show instructions for manual installation
+    notifications.show({
+      title: 'Install MyAgilityQs',
+      message: 'Tap the browser menu and look for "Add to Home Screen" or "Install App"',
+      color: 'blue',
+      autoClose: 7000,
+    });
+  };
+
+  // Don't show if no prompt is available and no fallback
+  if (!showPrompt && !showFallback) {
     return null;
   }
 
@@ -97,7 +121,7 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss, compact
         variant="light"
         color="blue"
         leftSection={<IconDownload size={16} />}
-        onClick={handleInstallClick}
+        onClick={deferredPrompt ? handleInstallClick : handleFallbackInstall}
         size="sm"
       >
         Install App
@@ -136,7 +160,7 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ onDismiss, compact
           color="blue"
           size="sm"
           leftSection={<IconDownload size={16} />}
-          onClick={handleInstallClick}
+          onClick={deferredPrompt ? handleInstallClick : handleFallbackInstall}
         >
           Install
         </Button>

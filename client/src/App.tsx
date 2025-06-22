@@ -1,6 +1,7 @@
 import { Route, Switch } from "wouter";
 import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
+import { PWAProvider } from "./contexts/PWAContext";
 import { AddDogPage } from "./pages/AddDogPage";
 import { AddRunPage } from "./pages/AddRunPage";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
@@ -16,7 +17,8 @@ import { ViewRunsPage } from "./pages/ViewRunsPage";
 
 function App() {
   return (
-    <AuthProvider>
+    <PWAProvider>
+      <AuthProvider>
       <Switch>
         <Route path="/login" component={LoginPage} />
         <Route path="/signup" component={SignupPage} />
@@ -37,6 +39,7 @@ function App() {
         </ProtectedRoute>
       </Switch>
     </AuthProvider>
+    </PWAProvider>
   );
 }
 

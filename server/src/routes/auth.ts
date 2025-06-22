@@ -410,9 +410,8 @@ export const authHandler = {
 
       // Create user profile in our database using email as the user ID for consistency
       // This ensures users with same email from different IdPs share the same database record
-      await createOrUpdateUserProfile(email, email, {
-        trackQsOnly: false, // Default setting
-      });
+      // For existing users, this preserves their current preferences (like trackQsOnly)
+      await createOrUpdateUserProfile(email, email);
       const response: ApiResponse = {
         success: true,
         message: "Google authentication successful",

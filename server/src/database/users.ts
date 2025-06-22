@@ -61,9 +61,6 @@ export async function updateUserPreferences(
   userId: string,
   preferences: Partial<Pick<User, "trackQsOnly">>
 ): Promise<User | null> {
-  console.log("[updateUserPreferences] Starting update for userId:", userId);
-  console.log("[updateUserPreferences] Preferences received:", preferences);
-  
   const keys = KeyPatterns.userProfile(userId);
 
   // Build update expression
@@ -72,7 +69,6 @@ export async function updateUserPreferences(
   const expressionAttributeValues: Record<string, any> = {};
 
   if (preferences.trackQsOnly !== undefined) {
-    console.log("[updateUserPreferences] Adding trackQsOnly update:", preferences.trackQsOnly);
     updateExpressions.push("#trackQsOnly = :trackQsOnly");
     expressionAttributeNames["#trackQsOnly"] = "trackQsOnly";
     expressionAttributeValues[":trackQsOnly"] = preferences.trackQsOnly;
@@ -82,17 +78,12 @@ export async function updateUserPreferences(
   expressionAttributeNames["#updatedAt"] = "updatedAt";
   expressionAttributeValues[":updatedAt"] = createTimestamp();
 
-  console.log("[updateUserPreferences] Update expressions:", updateExpressions);
-  console.log("[updateUserPreferences] Expression values:", expressionAttributeValues);
-
   if (updateExpressions.length === 1) {
     // Only updatedAt, no actual changes
-    console.log("[updateUserPreferences] No changes detected, returning existing profile");
     return getUserProfile(userId);
   }
 
   try {
-    console.log("[updateUserPreferences] Executing DynamoDB update...");
     const result = await dynamoClient.send(
       new UpdateCommand({
         TableName: TABLE_NAME,
@@ -106,22 +97,17 @@ export async function updateUserPreferences(
     );
 
     if (!result.Attributes) {
-      console.log("[updateUserPreferences] No attributes returned from update");
       return null;
     }
 
     // Remove DynamoDB-specific fields
     const { PK, SK, EntityType, ...user } = result.Attributes;
-    console.log("[updateUserPreferences] Update successful, returning user:", user);
     return user as User;
   } catch (error: any) {
-    console.error("[updateUserPreferences] DynamoDB error:", error);
     if (error.name === "ConditionalCheckFailedException") {
       // User doesn't exist
-      console.log("[updateUserPreferences] User does not exist, returning null");
       return null;
     }
-    console.error("[updateUserPreferences] Throwing error:", error);
     throw error;
   }
 }

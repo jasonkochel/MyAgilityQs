@@ -4,7 +4,7 @@ import { IconArrowLeft, IconFileImport, IconLogout } from "@tabler/icons-react";
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigationHistory } from "../hooks/useNavigationHistory";
-import InstallPrompt from "../components/InstallPrompt";
+import PWAInstallButton from "../components/PWAInstallButton";
 
 export const ProfilePage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -45,22 +45,14 @@ export const ProfilePage: React.FC = () => {
               description="When enabled, only qualifying runs will be tracked. Q/NQ options will be hidden."
               checked={user?.trackQsOnly ?? false}
               onChange={async (event) => {
-                const newValue = event.currentTarget.checked;
-                console.log("[ProfilePage] Track Qs Only toggle clicked, new value:", newValue);
-                console.log("[ProfilePage] Current user state:", user);
-                
                 try {
-                  console.log("[ProfilePage] Calling updateUserPreferences with:", { trackQsOnly: newValue });
-                  const result = await updateUserPreferences({ trackQsOnly: newValue });
-                  console.log("[ProfilePage] updateUserPreferences result:", result);
-                  
+                  await updateUserPreferences({ trackQsOnly: event.currentTarget.checked });
                   notifications.show({
                     title: "Success",
                     message: "Preference updated successfully",
                     color: "green",
                   });
-                } catch (error) {
-                  console.error("[ProfilePage] updateUserPreferences error:", error);
+                } catch {
                   notifications.show({
                     title: "Error",
                     message: "Failed to update preference",
@@ -94,7 +86,7 @@ export const ProfilePage: React.FC = () => {
             <Text fw={500} mb="xs">
               Install App
             </Text>
-            <InstallPrompt compact />
+            <PWAInstallButton compact showDebugInfo />
             <Text size="xs" c="dimmed" mt="xs">
               Install MyAgilityQs on your device for quick access and offline use
             </Text>

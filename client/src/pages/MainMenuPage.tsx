@@ -2,7 +2,7 @@ import { Button, Container, Group, Stack, Text, Title } from "@mantine/core";
 import { IconDog, IconList, IconLogout, IconPlus, IconTrophy, IconUser } from "@tabler/icons-react";
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
-import InstallPrompt from "../components/InstallPrompt";
+import PWAInstallButton from "../components/PWAInstallButton";
 
 export const MainMenuPage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -101,7 +101,7 @@ export const MainMenuPage: React.FC = () => {
         </Stack>
 
         {/* PWA Installation Prompt */}
-        <InstallPrompt />
+        <PWAInstallButton showDebugInfo />
 
         {/* Logout Button */}
         <Button

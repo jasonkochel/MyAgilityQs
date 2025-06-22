@@ -23,9 +23,7 @@ export const userHandler = {
         // Create default profile for new users
         // For legacy users (created before proper signup flow), email might not be available
         // Use "unknown" as a placeholder - the client can handle this
-        console.log("[getUserProfile] Creating new user profile for userId:", userId);
         user = await createOrUpdateUserProfile(userId, userEmail || "unknown");
-        console.log("[getUserProfile] Created new user profile:", user);
       }
 
       const response: ApiResponse = {
@@ -58,17 +56,14 @@ export const userHandler = {
   updateUserProfile: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
     try {
       const userId = event.user!.userId;
-      console.log("[updateUserProfile] Request from userId:", userId);
 
       if (!event.body) {
         throw createError(400, "Request body is required");
       }
 
       const request = event.body as unknown as UpdateUserRequest;
-      console.log("[updateUserProfile] Request body:", request);
 
       const updatedUser = await updateUserPreferences(userId, request);
-      console.log("[updateUserProfile] Updated user result:", updatedUser);
 
       if (!updatedUser) {
         throw createError(404, "User profile not found");

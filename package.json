@@ -16,7 +16,7 @@
     "build:client": "npm run build --workspace=client",
     "build:server": "npm run build --workspace=server",
     "build:shared": "npm run build --workspace=shared",
-    "type-check": "npm run type-check --workspace=client && npm run type-check --workspace=server",
+    "type-check": "npm run type-check --workspace=client && npm run type-check --workspace=server && npm run type-check --workspace=shared",
     "lint": "npm run lint --workspace=client && npm run lint --workspace=server",
     "test": "npm run test --workspace=client",
     "clean": "npm run clean --workspace=client && npm run clean --workspace=server && npm run clean --workspace=shared",
