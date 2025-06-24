@@ -91,9 +91,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 if ('caches' in window) {
                   caches.keys().then(names => {
                     names.forEach(name => caches.delete(name));
-                  }).then(() => window.location.reload());
+                  }).then(() => {
+                    location.reload();
+                  });
                 } else {
-                  window.location.reload();
+                  location.reload();
                 }
               }}
               style={{
