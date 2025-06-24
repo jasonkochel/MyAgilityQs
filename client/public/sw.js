@@ -1,7 +1,7 @@
 // Basic service worker for PWA installation support
 // This is a minimal service worker to enable PWA installation
 
-const CACHE_NAME = 'myagilityqs-v1';
+const CACHE_NAME = 'myagilityqs-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
