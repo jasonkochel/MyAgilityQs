@@ -10,7 +10,6 @@ export const AuthCallbackPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
   const [isProcessing, setIsProcessing] = useState(true);
-
   useEffect(() => {
     const handleCallback = async () => {
       try {
@@ -18,28 +17,42 @@ export const AuthCallbackPage: React.FC = () => {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get("code");
         const error = urlParams.get("error");
+        const errorDescription = urlParams.get("error_description");
+
+        console.log("OAuth callback received:", {
+          url: window.location.href,
+          code: code ? `${code.substring(0, 10)}...` : null,
+          error,
+          errorDescription,
+          allParams: Object.fromEntries(urlParams.entries())
+        });
 
         if (error) {
-          throw new Error(`OAuth error: ${error}`);
+          console.error("OAuth error details:", { error, errorDescription });
+          throw new Error(`OAuth error: ${error}${errorDescription ? ` - ${errorDescription}` : ''}`);
         }
 
         if (!code) {
+          console.error("No authorization code in URL:", window.location.href);
           throw new Error("No authorization code received");
         }
 
         // Prevent double-processing of the same code
         if (sessionStorage.getItem(`oauth_code_${code}`)) {
-          // Already processed, do nothing
+          console.log("Code already processed, skipping");
           return;
         }
         sessionStorage.setItem(`oauth_code_${code}`, "used");
 
+        console.log("Exchanging code for tokens...");
         // Exchange the code for tokens via our backend
         const authData: AuthResponse = await authApi.googleCallback(code);
 
+        console.log("Tokens received, logging in...");
         // Login with the received tokens
         await login(authData);
 
+        console.log("Login successful, redirecting...");
         // Redirect to main menu
         setLocation("/");
       } catch (error) {

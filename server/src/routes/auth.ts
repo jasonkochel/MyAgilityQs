@@ -273,17 +273,25 @@ export const authHandler = {
         headers: { "Content-Type": "application/json" },
       };
     }
-  },
-  googleLogin: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+  },  googleLogin: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
     try {
       // Get redirect URI from query parameters
       const redirectUri =
         event.queryStringParameters?.redirect_uri ||
-        `${process.env.FRONTEND_URL || "http://localhost:5173"}/auth/callback`;
+        `${process.env.FRONTEND_URL || "http://localhost:5174"}/auth/callback`;
 
       // Build the Cognito Hosted UI URL for Google OAuth
       const cognitoDomain = process.env.COGNITO_DOMAIN!;
       const clientId = process.env.COGNITO_CLIENT_ID!;
+
+      // Enhanced debugging
+      console.log("Google OAuth URL generation:", {
+        cognitoDomain,
+        clientId,
+        redirectUri,
+        frontendUrl: process.env.FRONTEND_URL,
+        queryParams: event.queryStringParameters
+      });
 
       const googleAuthUrl = new URL(`${cognitoDomain}/oauth2/authorize`);
       googleAuthUrl.searchParams.set("client_id", clientId);
@@ -321,7 +329,6 @@ export const authHandler = {
       };
     }
   },
-
   googleCallback: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
     try {
       if (!event.body) {
@@ -345,11 +352,16 @@ export const authHandler = {
         parsedBody = event.body as GoogleCallbackRequest;
       }
 
-      console.log("Google callback request body:", parsedBody);
+      console.log("Google callback request:", {
+        body: parsedBody,
+        headers: event.headers,
+        queryStringParameters: event.queryStringParameters
+      });
 
       const { code } = parsedBody;
 
       if (!code) {
+        console.error("No authorization code in request body:", parsedBody);
         const response: ApiResponse = {
           success: false,
           error: "bad_request",
@@ -365,7 +377,7 @@ export const authHandler = {
       // Exchange the authorization code for tokens via Cognito
       const cognitoDomain = process.env.COGNITO_DOMAIN!;
       const clientId = process.env.COGNITO_CLIENT_ID!;
-      const redirectUri = `${process.env.FRONTEND_URL || "http://localhost:5173"}/auth/callback`;
+      const redirectUri = `${process.env.FRONTEND_URL || "http://localhost:5174"}/auth/callback`;
 
       const tokenRequest = new URLSearchParams({
         grant_type: "authorization_code",
@@ -393,12 +405,13 @@ export const authHandler = {
 
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text();
-        console.log("Token exchange error response:", {
+        console.error("Token exchange failed:", {
           status: tokenResponse.status,
           statusText: tokenResponse.statusText,
-          errorBody: errorText
+          errorBody: errorText,
+          requestBody: tokenRequest.toString()
         });
-        throw new Error(`Token exchange failed: ${tokenResponse.statusText}`);
+        throw new Error(`Token exchange failed: ${tokenResponse.statusText} - ${errorText}`);
       }
       const tokenData = (await tokenResponse.json()) as CognitoTokenResponse; // Decode the ID token to get user information
       const idTokenPayload = JSON.parse(
