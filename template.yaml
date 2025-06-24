@@ -258,20 +258,18 @@ Resources:
                 - !Sub "${DynamoTable.Arn}/index/*"
       Environment:
         Variables:
+          AWS_REGION: !Ref AWS::Region
+          DYNAMODB_TABLE_NAME: !Ref DynamoTable
+          ENVIRONMENT: !Ref Environment
+          SENTRY_DSN: https://b9b22e43ca994eaf702953b3369b7a14@o4509555260981248.ingest.us.sentry.io/4509555265110016
           COGNITO_USER_POOL_ID: us-east-1_808uxrU8E
           COGNITO_CLIENT_ID: 7qaajum3pc6ehvkbhidjvmrjmq
           COGNITO_DOMAIN: https://auth.myagilityqs.com
+          COGNITO_REGION: us-east-1
           FRONTEND_URL: !If
             - IsProduction
             - !Sub "https://${DomainName}"
             - !Ref CorsOrigin
-          COGNITO_REGION: us-east-1
-          CORS_ORIGIN: !If
-            - IsProduction
-            - !Sub "https://${DomainName}"
-            - !Ref CorsOrigin
-          NODE_ENV: !Ref Environment
-          DYNAMODB_TABLE_NAME: !Ref DynamoTable
       FunctionUrlConfig:
         AuthType: NONE
 

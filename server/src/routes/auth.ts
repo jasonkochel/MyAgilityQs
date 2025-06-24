@@ -11,9 +11,17 @@ import { APIGatewayProxyResultV2 } from "aws-lambda";
 import { createOrUpdateUserProfile } from "../database/users.js";
 import { AuthenticatedEvent } from "../middleware/jwtAuth";
 
+// Validate required environment variables
+if (!process.env.COGNITO_REGION) {
+  throw new Error('COGNITO_REGION environment variable is required');
+}
+if (!process.env.FRONTEND_URL) {
+  throw new Error('FRONTEND_URL environment variable is required');
+}
+
 // Initialize Cognito client
 const cognitoClient = new CognitoIdentityProviderClient({
-  region: process.env.COGNITO_REGION || "us-east-1",
+  region: process.env.COGNITO_REGION,
 });
 
 // Note: calculateSecretHash function removed - not needed for React app (public client)
@@ -279,7 +287,7 @@ export const authHandler = {
       // Get redirect URI from query parameters
       const redirectUri =
         event.queryStringParameters?.redirect_uri ||
-        `${process.env.FRONTEND_URL || "http://localhost:5174"}/auth/callback`;      // Store the redirect URI in the response so the frontend can use the same one for the callback
+        `${process.env.FRONTEND_URL}/auth/callback`;      // Store the redirect URI in the response so the frontend can use the same one for the callback
       // This ensures consistency between the initial auth request and token exchange
       const cognitoDomain = process.env.COGNITO_DOMAIN!;
       const clientId = process.env.COGNITO_CLIENT_ID!;
@@ -355,7 +363,7 @@ export const authHandler = {
       const cognitoDomain = process.env.COGNITO_DOMAIN!;
       const clientId = process.env.COGNITO_CLIENT_ID!;
       // Use the same redirect URI that was used in the initial OAuth request
-      const redirectUri = requestRedirectUri || `${process.env.FRONTEND_URL || "http://localhost:5174"}/auth/callback`;
+      const redirectUri = requestRedirectUri || `${process.env.FRONTEND_URL}/auth/callback`;
 
       const tokenRequest = new URLSearchParams({
         grant_type: "authorization_code",

@@ -24,6 +24,7 @@
     "@middy/http-json-body-parser": "^6.3.2",
     "@middy/http-router": "^6.3.2",
     "@my-agility-qs/shared": "*",
+    "@sentry/serverless": "^7.120.3",
     "@types/http-errors": "^2.0.5",
     "aws-jwt-verify": "^5.1.0",
     "http-errors": "^2.0.0",

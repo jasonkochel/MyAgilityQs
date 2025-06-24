@@ -3,11 +3,28 @@ import cors from "@middy/http-cors";
 import httpErrorHandler from "@middy/http-error-handler";
 import jsonBodyParser from "@middy/http-json-body-parser";
 import createRouter from "@middy/http-router";
+import * as Sentry from "@sentry/serverless";
 
 // Import routes and conditional auth middleware
 // DEBUG: CORS middleware temporarily disabled for testing
 import { conditionalJwtAuth } from "./middleware/jwtAuth";
+import { sentryContext } from "./middleware/sentryContext";
 import { routes } from "./router";
+
+// Validate required environment variables
+if (!process.env.SENTRY_DSN) {
+  throw new Error('SENTRY_DSN environment variable is required');
+}
+if (!process.env.ENVIRONMENT) {
+  throw new Error('ENVIRONMENT environment variable is required');
+}
+
+// Initialize Sentry
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.ENVIRONMENT,
+  tracesSampleRate: process.env.ENVIRONMENT === "production" ? 0.1 : 1.0,
+});
 
 // Create the router with all route definitions
 const router = createRouter(routes);
@@ -24,4 +41,5 @@ export const handler = middy(router)
     })
   )
   .use(conditionalJwtAuth()) // Apply JWT auth conditionally based on route
+  .use(sentryContext()) // Add Sentry context for better error tracking
   .use(httpErrorHandler());

@@ -29,13 +29,13 @@
     - [x] Configure performance monitoring for Core Web Vitals (browser tracing + session replay)
     - [x] Add user context (email, userId) for better error tracking (`contexts/AuthContext.tsx`)
     - [ ] Configure source maps upload for production builds
-  - [ ] **Server Setup**:
-    - [ ] Install `@sentry/serverless` package for AWS Lambda
-    - [ ] Initialize Sentry in `server/src/index.ts` Lambda handler
-    - [ ] Add Sentry environment variables to SAM template
-    - [ ] Integrate with existing Middy middleware stack
-    - [ ] Add custom error contexts (userId, API endpoint, request details)
-    - [ ] Configure Lambda-specific performance monitoring
+  - [x] **Server Setup**: ✅ COMPLETED
+    - [x] Install `@sentry/serverless` package for AWS Lambda
+    - [x] Initialize Sentry in `server/src/index.ts` Lambda handler (`index.ts:15-19`)
+    - [x] Add Sentry environment variables to SAM template (`template.yaml:274-276`)
+    - [x] Integrate with existing Middy middleware stack (`index.ts:36`, `sentryContext.ts`)
+    - [x] Add custom error contexts (userId, API endpoint, request details) (`utils/sentryHelpers.ts`)
+    - [x] Configure Lambda-specific performance monitoring (traces + breadcrumbs)
     - [ ] Set up release tracking for deployments
   - [ ] **Shared Setup**:
     - [ ] Add Sentry types to shared package if needed
