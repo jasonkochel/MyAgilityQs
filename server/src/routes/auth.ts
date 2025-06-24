@@ -282,10 +282,8 @@ export const authHandler = {
 
       // Build the Cognito Hosted UI URL for Google OAuth
       const cognitoDomain = process.env.COGNITO_DOMAIN!;
-      const clientId = process.env.COGNITO_CLIENT_ID!;
-
-      // Enhanced debugging
-      console.log("Google OAuth URL generation:", {
+      const clientId = process.env.COGNITO_CLIENT_ID!;      // Enhanced debugging
+      console.log("[GOOGLE_AUTH] OAuth URL generation:", {
         cognitoDomain,
         clientId,
         redirectUri,
@@ -300,7 +298,7 @@ export const authHandler = {
       googleAuthUrl.searchParams.set("redirect_uri", redirectUri);
       googleAuthUrl.searchParams.set("identity_provider", "Google");
 
-      console.log("Generated Google auth URL:", googleAuthUrl.toString());
+      console.log("[GOOGLE_AUTH] Generated Google auth URL:", googleAuthUrl.toString());
 
       const response: ApiResponse = {
         success: true,
@@ -313,9 +311,8 @@ export const authHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
         headers: { "Content-Type": "application/json" },
-      };
-    } catch (error) {
-      console.error("Google login URL generation error:", error);
+      };    } catch (error) {
+      console.error("[GOOGLE_AUTH] Google login URL generation error:", error);
       const response: ApiResponse = {
         success: false,
         error: "google_login_failed",
@@ -350,9 +347,7 @@ export const authHandler = {
         parsedBody = JSON.parse(event.body);
       } else {
         parsedBody = event.body as GoogleCallbackRequest;
-      }
-
-      console.log("Google callback request:", {
+      }      console.log("[GOOGLE_AUTH] Google callback request:", {
         body: parsedBody,
         headers: event.headers,
         queryStringParameters: event.queryStringParameters
@@ -361,7 +356,7 @@ export const authHandler = {
       const { code } = parsedBody;
 
       if (!code) {
-        console.error("No authorization code in request body:", parsedBody);
+        console.error("[GOOGLE_AUTH] No authorization code in request body:", parsedBody);
         const response: ApiResponse = {
           success: false,
           error: "bad_request",
@@ -372,12 +367,16 @@ export const authHandler = {
           body: JSON.stringify(response),
           headers: { "Content-Type": "application/json" },
         };
-      }
-
-      // Exchange the authorization code for tokens via Cognito
+      }      // Exchange the authorization code for tokens via Cognito
       const cognitoDomain = process.env.COGNITO_DOMAIN!;
       const clientId = process.env.COGNITO_CLIENT_ID!;
-      const redirectUri = `${process.env.FRONTEND_URL || "http://localhost:5174"}/auth/callback`;
+      const redirectUri = `${process.env.FRONTEND_URL || "http://localhost:5174"}/auth/callback`;      console.log("[GOOGLE_AUTH] Token exchange configuration:", {
+        cognitoDomain,
+        clientId,
+        redirectUri,
+        codeLength: code?.length || 0,
+        frontendUrl: process.env.FRONTEND_URL
+      });
 
       const tokenRequest = new URLSearchParams({
         grant_type: "authorization_code",
@@ -386,14 +385,7 @@ export const authHandler = {
         redirect_uri: redirectUri,
       });
 
-      // Debug logging
-      console.log("Token exchange request details:", {
-        cognitoDomain,
-        clientId,
-        redirectUri,
-        codeLength: code?.length || 0,
-        requestBody: tokenRequest.toString()
-      });
+      console.log("[GOOGLE_AUTH] Token request body:", tokenRequest.toString());
 
       const tokenResponse = await fetch(`${cognitoDomain}/oauth2/token`, {
         method: "POST",
@@ -401,30 +393,80 @@ export const authHandler = {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: tokenRequest.toString(),
-      });
+      });      console.log("[GOOGLE_AUTH] Token response status:", tokenResponse.status);
 
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text();
-        console.error("Token exchange failed:", {
+        console.error("[GOOGLE_AUTH] Token exchange failed:", {
           status: tokenResponse.status,
           statusText: tokenResponse.statusText,
           errorBody: errorText,
+          requestUrl: `${cognitoDomain}/oauth2/token`,
           requestBody: tokenRequest.toString()
         });
-        throw new Error(`Token exchange failed: ${tokenResponse.statusText} - ${errorText}`);
+
+        const response: ApiResponse = {
+          success: false,
+          error: "token_exchange_failed",
+          message: `Token exchange failed: ${tokenResponse.status} - ${errorText}`,
+        };
+        return {
+          statusCode: 400,
+          body: JSON.stringify(response),
+          headers: { "Content-Type": "application/json" },
+        };
+      }      const tokenData = (await tokenResponse.json()) as CognitoTokenResponse;
+
+      console.log("[GOOGLE_AUTH] Token data received:", {
+        hasAccessToken: !!tokenData.access_token,
+        hasRefreshToken: !!tokenData.refresh_token,
+        hasIdToken: !!tokenData.id_token,
+        expiresIn: tokenData.expires_in
+      });
+
+      // Decode the ID token to get user information
+      if (!tokenData.id_token) {
+        console.error("[GOOGLE_AUTH] No ID token received from Cognito");
+        const response: ApiResponse = {
+          success: false,
+          error: "authentication_error",
+          message: "No ID token received from authentication provider",
+        };
+        return {
+          statusCode: 400,
+          body: JSON.stringify(response),
+          headers: { "Content-Type": "application/json" },
+        };
       }
-      const tokenData = (await tokenResponse.json()) as CognitoTokenResponse; // Decode the ID token to get user information
-      const idTokenPayload = JSON.parse(
-        Buffer.from(tokenData.id_token.split(".")[1], "base64").toString()
-      );
+
+      let idTokenPayload;
+      try {
+        idTokenPayload = JSON.parse(
+          Buffer.from(tokenData.id_token.split(".")[1], "base64").toString()
+        );        console.log("[GOOGLE_AUTH] ID token payload:", {
+          email: idTokenPayload.email,
+          sub: idTokenPayload.sub,
+          iss: idTokenPayload.iss
+        });
+      } catch (error) {
+        console.error("[GOOGLE_AUTH] Failed to decode ID token:", error);
+        const response: ApiResponse = {
+          success: false,
+          error: "authentication_error",
+          message: "Failed to decode authentication token",
+        };
+        return {
+          statusCode: 400,
+          body: JSON.stringify(response),
+          headers: { "Content-Type": "application/json" },
+        };
+      }
 
       // Create or update user in our database
       const email = idTokenPayload.email;
-      const cognitoUserId = idTokenPayload.sub;
-
-      // Validate that we have a valid email
+      const cognitoUserId = idTokenPayload.sub;      // Validate that we have a valid email
       if (!email || typeof email !== "string" || email.trim() === "") {
-        console.error("Invalid or missing email in Google ID token:", {
+        console.error("[GOOGLE_AUTH] Invalid or missing email in Google ID token:", {
           email,
           payload: idTokenPayload,
         });
@@ -438,12 +480,18 @@ export const authHandler = {
           body: JSON.stringify(response),
           headers: { "Content-Type": "application/json" },
         };
-      }
-
-      // Create user profile in our database using email as the user ID for consistency
+      }      // Create user profile in our database using email as the user ID for consistency
       // This ensures users with same email from different IdPs share the same database record
       // For existing users, this preserves their current preferences (like trackQsOnly)
-      await createOrUpdateUserProfile(email, email);
+      try {
+        console.log("[GOOGLE_AUTH] Creating/updating user profile for:", email);
+        await createOrUpdateUserProfile(email, email);
+        console.log("[GOOGLE_AUTH] User profile created/updated successfully");
+      } catch (dbError) {
+        console.error("[GOOGLE_AUTH] Database error during user profile creation:", dbError);
+        // Don't fail the auth flow for database errors - user can still log in
+      }
+
       const response: ApiResponse = {
         success: true,
         message: "Google authentication successful",
@@ -457,7 +505,7 @@ export const authHandler = {
             email: email,
           },
         },
-      };
+      };      console.log("[GOOGLE_AUTH] Google authentication successful for:", email);
 
       return {
         statusCode: 200,
@@ -465,7 +513,7 @@ export const authHandler = {
         headers: { "Content-Type": "application/json" },
       };
     } catch (error) {
-      console.error("Google callback error:", error);
+      console.error("[GOOGLE_AUTH] Google callback error:", error);
       const response: ApiResponse = {
         success: false,
         error: "google_callback_failed",
