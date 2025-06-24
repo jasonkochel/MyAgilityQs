@@ -58,12 +58,14 @@ export const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, setLocation] = useLocation();
-  const { login, isAuthenticated } = useAuth(); // Use effect to handle redirect instead of doing it in render
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+
   useEffect(() => {
     if (isAuthenticated) {
       setLocation("/");
     }
   }, [isAuthenticated, setLocation]);
+
   const form = useForm<LoginForm>({
     initialValues: {
       email: "",
@@ -75,10 +77,16 @@ export const LoginPage: React.FC = () => {
     },
   });
 
-  // Don't render the form if already authenticated
+  // Show loading while checking auth status
+  if (authLoading) {
+    return <LoadingOverlay visible={true} />;
+  }
+
+  // Don't render the form if already authenticated (redirect will handle via useEffect)
   if (isAuthenticated) {
     return null;
   }
+
   const handleSubmit = async (values: LoginForm) => {
     setLoading(true);
     setError(null);
@@ -115,6 +123,7 @@ export const LoginPage: React.FC = () => {
       setLoading(false);
     }
   };
+
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
