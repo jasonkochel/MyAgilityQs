@@ -258,7 +258,6 @@ Resources:
                 - !Sub "${DynamoTable.Arn}/index/*"
       Environment:
         Variables:
-          AWS_REGION: !Ref AWS::Region
           DYNAMODB_TABLE_NAME: !Ref DynamoTable
           ENVIRONMENT: !Ref Environment
           SENTRY_DSN: https://b9b22e43ca994eaf702953b3369b7a14@o4509555260981248.ingest.us.sentry.io/4509555265110016
