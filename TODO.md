@@ -19,6 +19,43 @@
 
 ## 🔧 Technical Improvements
 
+- [ ] **Sentry.io Error Tracking Integration** (Priority: High)
+  - [x] **Client Setup**: ✅ COMPLETED
+    - [x] Install `@sentry/react` and `@sentry/tracing` packages
+    - [x] Initialize Sentry in `client/src/main.tsx` before React app starts
+    - [x] Add Sentry environment variables to client build process (`.env` & `.env.example`)
+    - [x] Integrate with existing ErrorBoundary component (`components/ErrorBoundary.tsx:28-37`)
+    - [x] Add React Router integration for navigation breadcrumbs (`main.tsx:16-19`)
+    - [x] Configure performance monitoring for Core Web Vitals (browser tracing + session replay)
+    - [x] Add user context (email, userId) for better error tracking (`contexts/AuthContext.tsx`)
+    - [ ] Configure source maps upload for production builds
+  - [ ] **Server Setup**:
+    - [ ] Install `@sentry/serverless` package for AWS Lambda
+    - [ ] Initialize Sentry in `server/src/index.ts` Lambda handler
+    - [ ] Add Sentry environment variables to SAM template
+    - [ ] Integrate with existing Middy middleware stack
+    - [ ] Add custom error contexts (userId, API endpoint, request details)
+    - [ ] Configure Lambda-specific performance monitoring
+    - [ ] Set up release tracking for deployments
+  - [ ] **Shared Setup**:
+    - [ ] Add Sentry types to shared package if needed
+    - [ ] Create shared error context utilities
+    - [ ] Add Sentry configuration to shared constants
+  - [ ] **Environment Configuration**:
+    - [ ] Set up separate Sentry projects for dev/prod environments
+    - [ ] Configure appropriate error sampling rates
+    - [ ] Set up alerts and notifications in Sentry dashboard
+    - [ ] Configure team access and permissions
+  - [ ] **Integration Points**:
+    - [ ] Add Sentry error capturing to TanStack Query error handlers
+    - [ ] Integrate with AWS Cognito auth errors
+    - [ ] Add custom error tracking for DynamoDB operations
+    - [ ] Configure error filtering to reduce noise
+  - [ ] **Testing & Deployment**:
+    - [ ] Test error reporting in development environment
+    - [ ] Verify source maps are working correctly
+    - [ ] Test user context and breadcrumbs are captured
+    - [ ] Set up CI/CD integration for release tracking
 - [ ] Add comprehensive error boundaries
 - [ ] Implement offline support with sync
 - [ ] Add more comprehensive testing

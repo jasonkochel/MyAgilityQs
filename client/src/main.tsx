@@ -4,8 +4,37 @@ import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import * as Sentry from "@sentry/react";
 import App from "./App.tsx";
 import "./index.css";
+
+// Validate required environment variables
+if (!import.meta.env.VITE_SENTRY_DSN) {
+  throw new Error('VITE_SENTRY_DSN environment variable is required');
+}
+if (!import.meta.env.VITE_ENVIRONMENT) {
+  throw new Error('VITE_ENVIRONMENT environment variable is required');
+}
+
+// Initialize Sentry
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.VITE_ENVIRONMENT,
+  integrations: [
+    Sentry.browserTracingIntegration({
+      // Enable router instrumentation for wouter
+      enableInp: true,
+    }),
+    Sentry.replayIntegration({
+      maskAllText: false,
+      blockAllMedia: false,
+    }),
+  ],
+  tracesSampleRate: import.meta.env.VITE_ENVIRONMENT === "production" ? 0.1 : 1.0,
+  replaysSessionSampleRate: import.meta.env.VITE_ENVIRONMENT === "production" ? 0.1 : 1.0,
+  replaysOnErrorSampleRate: 1.0,
+  sendDefaultPii: true,
+});
 
 // Create a client for React Query
 const queryClient = new QueryClient({

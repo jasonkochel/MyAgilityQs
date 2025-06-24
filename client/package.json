@@ -21,6 +21,8 @@
     "@mantine/modals": "^8.1.1",
     "@mantine/notifications": "^8.1.1",
     "@my-agility-qs/shared": "*",
+    "@sentry/react": "^9.31.0",
+    "@sentry/tracing": "^7.120.3",
     "@tabler/icons-react": "^3.34.0",
     "@tanstack/react-query": "^5.80.7",
     "@types/node": "^24.0.3",

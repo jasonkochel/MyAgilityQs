@@ -1,6 +1,7 @@
 import type { User } from "@my-agility-qs/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import * as Sentry from "@sentry/react";
 import { dogsApi, locationsApi, tokenManager, userApi } from "../lib/api";
 import type { AuthResponse } from "../types";
 
@@ -31,7 +32,25 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const queryClient = useQueryClient(); // Preload user data (dogs, locations, etc.) after authentication
+  const queryClient = useQueryClient();
+
+  // Helper function to set user state and Sentry context
+  const setUserWithSentry = useCallback((userProfile: User | null) => {
+    setUser(userProfile);
+    
+    if (userProfile) {
+      // Set user context for Sentry
+      Sentry.setUser({
+        id: userProfile.id,
+        email: userProfile.email,
+      });
+    } else {
+      // Clear user context from Sentry
+      Sentry.setUser(null);
+    }
+  }, []);
+
+  // Preload user data (dogs, locations, etc.) after authentication
   const preloadUserData = useCallback(async (): Promise<void> => {
     try {
       // Prefetch dogs data with infinite stale time since we'll invalidate on changes
@@ -62,7 +81,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Fetch user profile from API - database is single source of truth for email
         try {
           const userProfile = await userApi.getProfile();
-          setUser(userProfile);
+          setUserWithSentry(userProfile);
           await preloadUserData();
         } catch (error) {
           console.error("Failed to fetch user profile:", error);
@@ -75,7 +94,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (refreshed) {
           try {
             const userProfile = await userApi.getProfile();
-            setUser(userProfile); // Use database email as single source of truth
+            setUserWithSentry(userProfile); // Use database email as single source of truth
             await preloadUserData();
           } catch (error) {
             console.error("Failed to fetch user profile after refresh:", error);
@@ -93,14 +112,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
-  }, [queryClient, preloadUserData]);
+  }, [queryClient, preloadUserData, setUserWithSentry]);
   const login = async (authData: AuthResponse) => {
     tokenManager.setTokens(authData);
 
     try {
       // Fetch user profile from API - database is single source of truth for email
       const userProfile = await userApi.getProfile();
-      setUser(userProfile);
+      setUserWithSentry(userProfile);
 
       // Preload user data after successful login
       await preloadUserData();
@@ -126,7 +145,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     tokenManager.removeToken();
     queryClient.clear(); // Clear all cached data on logout
-    setUser(null);
+    setUserWithSentry(null);
   };
   const value: AuthContextType = {
     user,

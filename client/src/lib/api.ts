@@ -14,8 +14,12 @@ import ky from "ky";
 import type { AuthResponse } from "../types";
 
 // API Configuration
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "https://vep645bkmqblgemzy72psyrsju0mjgma.lambda-url.us-east-1.on.aws";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
+// Validate required environment variables
+if (!API_BASE_URL) {
+  throw new Error('VITE_API_URL environment variable is required');
+}
 
 // Enhanced token management with security improvements
 export const tokenManager = {
