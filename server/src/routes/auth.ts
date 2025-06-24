@@ -34,6 +34,7 @@ interface RefreshRequest {
 
 interface GoogleCallbackRequest {
   code: string;
+  redirectUri?: string; // Optional, falls back to FRONTEND_URL if not provided
 }
 
 interface CognitoTokenResponse {
@@ -280,9 +281,10 @@ export const authHandler = {
         event.queryStringParameters?.redirect_uri ||
         `${process.env.FRONTEND_URL || "http://localhost:5174"}/auth/callback`;
 
-      // Build the Cognito Hosted UI URL for Google OAuth
+      // Store the redirect URI in the response so the frontend can use the same one for the callback
+      // This ensures consistency between the initial auth request and token exchange
       const cognitoDomain = process.env.COGNITO_DOMAIN!;
-      const clientId = process.env.COGNITO_CLIENT_ID!;      // Enhanced debugging
+      const clientId = process.env.COGNITO_CLIENT_ID!;// Enhanced debugging
       console.log("[GOOGLE_AUTH] OAuth URL generation:", {
         cognitoDomain,
         clientId,
@@ -298,12 +300,11 @@ export const authHandler = {
       googleAuthUrl.searchParams.set("redirect_uri", redirectUri);
       googleAuthUrl.searchParams.set("identity_provider", "Google");
 
-      console.log("[GOOGLE_AUTH] Generated Google auth URL:", googleAuthUrl.toString());
-
-      const response: ApiResponse = {
+      console.log("[GOOGLE_AUTH] Generated Google auth URL:", googleAuthUrl.toString());      const response: ApiResponse = {
         success: true,
         data: {
           url: googleAuthUrl.toString(),
+          redirectUri: redirectUri, // Include redirectUri in response so frontend can send it back
         },
       };
 
@@ -351,9 +352,7 @@ export const authHandler = {
         body: parsedBody,
         headers: event.headers,
         queryStringParameters: event.queryStringParameters
-      });
-
-      const { code } = parsedBody;
+      });      const { code, redirectUri: requestRedirectUri } = parsedBody;
 
       if (!code) {
         console.error("[GOOGLE_AUTH] No authorization code in request body:", parsedBody);
@@ -367,10 +366,13 @@ export const authHandler = {
           body: JSON.stringify(response),
           headers: { "Content-Type": "application/json" },
         };
-      }      // Exchange the authorization code for tokens via Cognito
+      }
+
+      // Exchange the authorization code for tokens via Cognito
       const cognitoDomain = process.env.COGNITO_DOMAIN!;
       const clientId = process.env.COGNITO_CLIENT_ID!;
-      const redirectUri = `${process.env.FRONTEND_URL || "http://localhost:5174"}/auth/callback`;      console.log("[GOOGLE_AUTH] Token exchange configuration:", {
+      // Use the same redirect URI that was used in the initial OAuth request
+      const redirectUri = requestRedirectUri || `${process.env.FRONTEND_URL || "http://localhost:5174"}/auth/callback`;console.log("[GOOGLE_AUTH] Token exchange configuration:", {
         cognitoDomain,
         clientId,
         redirectUri,

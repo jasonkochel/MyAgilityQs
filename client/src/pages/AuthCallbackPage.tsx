@@ -42,11 +42,15 @@ export const AuthCallbackPage: React.FC = () => {
           console.log("Code already processed, skipping");
           return;
         }
-        sessionStorage.setItem(`oauth_code_${code}`, "used");
+        sessionStorage.setItem(`oauth_code_${code}`, "used");        console.log("Exchanging code for tokens...");
+        // Get the redirect URI that was used in the initial request
+        const redirectUri = sessionStorage.getItem('google_oauth_redirect_uri');
 
-        console.log("Exchanging code for tokens...");
         // Exchange the code for tokens via our backend
-        const authData: AuthResponse = await authApi.googleCallback(code);
+        const authData: AuthResponse = await authApi.googleCallback(code, redirectUri || undefined);
+
+        // Clean up the stored redirect URI
+        sessionStorage.removeItem('google_oauth_redirect_uri');
 
         console.log("Tokens received, logging in...");
         // Login with the received tokens

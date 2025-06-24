@@ -88,11 +88,12 @@ export const LoginPage: React.FC = () => {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      setError(null);
-
-      // Get the Google OAuth URL from our backend
+      setError(null);      // Get the Google OAuth URL from our backend
       const redirectUri = `${window.location.origin}/auth/callback`;
-      const { url } = await authApi.getGoogleLoginUrl(redirectUri);
+      const { url, redirectUri: serverRedirectUri } = await authApi.getGoogleLoginUrl(redirectUri);
+
+      // Store the redirect URI in sessionStorage for use in the callback
+      sessionStorage.setItem('google_oauth_redirect_uri', serverRedirectUri);
 
       // Redirect to Google OAuth
       window.location.href = url;

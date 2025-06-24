@@ -197,15 +197,18 @@ export const authApi = {
 
   signup: async (signupData: { email: string; password: string }): Promise<void> => {
     return apiRequest(api.post("auth/signup", { json: signupData }));
-  },
-  // Google OAuth methods
-  getGoogleLoginUrl: async (redirectUri?: string): Promise<{ url: string }> => {
+  },  // Google OAuth methods
+  getGoogleLoginUrl: async (redirectUri?: string): Promise<{ url: string; redirectUri: string }> => {
     const searchParams = redirectUri ? { redirect_uri: redirectUri } : undefined;
     return apiRequest(api.get("auth/google/login", searchParams ? { searchParams } : {}));
   },
 
-  googleCallback: async (code: string): Promise<AuthResponse> => {
-    return apiRequest(api.post("auth/google/callback", { json: { code } }));
+  googleCallback: async (code: string, redirectUri?: string): Promise<AuthResponse> => {
+    const body: { code: string; redirectUri?: string } = { code };
+    if (redirectUri) {
+      body.redirectUri = redirectUri;
+    }
+    return apiRequest(api.post("auth/google/callback", { json: body }));
   },
 
   logout: (): void => {
