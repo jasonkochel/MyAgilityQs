@@ -370,6 +370,15 @@ export const authHandler = {
         redirect_uri: redirectUri,
       });
 
+      // Debug logging
+      console.log("Token exchange request details:", {
+        cognitoDomain,
+        clientId,
+        redirectUri,
+        codeLength: code?.length || 0,
+        requestBody: tokenRequest.toString()
+      });
+
       const tokenResponse = await fetch(`${cognitoDomain}/oauth2/token`, {
         method: "POST",
         headers: {
@@ -379,6 +388,12 @@ export const authHandler = {
       });
 
       if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.log("Token exchange error response:", {
+          status: tokenResponse.status,
+          statusText: tokenResponse.statusText,
+          errorBody: errorText
+        });
         throw new Error(`Token exchange failed: ${tokenResponse.statusText}`);
       }
       const tokenData = (await tokenResponse.json()) as CognitoTokenResponse; // Decode the ID token to get user information

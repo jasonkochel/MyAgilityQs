@@ -56,7 +56,7 @@ Terms of Service URL: (optional)
 
 4. **Scopes**: Add these scopes
    - `openid`
-   - `email` 
+   - `email`
    - `profile`
 
 5. **Test Users**: Add your email for testing during development
@@ -197,7 +197,7 @@ curl https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com/auth/google/login
 ```bash
 FRONTEND_URL=https://your-production-domain.com
 COGNITO_USER_POOL_ID=us-east-1_808uxrU8E
-COGNITO_CLIENT_ID=31rckg6cckn32b8fsil5blhh4t
+COGNITO_CLIENT_ID=7qaajum3pc6ehvkbhidjvmrjmq
 ```
 
 **Client Environment**:
@@ -305,7 +305,7 @@ aws logs filter-log-events \
 ```typescript
 {
   PK: "USER#google-user-123",
-  SK: "PROFILE", 
+  SK: "PROFILE",
   email: "user@gmail.com",
   username: "User Name",
   cognitoSub: "google_12345...",

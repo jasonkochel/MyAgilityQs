@@ -107,7 +107,7 @@ TABLE_NAME=MyAgilityQs
 NODE_ENV=production
 FRONTEND_URL=https://your-production-domain.com
 COGNITO_USER_POOL_ID=us-east-1_808uxrU8E
-COGNITO_CLIENT_ID=31rckg6cckn32b8fsil5blhh4t
+COGNITO_CLIENT_ID=7qaajum3pc6ehvkbhidjvmrjmq
 
 # Development
 TABLE_NAME=MyAgilityQs-Dev
@@ -158,7 +158,7 @@ VITE_APP_ENV=development
       "Effect": "Allow",
       "Action": [
         "dynamodb:GetItem",
-        "dynamodb:PutItem", 
+        "dynamodb:PutItem",
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem",
         "dynamodb:Query",

@@ -74,7 +74,7 @@ Resources:
   FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 
+      BucketName: !Sub
         - "myagilityqs-frontend${Suffix}"
         - Suffix: !If [IsProduction, "", "-dev"]
       PublicAccessBlockConfiguration:
@@ -259,7 +259,7 @@ Resources:
       Environment:
         Variables:
           COGNITO_USER_POOL_ID: us-east-1_808uxrU8E
-          COGNITO_CLIENT_ID: 31rckg6cckn32b8fsil5blhh4t
+          COGNITO_CLIENT_ID: 7qaajum3pc6ehvkbhidjvmrjmq
           COGNITO_DOMAIN: https://myagilityqs.auth.us-east-1.amazoncognito.com
           FRONTEND_URL: !If
             - IsProduction
