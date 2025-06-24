@@ -260,7 +260,7 @@ Resources:
         Variables:
           COGNITO_USER_POOL_ID: us-east-1_808uxrU8E
           COGNITO_CLIENT_ID: 7qaajum3pc6ehvkbhidjvmrjmq
-          COGNITO_DOMAIN: https://myagilityqs.auth.us-east-1.amazoncognito.com
+          COGNITO_DOMAIN: https://auth.myagilityqs.com
           FRONTEND_URL: !If
             - IsProduction
             - !Sub "https://${DomainName}"

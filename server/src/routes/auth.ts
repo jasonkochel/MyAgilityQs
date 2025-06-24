@@ -292,6 +292,8 @@ export const authHandler = {
       googleAuthUrl.searchParams.set("redirect_uri", redirectUri);
       googleAuthUrl.searchParams.set("identity_provider", "Google");
 
+      console.log("Generated Google auth URL:", googleAuthUrl.toString());
+
       const response: ApiResponse = {
         success: true,
         data: {
@@ -342,6 +344,8 @@ export const authHandler = {
       } else {
         parsedBody = event.body as GoogleCallbackRequest;
       }
+
+      console.log("Google callback request body:", parsedBody);
 
       const { code } = parsedBody;
 
