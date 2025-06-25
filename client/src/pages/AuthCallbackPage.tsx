@@ -1,5 +1,6 @@
+import { Container, Loader, Paper, Stack, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconX } from "@tabler/icons-react";
+import { IconDog, IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
@@ -81,19 +82,33 @@ export const AuthCallbackPage: React.FC = () => {
 
   if (isProcessing) {
     return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-          flexDirection: "column",
-          gap: "1rem",
+      <Container 
+        size={420} 
+        style={{ 
+          display: "flex", 
+          justifyContent: "center", 
+          alignItems: "center", 
+          height: "100vh" 
         }}
       >
-        <div>Processing sign in...</div>
-        <div>Please wait while we complete your authentication.</div>
-      </div>
+        <Paper withBorder shadow="md" p={40} radius="md">
+          <Stack align="center" gap="xl">
+            <IconDog size={48} color="var(--mantine-color-blue-6)" />
+            <Title order={3} ta="center" c="blue.6">
+              MyAgilityQs
+            </Title>
+            <Stack align="center" gap="md">
+              <Loader color="blue" size="lg" />
+              <Text size="lg" fw={500} ta="center">
+                Processing sign in...
+              </Text>
+              <Text c="dimmed" size="sm" ta="center">
+                Please wait while we complete your authentication
+              </Text>
+            </Stack>
+          </Stack>
+        </Paper>
+      </Container>
     );
   }
 

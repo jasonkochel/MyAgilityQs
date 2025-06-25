@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import * as Sentry from "@sentry/react";
 import { dogsApi, locationsApi, tokenManager, userApi } from "../lib/api";
+import { reportAuthError } from "../lib/sentry";
 import type { AuthResponse } from "../types";
 
 interface AuthContextType {
@@ -85,6 +86,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           await preloadUserData();
         } catch (error) {
           console.error("Failed to fetch user profile:", error);
+          
+          // Report auth initialization errors to Sentry
+          if (error instanceof Error) {
+            reportAuthError(error, 'init', {
+              hasToken: !!token,
+              hasRefreshToken: !!refreshToken,
+              isTokenExpired: tokenManager.isTokenExpired(),
+              error: error.message,
+            });
+          }
+          
           // Fall back to clearing tokens if API call fails
           tokenManager.removeToken();
         }
@@ -98,6 +110,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             await preloadUserData();
           } catch (error) {
             console.error("Failed to fetch user profile after refresh:", error);
+            
+            // Report token refresh errors to Sentry
+            if (error instanceof Error) {
+              reportAuthError(error, 'refresh', {
+                refreshed: true,
+                error: error.message,
+              });
+            }
+            
             tokenManager.removeToken();
           }
         } else {
@@ -125,6 +146,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await preloadUserData();
     } catch (error) {
       console.error("Error during login:", error);
+      
+      // Report login errors to Sentry
+      if (error instanceof Error) {
+        reportAuthError(error, 'login', {
+          error: error.message,
+        });
+      }
+      
       // Clear tokens if something goes wrong
       tokenManager.removeToken();
       throw error;

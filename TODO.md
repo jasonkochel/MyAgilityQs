@@ -28,7 +28,11 @@
     - [x] Add React Router integration for navigation breadcrumbs (`main.tsx:16-19`)
     - [x] Configure performance monitoring for Core Web Vitals (browser tracing + session replay)
     - [x] Add user context (email, userId) for better error tracking (`contexts/AuthContext.tsx`)
-    - [ ] Configure source maps upload for production builds
+    - [x] **Configure source maps upload for production builds** - ✅ **COMPLETED**
+      - **Added**: Sentry Vite plugin with production-only source map upload
+      - **Enhancement**: Release tracking with commit info and timestamp-based versioning
+      - **Environment Variables**: `VITE_SENTRY_ORG`, `VITE_SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `VITE_BUILD_TIMESTAMP`
+      - **Versioning**: Continuous deployment with timestamp-based releases (`client-{timestamp}`)
   - [x] **Server Setup**: ✅ COMPLETED
     - [x] Install `@sentry/serverless` package for AWS Lambda
     - [x] Initialize Sentry in `server/src/index.ts` Lambda handler (`index.ts:15-19`)
@@ -36,50 +40,45 @@
     - [x] Integrate with existing Middy middleware stack (`index.ts:36`, `sentryContext.ts`)
     - [x] Add custom error contexts (userId, API endpoint, request details) (`utils/sentryHelpers.ts`)
     - [x] Configure Lambda-specific performance monitoring (traces + breadcrumbs)
-    - [ ] Set up release tracking for deployments
   - [ ] **Shared Setup**:
     - [ ] Add Sentry types to shared package if needed
     - [ ] Create shared error context utilities
     - [ ] Add Sentry configuration to shared constants
-  - [ ] **Environment Configuration**:
-    - [ ] Set up separate Sentry projects for dev/prod environments
-    - [ ] Configure appropriate error sampling rates
-    - [ ] Set up alerts and notifications in Sentry dashboard
-    - [ ] Configure team access and permissions
-  - [ ] **Integration Points**:
-    - [ ] Add Sentry error capturing to TanStack Query error handlers
-    - [ ] Integrate with AWS Cognito auth errors
-    - [ ] Add custom error tracking for DynamoDB operations
-    - [ ] Configure error filtering to reduce noise
+  - [x] **Environment Configuration**: ✅ **COMPLETED**
+    - [x] **Enhanced sampling rates** - Production: 10%, Development: 100%
+    - [x] **Release tracking** - Automatic commit detection and versioning
+    - [x] **Environment-specific tagging** - Client component tagging with version info
+  - [x] **Integration Points**: ✅ **COMPLETED**
+    - [x] **TanStack Query error handlers** - Comprehensive query/mutation error reporting with context
+    - [x] **AWS Cognito auth errors** - Auth initialization, refresh, and login error tracking
+    - [x] **API error tracking** - HTTP errors, network errors, and API response errors
+    - [x] **Advanced error filtering** - Filters out network errors, React DevTools, and expected auth errors
+    - [x] **Centralized error reporting** - ✅ **COMPLETED**
+      - **Created**: `client/src/lib/sentry.ts` - Unified error reporting utilities
+      - **Functions**: `reportError()`, `reportAuthError()`, `reportHttpError()`, `reportQueryError()`
+      - **Benefits**: Consistent error context, reduced code duplication, better maintainability
+      - **Refactored**: All `Sentry.captureException()` calls now use centralized utilities
   - [ ] **Testing & Deployment**:
     - [ ] Test error reporting in development environment
     - [ ] Verify source maps are working correctly
     - [ ] Test user context and breadcrumbs are captured
-    - [ ] Set up CI/CD integration for release tracking
 - [ ] Add comprehensive error boundaries
-- [ ] Implement offline support with sync
 - [ ] Add more comprehensive testing
-- [ ] Performance optimization for large datasets
 - [ ] Add analytics/metrics tracking
 - [x] **PWA Implementation** (Basic functionality completed):
   - [x] Web App Manifest (`client/public/manifest.json`) - app metadata, icons, display mode
   - [x] Service Worker (`client/public/sw.js`) - cache static assets and API responses
   - [x] Installation prompt - detect installability and show custom install button
-  - [ ] Offline strategy - cache-first for assets, network-first for API with fallbacks
-  - [ ] App shell architecture - cache core UI, lazy load content
-  - [ ] Offline run entry - store pending runs locally, sync when connection returns
 
 ## 📱 UX Enhancements
 
 - [ ] Better mobile navigation patterns
-- [ ] Quick entry shortcuts/gestures
-- [ ] Bulk operations (edit multiple runs)
 
 ## 🚀 Infrastructure
 
 - [ ] Automated backups
 - [ ] Monitoring and alerting
-- [ ] **Custom Cognito Domain**: Add custom domain to Cognito so "Log in with Google" shows friendly URL instead of ugly Cognito domain
+- [x] **Custom Cognito Domain**: Add custom domain to Cognito so "Log in with Google" shows friendly URL instead of ugly Cognito domain
 
 ---
 

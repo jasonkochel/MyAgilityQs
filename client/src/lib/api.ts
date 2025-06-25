@@ -11,6 +11,7 @@ import type {
   User,
 } from "@my-agility-qs/shared";
 import ky from "ky";
+import { reportHttpError } from "./sentry";
 import type { AuthResponse } from "../types";
 
 // API Configuration
@@ -148,6 +149,34 @@ export const api = ky.create({
         }
       },
     ],
+    beforeError: [
+      (error) => {
+        // Report HTTP errors to Sentry with detailed context (centralized error handling)
+        if (error instanceof Error) {
+          const requestContext: Record<string, any> = {};
+          
+          // Add HTTP-specific context if available
+          if ('response' in error && error.response) {
+            const response = error.response as Response;
+            requestContext.url = response.url;
+            requestContext.status = response.status;
+            requestContext.statusText = response.statusText;
+            requestContext.method = (error as any).request?.method || 'unknown';
+          }
+          
+          // Add request context if available
+          if ('request' in error && error.request) {
+            const request = error.request as Request;
+            requestContext.requestUrl = request.url;
+            requestContext.requestMethod = request.method;
+          }
+          
+          reportHttpError(error, requestContext);
+        }
+        
+        return error;
+      },
+    ],
     afterResponse: [
       async (_request, _options, response) => {
         if (response.status === 401) {
@@ -162,7 +191,7 @@ export const api = ky.create({
   },
 });
 
-// API Helper function
+// API Helper function (Sentry error reporting now handled by ky beforeError hook)
 async function apiRequest<T>(request: Promise<Response>): Promise<T> {
   try {
     const response = await request;
@@ -174,7 +203,7 @@ async function apiRequest<T>(request: Promise<Response>): Promise<T> {
 
     return data.data as T;
   } catch (error) {
-    // Handle Ky HTTPError specifically
+    // Handle Ky HTTPError specifically - just parse and rethrow
     if (error && typeof error === "object" && "response" in error) {
       try {
         const errorResponse = error as { response: Response };
@@ -186,9 +215,11 @@ async function apiRequest<T>(request: Promise<Response>): Promise<T> {
       }
     }
 
+    // Re-throw as-is (error reporting handled by ky beforeError hook)
     if (error instanceof Error) {
       throw error;
     }
+    
     throw new Error("Unknown error occurred");
   }
 }

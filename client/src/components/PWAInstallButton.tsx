@@ -1,6 +1,6 @@
+import { Button, Text } from '@mantine/core';
+import { IconDownload } from '@tabler/icons-react';
 import React from 'react';
-import { Button, Alert, Text } from '@mantine/core';
-import { IconDownload, IconInfoCircle } from '@tabler/icons-react';
 import { usePWA } from '../contexts/PWAContext';
 
 interface PWAInstallButtonProps {
@@ -8,18 +8,14 @@ interface PWAInstallButtonProps {
   showDebugInfo?: boolean;
 }
 
-export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({ 
-  compact = false, 
-  showDebugInfo = false 
+export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
+  compact = false,
+  showDebugInfo = false
 }) => {
   const { isInstallable, isInstalled, promptInstall, deferredPrompt } = usePWA();
 
   if (isInstalled) {
-    return (
-      <Alert color="green" icon={<IconInfoCircle size={16} />}>
-        MyAgilityQs is already installed on your device!
-      </Alert>
-    );
+    return null;
   }
 
   if (!isInstallable && !showDebugInfo) {
@@ -28,7 +24,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   }
 
   const buttonText = deferredPrompt ? 'Install App' : 'Install Instructions';
-  
+
   if (compact) {
     return (
       <div>
@@ -43,7 +39,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         </Button>
         {showDebugInfo && (
           <Text size="xs" c="dimmed" mt="xs">
-            Installable: {isInstallable ? 'Yes' : 'No'} | 
+            Installable: {isInstallable ? 'Yes' : 'No'} |
             Prompt available: {deferredPrompt ? 'Yes' : 'No'}
           </Text>
         )}
@@ -64,8 +60,8 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
       </Button>
       {showDebugInfo && (
         <Text size="xs" c="dimmed" mt="xs">
-          Debug: Installable={isInstallable ? 'true' : 'false'}, 
-          Prompt={deferredPrompt ? 'available' : 'null'}, 
+          Debug: Installable={isInstallable ? 'true' : 'false'},
+          Prompt={deferredPrompt ? 'available' : 'null'},
           Installed={isInstalled ? 'true' : 'false'}
         </Text>
       )}
