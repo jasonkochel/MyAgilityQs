@@ -9,8 +9,9 @@ import {
   updateDog,
 } from "../database/index.js";
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import sharp from "sharp";
 
 // Dog management handlers - full database implementation
 export const dogHandler = {
@@ -410,6 +411,144 @@ export const dogHandler = {
         success: false,
         error: "server_error",
         message: "Failed to generate photo upload URL",
+      };
+
+      return {
+        statusCode: 500,
+        body: JSON.stringify(response),
+      };
+    }
+  },
+
+  // POST /dogs/{id}/photo/crop - Generate cropped version of uploaded photo
+  generateCroppedPhoto: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    try {
+      const userId = event.user!.userId;
+      const dogId = event.pathParameters?.id;
+
+      if (!dogId) {
+        throw createError(400, "Dog ID is required");
+      }
+
+      // Verify dog exists and belongs to user
+      const existingDog = await getDogById(dogId);
+      if (!existingDog) {
+        throw createError(404, "Dog not found");
+      }
+
+      if (existingDog.userId !== userId) {
+        throw createError(403, "Not authorized to crop photo for this dog");
+      }
+
+      const body = event.body as any;
+      if (!body?.originalKey || !body?.cropData) {
+        throw createError(400, "Original photo key and crop data are required");
+      }
+
+      const { originalKey, cropData } = body;
+      const { x, y, width, height } = cropData;
+
+      // Initialize S3 client
+      const s3Client = new S3Client({ 
+        region: process.env.AWS_REGION || "us-east-1" 
+      });
+
+      // Download original image from S3
+      const getCommand = new GetObjectCommand({
+        Bucket: "myagilityqs-frontend",
+        Key: originalKey
+      });
+
+      const originalObject = await s3Client.send(getCommand);
+      if (!originalObject.Body) {
+        throw createError(404, "Original photo not found");
+      }
+
+      // Convert stream to buffer
+      const originalBuffer = Buffer.from(await originalObject.Body.transformToByteArray());
+
+      // Get original image metadata
+      const metadata = await sharp(originalBuffer).metadata();
+      if (!metadata.width || !metadata.height) {
+        throw createError(400, "Invalid image format");
+      }
+
+      // Convert percentage-based crop coordinates to pixels
+      const cropLeft = Math.round((x / 100) * metadata.width);
+      const cropTop = Math.round((y / 100) * metadata.height);
+      const cropWidth = Math.round((width / 100) * metadata.width);
+      const cropHeight = Math.round((height / 100) * metadata.height);
+
+      // Generate cropped image
+      const croppedBuffer = await sharp(originalBuffer)
+        .extract({
+          left: cropLeft,
+          top: cropTop,
+          width: cropWidth,
+          height: cropHeight
+        })
+        .jpeg({ quality: 85 }) // Optimize for web
+        .toBuffer();
+
+      // Generate key for cropped image
+      const originalKeyParts = originalKey.split('.');
+      const extension = originalKeyParts.pop();
+      const baseName = originalKeyParts.join('.');
+      const croppedKey = `${baseName}-cropped.${extension}`;
+
+      // Upload cropped image to S3
+      const putCommand = new PutObjectCommand({
+        Bucket: "myagilityqs-frontend",
+        Key: croppedKey,
+        Body: croppedBuffer,
+        ContentType: "image/jpeg",
+        Metadata: {
+          dogId: dogId,
+          userId: userId,
+          originalKey: originalKey,
+          cropData: JSON.stringify(cropData),
+          generatedAt: Date.now().toString()
+        }
+      });
+
+      await s3Client.send(putCommand);
+
+      // Generate the URL for the cropped image
+      const croppedPhotoUrl = `https://myagilityqs.com/${croppedKey}`;
+
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          croppedPhotoUrl,
+          croppedKey
+        },
+        message: "Cropped photo generated successfully"
+      };
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+      };
+    } catch (error: any) {
+      console.error("Error generating cropped photo:", error);
+
+      if (error.statusCode) {
+        const response: ApiResponse = {
+          success: false,
+          error: error.statusCode === 404 ? "not_found" : "validation_error",
+          message: error.message,
+        };
+
+        return {
+          statusCode: error.statusCode,
+          body: JSON.stringify(response),
+        };
+      }
+
+      const response: ApiResponse = {
+        success: false,
+        error: "server_error",
+        message: "Failed to generate cropped photo",
       };
 
       return {

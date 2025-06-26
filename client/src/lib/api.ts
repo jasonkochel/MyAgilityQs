@@ -306,6 +306,13 @@ export const dogsApi = {
       json: { contentType } 
     }));
   },
+
+  // Generate cropped version of uploaded photo
+  generateCroppedPhoto: async (dogId: string, originalKey: string, cropData: { x: number; y: number; width: number; height: number }): Promise<{ croppedPhotoUrl: string; croppedKey: string }> => {
+    return apiRequest(api.post(`dogs/${dogId}/photo/crop`, {
+      json: { originalKey, cropData }
+    }));
+  },
 };
 
 // Runs API

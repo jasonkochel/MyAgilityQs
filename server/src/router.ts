@@ -120,6 +120,11 @@ export const routes: ExtendedRoute[] = [
     path: "/dogs/{id}/photo/upload-url",
     handler: dogHandler.generatePhotoUploadUrl,
   },
+  {
+    method: "POST",
+    path: "/dogs/{id}/photo/crop",
+    handler: dogHandler.generateCroppedPhoto,
+  },
 
   // Run endpoints - require authentication
   {

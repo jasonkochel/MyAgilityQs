@@ -139,6 +139,12 @@ export async function updateDog(
     expressionAttributeValues[":photoUrl"] = request.photoUrl;
   }
 
+  if (request.originalPhotoUrl !== undefined) {
+    updateExpressions.push("#originalPhotoUrl = :originalPhotoUrl");
+    expressionAttributeNames["#originalPhotoUrl"] = "originalPhotoUrl";
+    expressionAttributeValues[":originalPhotoUrl"] = request.originalPhotoUrl;
+  }
+
   if (request.photoCrop !== undefined) {
     updateExpressions.push("#photoCrop = :photoCrop");
     expressionAttributeNames["#photoCrop"] = "photoCrop";

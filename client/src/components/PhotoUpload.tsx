@@ -310,9 +310,13 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ dog, onPhotoUpdate }) 
         throw new Error(errorMessage);
       }
       
-      // Step 3: Update dog with photo URL and crop data
+      // Step 3: Generate cropped version on server
+      const croppedResult = await dogsApi.generateCroppedPhoto(dog.id, uploadUrlData.key, cropData);
+      
+      // Step 4: Update dog with both original and cropped photo URLs and crop data
       await dogsApi.update(dog.id, {
-        photoUrl: uploadUrlData.photoUrl,
+        photoUrl: croppedResult.croppedPhotoUrl, // Display the cropped version
+        originalPhotoUrl: uploadUrlData.photoUrl, // Store original for re-cropping
         photoCrop: cropData,
       });
       

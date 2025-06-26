@@ -41,7 +41,8 @@ export interface Dog {
   name: string;
   active: boolean;
   classes: DogClass[];
-  photoUrl?: string;
+  photoUrl?: string; // URL to the cropped/display version of the photo
+  originalPhotoUrl?: string; // URL to the original uploaded photo (for re-cropping)
   photoCrop?: {
     x: number;
     y: number;
@@ -61,7 +62,8 @@ export interface UpdateDogRequest {
   name?: string;
   classes?: DogClass[];
   active?: boolean;
-  photoUrl?: string;
+  photoUrl?: string; // URL to the cropped/display version of the photo
+  originalPhotoUrl?: string; // URL to the original uploaded photo (for re-cropping)
   photoCrop?: {
     x: number;
     y: number;

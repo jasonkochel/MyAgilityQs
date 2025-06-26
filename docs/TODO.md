@@ -14,7 +14,7 @@
 
 ## ✨ Feature Ideas
 
-- [x] **Photo management** - ✅ **FULLY IMPLEMENTED** 
+- [x] **Photo management** - ✅ **FULLY IMPLEMENTED**
   - [x] Added photo fields to Dog entity (`photoUrl`, `photoCrop`)
   - [x] **AWS SDK v3 Integration**: Installed `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`
   - [x] **S3 Presigned URL Generation**: Complete implementation with multi-format support (JPEG, PNG, GIF, WebP)
@@ -27,6 +27,7 @@
   - [x] **CORS Configuration**: Created `AWS_S3_SETUP.md` with complete S3 CORS setup instructions
   - [x] **Enhanced Error Handling**: Added specific CORS error detection and user-friendly messages
   - [x] **SAM Template Integration**: Added S3 CORS config and IAM permissions to `template.yaml` for automated deployment
+  - [ ] Ability to re-crop existing photo.  Currently the only way to change the cropping is to upload a new photo and crop it again.
 - [ ] Data export: CSV export for backup purposes
 
 ## 🔧 Technical Improvements

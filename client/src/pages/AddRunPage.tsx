@@ -257,11 +257,6 @@ export const AddRunPage: React.FC = () => {
                               h={32}
                               radius="sm"
                               fit="cover"
-                              style={{
-                                objectPosition: dog.photoCrop 
-                                  ? `${dog.photoCrop.x + dog.photoCrop.width/2}% ${dog.photoCrop.y + dog.photoCrop.height/2}%`
-                                  : 'center'
-                              }}
                             />
                           ) : (
                             <IconDog size={24} />
