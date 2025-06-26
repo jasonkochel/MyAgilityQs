@@ -11,7 +11,14 @@ import {
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import sharp from "sharp";
+
+// Conditional Sharp import for Lambda compatibility
+let sharp: any = null;
+try {
+  sharp = require("sharp");
+} catch (error) {
+  console.error("Sharp not available in this environment:", error.message);
+}
 
 // Dog management handlers - full database implementation
 export const dogHandler = {
@@ -423,6 +430,11 @@ export const dogHandler = {
   // POST /dogs/{id}/photo/crop - Generate cropped version of uploaded photo
   generateCroppedPhoto: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
     try {
+      // Check if Sharp is available
+      if (!sharp) {
+        throw createError(503, "Image processing is currently unavailable. Sharp library not loaded.");
+      }
+
       const userId = event.user!.userId;
       const dogId = event.pathParameters?.id;
 
