@@ -4,6 +4,7 @@ import type {
   CreateRunRequest,
   Dog,
   LoginRequest,
+  PhotoUploadUrlResponse,
   Run,
   UpdateDogRequest,
   UpdateRunRequest,
@@ -297,6 +298,13 @@ export const dogsApi = {
   // Hard delete a dog (permanent removal)
   hardDelete: async (dogId: string): Promise<void> => {
     return apiRequest(api.delete(`dogs/${dogId}`));
+  },
+
+  // Generate presigned URL for photo upload
+  generatePhotoUploadUrl: async (dogId: string, contentType?: string): Promise<PhotoUploadUrlResponse> => {
+    return apiRequest(api.post(`dogs/${dogId}/photo/upload-url`, { 
+      json: { contentType } 
+    }));
   },
 };
 

@@ -41,6 +41,13 @@ export interface Dog {
   name: string;
   active: boolean;
   classes: DogClass[];
+  photoUrl?: string;
+  photoCrop?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +61,13 @@ export interface UpdateDogRequest {
   name?: string;
   classes?: DogClass[];
   active?: boolean;
+  photoUrl?: string;
+  photoCrop?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 // Run types
@@ -196,4 +210,11 @@ export interface LoginRequest {
 
 export interface GoogleLoginRequest {
   token: string;
+}
+
+// Photo upload types
+export interface PhotoUploadUrlResponse {
+  uploadUrl: string;
+  photoUrl: string;
+  key: string;
 }

@@ -17,7 +17,9 @@
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.830.0",
     "@aws-sdk/client-dynamodb": "^3.830.0",
+    "@aws-sdk/client-s3": "^3.837.0",
     "@aws-sdk/lib-dynamodb": "^3.830.0",
+    "@aws-sdk/s3-request-presigner": "^3.837.0",
     "@middy/core": "^6.3.2",
     "@middy/http-cors": "^6.3.2",
     "@middy/http-error-handler": "^6.3.2",

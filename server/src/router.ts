@@ -115,6 +115,11 @@ export const routes: ExtendedRoute[] = [
     path: "/dogs/{id}",
     handler: dogHandler.hardDeleteDog,
   },
+  {
+    method: "POST",
+    path: "/dogs/{id}/photo/upload-url",
+    handler: dogHandler.generatePhotoUploadUrl,
+  },
 
   // Run endpoints - require authentication
   {

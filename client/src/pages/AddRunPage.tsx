@@ -12,6 +12,7 @@ import {
   Textarea,
   TextInput,
   Title,
+  Image,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
@@ -21,7 +22,7 @@ import type {
   CreateRunRequest,
   Dog,
 } from "@my-agility-qs/shared";
-import { IconArrowLeft, IconCheck, IconTrophy } from "@tabler/icons-react";
+import { IconArrowLeft, IconCheck, IconTrophy, IconDog } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -227,7 +228,8 @@ export const AddRunPage: React.FC = () => {
                         variant={form.values.dogId === dog.id ? "filled" : "outline"}
                         color={form.values.dogId === dog.id ? "blue" : "gray"}
                         size="lg"
-                        h={50}
+                        h={60}
+                        px="sm"
                         onClick={() => {
                           form.setFieldValue("dogId", dog.id);
                           // Auto-select level based on dog's class level
@@ -240,10 +242,34 @@ export const AddRunPage: React.FC = () => {
                             }
                           }
                         }}
+                        styles={{
+                          inner: {
+                            justifyContent: "flex-start",
+                          },
+                        }}
                       >
-                        <Text fw={600} size="md">
-                          {dog.name}
-                        </Text>{" "}
+                        <Group gap="sm" align="center">
+                          {dog.photoUrl ? (
+                            <Image
+                              src={dog.photoUrl}
+                              alt={`${dog.name} photo`}
+                              w={32}
+                              h={32}
+                              radius="sm"
+                              fit="cover"
+                              style={{
+                                objectPosition: dog.photoCrop 
+                                  ? `${dog.photoCrop.x + dog.photoCrop.width/2}% ${dog.photoCrop.y + dog.photoCrop.height/2}%`
+                                  : 'center'
+                              }}
+                            />
+                          ) : (
+                            <IconDog size={24} />
+                          )}
+                          <Text fw={600} size="md">
+                            {dog.name}
+                          </Text>
+                        </Group>
                       </Button>
                     ))}
                   </SimpleGrid>

@@ -14,7 +14,16 @@
 
 ## ✨ Feature Ideas
 
-- [ ] Photo management: Attach a photo of each dog
+- [x] **Photo management** - ✅ **FULLY IMPLEMENTED** 
+  - [x] Added photo fields to Dog entity (`photoUrl`, `photoCrop`)
+  - [x] **AWS SDK v3 Integration**: Installed `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`
+  - [x] **S3 Presigned URL Generation**: Complete implementation with multi-format support (JPEG, PNG, GIF, WebP)
+  - [x] **Upload Flow**: Client gets presigned URL → uploads directly to S3 → updates dog record
+  - [x] Built PhotoUpload component with file selection and crop interface
+  - [x] Added photo upload functionality to Manage Dogs page
+  - [x] Implemented virtual cropping with stored coordinates
+  - [x] Display dog photos on Add Run screen buttons
+  - [x] **Ready for Production**: Only requires AWS S3 bucket permissions and IAM role configuration
 - [ ] Data export: CSV export for backup purposes
 
 ## 🔧 Technical Improvements

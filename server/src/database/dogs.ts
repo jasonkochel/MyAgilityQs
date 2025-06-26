@@ -133,6 +133,18 @@ export async function updateDog(
     expressionAttributeValues[":active"] = request.active;
   }
 
+  if (request.photoUrl !== undefined) {
+    updateExpressions.push("#photoUrl = :photoUrl");
+    expressionAttributeNames["#photoUrl"] = "photoUrl";
+    expressionAttributeValues[":photoUrl"] = request.photoUrl;
+  }
+
+  if (request.photoCrop !== undefined) {
+    updateExpressions.push("#photoCrop = :photoCrop");
+    expressionAttributeNames["#photoCrop"] = "photoCrop";
+    expressionAttributeValues[":photoCrop"] = request.photoCrop;
+  }
+
   updateExpressions.push("#updatedAt = :updatedAt");
   expressionAttributeNames["#updatedAt"] = "updatedAt";
   expressionAttributeValues[":updatedAt"] = createTimestamp();

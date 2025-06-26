@@ -2,6 +2,30 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with this repository.
 
+## Development Workflow
+
+**WSL Development Environment**:
+- **OS**: Ubuntu on Windows Subsystem for Linux (WSL2)
+- **IDE**: VS Code on Windows with WSL extension (WSL-linked mode)
+- **Terminal**: Bash shells within WSL Ubuntu
+- **File System**: Project located at `~/src/MyAgilityQs` (Ubuntu partition, not `/mnt/c`)
+- **Network Access**: Vite dev server accessible from Windows at `http://172.31.91.177:5174/` (WSL IP)
+- **Windows Path Access**: When Windows paths like `C:\Users\...` are provided, translate to `/mnt/c/Users/...` to access from WSL
+
+**Local Development Setup**:
+1. **Client**: Vite dev server with live AWS backend
+2. **Server**: Live Lambda
+3. **Database**: Live DynamoDB (environment-based table selection)
+
+The human user will ensure that the Vite dev server is running in a separate terminal window.  Do not "npm run dev" yourself.
+
+The human user will review all code changes before they are committed to git or pushed to GitHub.  Only perform git operations if specifically requested.
+
+**Build Dependencies**:
+- Shared package must build first (dependency for client/server)
+- Use workspace root `npm run build` for correct order
+- Client uses symlinked shared package via npm workspaces
+
 ## Project Overview
 
 MyAgilityQs is a full-stack AKC Canine Agility tracking application built as a serverless monorepo with:
@@ -42,9 +66,9 @@ npm run test            # Build + type check validation
 
 ## Current Production Status
 
-- **Live API**: https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com/
-- **Health Check**: https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com/health
-- **Database**: DynamoDB (`MyAgilityQs` prod / `MyAgilityQs-Dev` dev)
+- **Live API**: https://vep645bkmqblgemzy72psyrsju0mjgma.lambda-url.us-east-1.on.aws/
+- **Health Check**: https://vep645bkmqblgemzy72psyrsju0mjgma.lambda-url.us-east-1.on.aws/health
+- **Database**: DynamoDB single-table `MyAgilityQs`
 - **Authentication**: AWS Cognito with Google OAuth fully configured and tested
 - **Status**: Production-ready, fully functional application
 
@@ -60,7 +84,7 @@ Uses single-table design with composite keys:
 **Key Patterns**:
 ```typescript
 // Users: PK: USER#${userId}, SK: PROFILE
-// Dogs: PK: DOG#${dogId}, SK: PROFILE  
+// Dogs: PK: DOG#${dogId}, SK: PROFILE
 // Runs: PK: USER#${userId}, SK: RUN#${timestamp}#${runId}
 // User-Dog Links: PK: USER#${userId}, SK: DOG#${dogId}
 ```
@@ -128,32 +152,6 @@ import { Dog, CreateRunRequest, ApiResponse, calculateMachProgress } from '@my-a
 - Mobile-first responsive design
 - Touch-optimized interface for quick run entry
 
-## Development Workflow
-
-**WSL Development Environment**:
-- **OS**: Ubuntu on Windows Subsystem for Linux (WSL2)
-- **IDE**: VS Code on Windows with WSL extension (WSL-linked mode)
-- **Terminal**: Bash shells within WSL Ubuntu
-- **File System**: Project located at `~/src/MyAgilityQs` (Ubuntu partition, not `/mnt/c`)
-- **Benefits**: Native Linux performance, better build speeds, no Windows file IO hangs
-- **Network Access**: Vite dev server accessible from Windows at `http://172.31.91.177:5174/` (WSL IP)
-- **Windows Path Access**: When Windows paths like `C:\Users\...` are provided, translate to `/mnt/c/Users/...` to access from WSL
-
-**Local Development Setup**:
-1. **Client**: Vite dev server with live AWS backend
-2. **Server**: SAM CLI + Docker for local Lambda simulation
-3. **Database**: Live DynamoDB (environment-based table selection)
-
-**Build Dependencies**:
-- Shared package must build first (dependency for client/server)
-- Use workspace root `npm run build` for correct order
-- Client uses symlinked shared package via npm workspaces
-
-**Testing**:
-- Client: Vitest + Testing Library
-- Server: Build + type check validation
-- Test credentials stored in `server/.env` (gitignored)
-
 ## Key Features
 
 ### Auto-Level Progression
@@ -198,7 +196,7 @@ import { Dog, CreateRunRequest, ApiResponse, calculateMachProgress } from '@my-a
 ```typescript
 // Shared utilities used by both client and server
 calculateDoubleQs(runs: Run[]): number
-calculateTotalMachPoints(runs: Run[]): number  
+calculateTotalMachPoints(runs: Run[]): number
 calculateMachProgress(runs: Run[]): MachProgress
 isMachEligible(dogClasses): boolean
 ```
@@ -232,22 +230,6 @@ isMachEligible(dogClasses): boolean
   - ✅ Screenshot capture with visual output
   - ✅ Console logs access via MCP resource `console://logs`
 - **Purpose**: Enable Claude to visually inspect and interact with the running app for UI testing and debugging
-
-### Common Issues and Solutions
-- Always run `npm ci` from workspace root to create proper symlinks
-- Shared package must build before client/server
-- Use environment-based table selection for dev/prod databases
-- Test credentials available in `server/.env` for development
-- **Vite cache issues**: Clear with `rm -rf client/node_modules/.vite` if modules fail to load
-- **WSL network access**: Ensure Vite runs with `--host 0.0.0.0` for Windows browser access
-- **Google OAuth**: Callback URL needs updating for WSL IP (`http://172.31.91.177:5174/auth/callback`)
-
-## Development Workflow Memories
-
-- **I will run the dev server myself**
-- **The AI Agent should not run the dev server for the client. That should be kept running in a separate terminal window by the human attendant**
-
-When working on this codebase, maintain the established patterns for database operations, API routes, and shared type usage. Always test locally before deployment and ensure the build order is respected for workspace dependencies.
 
 ## File Structure Reference
 

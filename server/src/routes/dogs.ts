@@ -9,6 +9,8 @@ import {
   updateDog,
 } from "../database/index.js";
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Dog management handlers - full database implementation
 export const dogHandler = {
@@ -299,6 +301,111 @@ export const dogHandler = {
         success: false,
         error: "database_error",
         message: "Failed to permanently delete dog",
+      };
+
+      return {
+        statusCode: 500,
+        body: JSON.stringify(response),
+      };
+    }
+  },
+
+  // POST /dogs/{id}/photo/upload-url - Generate presigned URL for photo upload
+  generatePhotoUploadUrl: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    try {
+      const userId = event.user!.userId;
+      const dogId = event.pathParameters?.id;
+
+      if (!dogId) {
+        throw createError(400, "Dog ID is required");
+      }
+
+      // Verify dog exists and belongs to user
+      const existingDog = await getDogById(dogId);
+      if (!existingDog) {
+        throw createError(404, "Dog not found");
+      }
+
+      if (existingDog.userId !== userId) {
+        throw createError(403, "Not authorized to upload photo for this dog");
+      }
+
+      // Initialize S3 client
+      const s3Client = new S3Client({ 
+        region: process.env.AWS_REGION || "us-east-1" 
+      });
+      
+      // Parse content type from request body if provided
+      const body = event.body as any;
+      const contentType = body?.contentType || "image/jpeg";
+      
+      // Generate file extension based on content type
+      const getFileExtension = (type: string): string => {
+        switch (type) {
+          case "image/png": return "png";
+          case "image/gif": return "gif";
+          case "image/webp": return "webp";
+          default: return "jpg";
+        }
+      };
+      
+      // Generate unique key for the photo
+      const timestamp = Date.now();
+      const extension = getFileExtension(contentType);
+      const key = `dog-photos/${dogId}/${timestamp}.${extension}`;
+      
+      // Create the PutObject command
+      const command = new PutObjectCommand({
+        Bucket: "myagilityqs-frontend", 
+        Key: key,
+        ContentType: contentType,
+        Metadata: {
+          dogId: dogId,
+          userId: userId,
+          uploadedAt: timestamp.toString()
+        }
+      });
+      
+      // Generate presigned URL (expires in 5 minutes)
+      const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 });
+      
+      // The photo will be accessible at this URL after upload
+      const photoUrl = `https://myagilityqs.com/${key}`;
+
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          uploadUrl,
+          photoUrl,
+          key
+        },
+        message: "Presigned URL generated successfully"
+      };
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+      };
+    } catch (error: any) {
+      console.error("Error generating photo upload URL:", error);
+
+      if (error.statusCode) {
+        const response: ApiResponse = {
+          success: false,
+          error: error.statusCode === 404 ? "not_found" : "validation_error",
+          message: error.message,
+        };
+
+        return {
+          statusCode: error.statusCode,
+          body: JSON.stringify(response),
+        };
+      }
+
+      const response: ApiResponse = {
+        success: false,
+        error: "server_error",
+        message: "Failed to generate photo upload URL",
       };
 
       return {

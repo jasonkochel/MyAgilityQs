@@ -11,6 +11,7 @@ import {
   Stack,
   Text,
   Title,
+  Image,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
@@ -21,6 +22,7 @@ import { useLocation } from "wouter";
 import { dogsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
 import { useNavigationHistory } from "../hooks/useNavigationHistory";
+import { PhotoUpload } from "../components/PhotoUpload";
 
 export const MyDogsPage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -193,7 +195,23 @@ export const MyDogsPage: React.FC = () => {
                 <Card key={dog.id} withBorder shadow="sm" radius="md" padding="lg">
                   <Group justify="space-between" mb="md">
                     <Group>
-                      <IconDog size={24} color="var(--mantine-color-blue-6)" />
+                      {dog.photoUrl ? (
+                        <Image
+                          src={dog.photoUrl}
+                          alt={`${dog.name} photo`}
+                          w={32}
+                          h={32}
+                          radius="sm"
+                          fit="cover"
+                          style={{
+                            objectPosition: dog.photoCrop 
+                              ? `${dog.photoCrop.x + dog.photoCrop.width/2}% ${dog.photoCrop.y + dog.photoCrop.height/2}%`
+                              : 'center'
+                          }}
+                        />
+                      ) : (
+                        <IconDog size={24} color="var(--mantine-color-blue-6)" />
+                      )}
                       <Title order={3}>{dog.name}</Title>
                     </Group>
                     <Group>
@@ -213,33 +231,40 @@ export const MyDogsPage: React.FC = () => {
                         <IconTrash size={16} />
                       </ActionIcon>
                     </Group>
-                  </Group>{" "}
-                  <Stack
-                    gap="xs"
-                    onClick={() => setLocation(`/dogs/${dog.id}/edit`)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <Text size="sm" c="dimmed" fw={500}>
-                      Classes:
-                    </Text>
-                    {dog.classes && dog.classes.length > 0 ? (
-                      <Stack gap="xs">
-                        {dog.classes.map((dogClass, index) => (
-                          <Group key={index} gap="md" align="center">
-                            <Text size="sm" fw={500} style={{ minWidth: "100px" }}>
-                              {getDisplayName(dogClass.name)}
-                            </Text>
-                            <Text size="sm" c="dimmed">
-                              {dogClass.level}
-                            </Text>
-                          </Group>
-                        ))}
-                      </Stack>
-                    ) : (
-                      <Text size="sm" c="dimmed">
-                        No classes assigned
+                  </Group>
+                  
+                  <Stack gap="md">
+                    <Stack
+                      gap="xs"
+                      onClick={() => setLocation(`/dogs/${dog.id}/edit`)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <Text size="sm" c="dimmed" fw={500}>
+                        Classes:
                       </Text>
-                    )}
+                      {dog.classes && dog.classes.length > 0 ? (
+                        <Stack gap="xs">
+                          {dog.classes.map((dogClass, index) => (
+                            <Group key={index} gap="md" align="center">
+                              <Text size="sm" fw={500} style={{ minWidth: "100px" }}>
+                                {getDisplayName(dogClass.name)}
+                              </Text>
+                              <Text size="sm" c="dimmed">
+                                {dogClass.level}
+                              </Text>
+                            </Group>
+                          ))}
+                        </Stack>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          No classes assigned
+                        </Text>
+                      )}
+                    </Stack>
+                    
+                    <Group justify="flex-end">
+                      <PhotoUpload dog={dog} />
+                    </Group>
                   </Stack>
                 </Card>
               ))}
