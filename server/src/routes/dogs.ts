@@ -1,6 +1,9 @@
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ApiResponse, CreateDogRequest, UpdateDogRequest } from "@my-agility-qs/shared";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import createError from "http-errors";
+import { Jimp } from "jimp";
 import {
   createDog,
   getDogById,
@@ -9,9 +12,6 @@ import {
   updateDog,
 } from "../database/index.js";
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { Jimp } from "jimp";
 
 // Dog management handlers - full database implementation
 export const dogHandler = {
@@ -332,14 +332,14 @@ export const dogHandler = {
       }
 
       // Initialize S3 client
-      const s3Client = new S3Client({ 
-        region: process.env.AWS_REGION || "us-east-1" 
+      const s3Client = new S3Client({
+        region: process.env.AWS_REGION || "us-east-1"
       });
-      
+
       // Parse content type from request body if provided
       const body = event.body as any;
       const contentType = body?.contentType || "image/jpeg";
-      
+
       // Generate file extension based on content type
       const getFileExtension = (type: string): string => {
         switch (type) {
@@ -349,15 +349,15 @@ export const dogHandler = {
           default: return "jpg";
         }
       };
-      
+
       // Generate unique key for the photo
       const timestamp = Date.now();
       const extension = getFileExtension(contentType);
       const key = `dog-photos/${dogId}/${timestamp}.${extension}`;
-      
+
       // Create the PutObject command
       const command = new PutObjectCommand({
-        Bucket: "myagilityqs-frontend", 
+        Bucket: "myagilityqs-frontend",
         Key: key,
         ContentType: contentType,
         Metadata: {
@@ -366,10 +366,10 @@ export const dogHandler = {
           uploadedAt: timestamp.toString()
         }
       });
-      
+
       // Generate presigned URL (expires in 5 minutes)
       const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 });
-      
+
       // The photo will be accessible at this URL after upload
       const photoUrl = `https://myagilityqs.com/${key}`;
 
@@ -449,8 +449,8 @@ export const dogHandler = {
       const { x, y, width, height } = cropData;
 
       // Initialize S3 client
-      const s3Client = new S3Client({ 
-        region: process.env.AWS_REGION || "us-east-1" 
+      const s3Client = new S3Client({
+        region: process.env.AWS_REGION || "us-east-1"
       });
 
       // Download original image from S3
@@ -469,10 +469,10 @@ export const dogHandler = {
 
       // Load image with Jimp
       const image = await Jimp.read(originalBuffer);
-      
+
       // Get original image dimensions
-      const imageWidth = image.getWidth();
-      const imageHeight = image.getHeight();
+      const imageWidth = image.width;
+      const imageHeight = image.height;
 
       // Convert percentage-based crop coordinates to pixels
       const cropLeft = Math.round((x / 100) * imageWidth);
@@ -481,11 +481,10 @@ export const dogHandler = {
       const cropHeight = Math.round((height / 100) * imageHeight);
 
       // Generate cropped image with Jimp
-      const croppedImage = image.crop(cropLeft, cropTop, cropWidth, cropHeight);
-      
-      // Set JPEG quality and get buffer
-      croppedImage.quality(85);
-      const croppedBuffer = await croppedImage.getBufferAsync(Jimp.MIME_JPEG);
+      const croppedImage = image.crop({ x: cropLeft, y: cropTop, w: cropWidth, h: cropHeight });
+
+      // Get buffer with JPEG quality setting
+      const croppedBuffer = await croppedImage.getBuffer("image/jpeg", { quality: 85 });
 
       // Generate key for cropped image
       const originalKeyParts = originalKey.split('.');
