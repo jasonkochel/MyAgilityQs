@@ -1,8 +1,8 @@
 import { Button, Container, Group, Stack, Text, Title } from "@mantine/core";
 import { IconDog, IconList, IconLogout, IconPlus, IconTrophy, IconUser } from "@tabler/icons-react";
 import { useLocation } from "wouter";
-import { useAuth } from "../contexts/AuthContext";
 import PWAInstallButton from "../components/PWAInstallButton";
+import { useAuth } from "../contexts/AuthContext";
 
 export const MainMenuPage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -67,14 +67,13 @@ export const MainMenuPage: React.FC = () => {
 
         {/* Main Menu Buttons */}
         <Stack w="100%" maw={400} gap="md">
-          {" "}
           {menuItems.map((item) => (
             <Button
               key={item.href}
               variant="filled"
               color={item.color}
               size="xl"
-              h={64}
+              h={76}
               leftSection={<item.icon size={24} />}
               onClick={() => setLocation(item.href)}
               styles={{
@@ -87,8 +86,7 @@ export const MainMenuPage: React.FC = () => {
                 },
               }}
             >
-              {" "}
-              <Stack gap={2} align="flex-start">
+              <Stack gap={0} align="flex-start">
                 <Text fw={600} size="lg" c="white">
                   {item.label}
                 </Text>

@@ -300,7 +300,14 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ dog, onPhotoUpdate }) 
       });
       
       if (!uploadResponse.ok) {
-        throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+        const errorMessage = `Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`;
+        
+        // Provide specific guidance for CORS errors
+        if (uploadResponse.status === 0 || uploadResponse.status === 403) {
+          throw new Error(`${errorMessage}\n\nThis may be a CORS configuration issue. Please ensure the S3 bucket has proper CORS settings to allow uploads from this origin.`);
+        }
+        
+        throw new Error(errorMessage);
       }
       
       // Step 3: Update dog with photo URL and crop data
@@ -331,10 +338,19 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ dog, onPhotoUpdate }) 
     },
     onError: (error) => {
       console.error('Upload error:', error);
+      
+      let errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Check for network errors that often indicate CORS issues
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        errorMessage = 'Network error during upload. This is often caused by CORS configuration issues. Please check the S3 bucket CORS settings.';
+      }
+      
       notifications.show({
         title: 'Upload Failed',
-        message: `Failed to upload photo: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `Failed to upload photo: ${errorMessage}`,
         color: 'red',
+        autoClose: false, // Don't auto-close CORS error messages so user can read them
       });
     },
   });

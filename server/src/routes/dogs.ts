@@ -379,7 +379,11 @@ export const dogHandler = {
           photoUrl,
           key
         },
-        message: "Presigned URL generated successfully"
+        message: "Presigned URL generated successfully",
+        meta: {
+          corsNote: "If you get CORS errors, ensure the S3 bucket has proper CORS configuration allowing PUT requests from your origin",
+          expiresIn: 300
+        }
       };
 
       return {

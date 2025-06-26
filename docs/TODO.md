@@ -23,7 +23,10 @@
   - [x] Added photo upload functionality to Manage Dogs page
   - [x] Implemented virtual cropping with stored coordinates
   - [x] Display dog photos on Add Run screen buttons
-  - [x] **Ready for Production**: Only requires AWS S3 bucket permissions and IAM role configuration
+  - [x] **Ready for Production**: Only requires AWS S3 bucket CORS configuration
+  - [x] **CORS Configuration**: Created `AWS_S3_SETUP.md` with complete S3 CORS setup instructions
+  - [x] **Enhanced Error Handling**: Added specific CORS error detection and user-friendly messages
+  - [x] **SAM Template Integration**: Added S3 CORS config and IAM permissions to `template.yaml` for automated deployment
 - [ ] Data export: CSV export for backup purposes
 
 ## 🔧 Technical Improvements

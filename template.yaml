@@ -1,6 +1,23 @@
+# MyAgilityQs SAM Template
+#
+# This template deploys a full-stack serverless application with:
+# - S3 bucket for frontend hosting and photo storage
+# - CloudFront distribution for global CDN
+# - Lambda function for API backend
+# - DynamoDB for data storage
+# - Route 53 for DNS (production only)
+#
+# Photo Upload Feature:
+# - S3 CORS configuration allows direct client-to-S3 uploads
+# - Lambda generates presigned URLs for secure uploads
+# - Photos stored in dog-photos/{dogId}/{timestamp}.{ext} path
+# - IAM permissions restricted to dog-photos/* prefix for security
+
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: MyAgilityQs Full Stack - API + Frontend
+Description: >
+  MyAgilityQs Full Stack - API + Frontend
+  Includes photo upload functionality using S3 presigned URLs with CORS configuration
 
 Globals:
   Function:
@@ -70,7 +87,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
 
-  # S3 Bucket for Frontend
+  # S3 Bucket for Frontend (includes photo upload functionality)
   FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -82,6 +99,29 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      # CORS configuration for photo upload feature
+      CorsConfiguration:
+        CorsRules:
+          - Id: PhotoUploadCors
+            AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - PUT
+              - POST
+              - GET
+              - HEAD
+            AllowedOrigins:
+              - !If
+                - IsProduction
+                - !Sub "https://${DomainName}"
+                - !Ref CorsOrigin
+              - !If
+                - IsProduction
+                - !Sub "https://www.${DomainName}"
+                - "http://localhost:5174"
+            ExposedHeaders:
+              - ETag
+            MaxAge: 3000
       Tags:
         - Key: Project
           Value: MyAgilityQs
@@ -237,6 +277,7 @@ Resources:
       Policies:
         - Version: "2012-10-17"
           Statement:
+            # Cognito permissions for user authentication
             - Effect: Allow
               Action:
                 - cognito-idp:AdminCreateUser
@@ -245,6 +286,7 @@ Resources:
                 - cognito-idp:AdminGetUser
                 - cognito-idp:AdminUpdateUserAttributes
               Resource: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/us-east-1_808uxrU8E"
+            # DynamoDB permissions for data storage
             - Effect: Allow
               Action:
                 - dynamodb:GetItem
@@ -256,6 +298,13 @@ Resources:
               Resource:
                 - !GetAtt DynamoTable.Arn
                 - !Sub "${DynamoTable.Arn}/index/*"
+            # S3 permissions for photo upload feature
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:PutObjectAcl
+                - s3:GetObject
+              Resource: !Sub "${FrontendBucket}/dog-photos/*"
       Environment:
         Variables:
           DYNAMODB_TABLE_NAME: !Ref DynamoTable
@@ -289,8 +338,12 @@ Outputs:
     Value: !Ref CloudFrontDistribution
 
   FrontendBucketName:
-    Description: "S3 Bucket for Frontend"
+    Description: "S3 Bucket for Frontend and Photo Storage"
     Value: !Ref FrontendBucket
+
+  FrontendBucketArn:
+    Description: "S3 Bucket ARN (for photo upload permissions)"
+    Value: !GetAtt FrontendBucket.Arn
 
   HostedZoneId:
     Condition: IsProduction
