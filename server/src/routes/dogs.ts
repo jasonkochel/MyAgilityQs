@@ -11,14 +11,7 @@ import {
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-
-// Conditional Sharp import for Lambda compatibility
-let sharp: any = null;
-try {
-  sharp = require("sharp");
-} catch (error) {
-  console.error("Sharp not available in this environment:", error.message);
-}
+import { Jimp } from "jimp";
 
 // Dog management handlers - full database implementation
 export const dogHandler = {
@@ -430,11 +423,6 @@ export const dogHandler = {
   // POST /dogs/{id}/photo/crop - Generate cropped version of uploaded photo
   generateCroppedPhoto: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
     try {
-      // Check if Sharp is available
-      if (!sharp) {
-        throw createError(503, "Image processing is currently unavailable. Sharp library not loaded.");
-      }
-
       const userId = event.user!.userId;
       const dogId = event.pathParameters?.id;
 
@@ -479,28 +467,25 @@ export const dogHandler = {
       // Convert stream to buffer
       const originalBuffer = Buffer.from(await originalObject.Body.transformToByteArray());
 
-      // Get original image metadata
-      const metadata = await sharp(originalBuffer).metadata();
-      if (!metadata.width || !metadata.height) {
-        throw createError(400, "Invalid image format");
-      }
+      // Load image with Jimp
+      const image = await Jimp.read(originalBuffer);
+      
+      // Get original image dimensions
+      const imageWidth = image.getWidth();
+      const imageHeight = image.getHeight();
 
       // Convert percentage-based crop coordinates to pixels
-      const cropLeft = Math.round((x / 100) * metadata.width);
-      const cropTop = Math.round((y / 100) * metadata.height);
-      const cropWidth = Math.round((width / 100) * metadata.width);
-      const cropHeight = Math.round((height / 100) * metadata.height);
+      const cropLeft = Math.round((x / 100) * imageWidth);
+      const cropTop = Math.round((y / 100) * imageHeight);
+      const cropWidth = Math.round((width / 100) * imageWidth);
+      const cropHeight = Math.round((height / 100) * imageHeight);
 
-      // Generate cropped image
-      const croppedBuffer = await sharp(originalBuffer)
-        .extract({
-          left: cropLeft,
-          top: cropTop,
-          width: cropWidth,
-          height: cropHeight
-        })
-        .jpeg({ quality: 85 }) // Optimize for web
-        .toBuffer();
+      // Generate cropped image with Jimp
+      const croppedImage = image.crop(cropLeft, cropTop, cropWidth, cropHeight);
+      
+      // Set JPEG quality and get buffer
+      croppedImage.quality(85);
+      const croppedBuffer = await croppedImage.getBufferAsync(Jimp.MIME_JPEG);
 
       // Generate key for cropped image
       const originalKeyParts = originalKey.split('.');
