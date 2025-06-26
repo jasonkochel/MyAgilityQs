@@ -28,8 +28,7 @@ The bucket must have the following CORS configuration to allow uploads from your
         ],
         "AllowedOrigins": [
             "https://myagilityqs.com",
-            "http://localhost:5174",
-            "http://localhost:3000"
+            "http://localhost:5174"
         ],
         "ExposeHeaders": [
             "ETag"

@@ -8,10 +8,11 @@
 # - Route 53 for DNS (production only)
 #
 # Photo Upload Feature:
-# - S3 CORS configuration allows direct client-to-S3 uploads
-# - Lambda generates presigned URLs for secure uploads
+# - S3 CORS configuration allows direct client-to-S3 uploads from production and local dev
+# - Lambda generates presigned URLs for secure uploads  
 # - Photos stored in dog-photos/{dogId}/{timestamp}.{ext} path
 # - IAM permissions restricted to dog-photos/* prefix for security
+# - CORS origins: https://myagilityqs.com (production) and http://localhost:5174 (local dev)
 
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
@@ -99,7 +100,7 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-      # CORS configuration for photo upload feature
+      # CORS configuration for photo upload feature (production + local dev)
       CorsConfiguration:
         CorsRules:
           - Id: PhotoUploadCors
@@ -111,14 +112,8 @@ Resources:
               - GET
               - HEAD
             AllowedOrigins:
-              - !If
-                - IsProduction
-                - !Sub "https://${DomainName}"
-                - !Ref CorsOrigin
-              - !If
-                - IsProduction
-                - !Sub "https://www.${DomainName}"
-                - "http://localhost:5174"
+              - "https://myagilityqs.com"
+              - "http://localhost:5174"
             ExposedHeaders:
               - ETag
             MaxAge: 3000
@@ -304,7 +299,7 @@ Resources:
                 - s3:PutObject
                 - s3:PutObjectAcl
                 - s3:GetObject
-              Resource: !Sub "${FrontendBucket}/dog-photos/*"
+              Resource: !Sub "${FrontendBucket.Arn}/dog-photos/*"
       Environment:
         Variables:
           DYNAMODB_TABLE_NAME: !Ref DynamoTable
