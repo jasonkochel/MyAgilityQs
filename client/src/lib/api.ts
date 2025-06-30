@@ -1,19 +1,19 @@
 import type {
-  ApiResponse,
-  CreateDogRequest,
-  CreateRunRequest,
-  Dog,
-  LoginRequest,
-  PhotoUploadUrlResponse,
-  Run,
-  UpdateDogRequest,
-  UpdateRunRequest,
-  UpdateUserRequest,
-  User,
+    ApiResponse,
+    CreateDogRequest,
+    CreateRunRequest,
+    Dog,
+    LoginRequest,
+    PhotoUploadUrlResponse,
+    Run,
+    UpdateDogRequest,
+    UpdateRunRequest,
+    UpdateUserRequest,
+    User,
 } from "@my-agility-qs/shared";
 import ky from "ky";
-import { reportHttpError } from "./sentry";
 import type { AuthResponse } from "../types";
+import { reportHttpError } from "./sentry";
 
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -155,7 +155,7 @@ export const api = ky.create({
         // Report HTTP errors to Sentry with detailed context (centralized error handling)
         if (error instanceof Error) {
           const requestContext: Record<string, any> = {};
-          
+
           // Add HTTP-specific context if available
           if ('response' in error && error.response) {
             const response = error.response as Response;
@@ -164,17 +164,17 @@ export const api = ky.create({
             requestContext.statusText = response.statusText;
             requestContext.method = (error as any).request?.method || 'unknown';
           }
-          
+
           // Add request context if available
           if ('request' in error && error.request) {
             const request = error.request as Request;
             requestContext.requestUrl = request.url;
             requestContext.requestMethod = request.method;
           }
-          
+
           reportHttpError(error, requestContext);
         }
-        
+
         return error;
       },
     ],
@@ -220,7 +220,7 @@ async function apiRequest<T>(request: Promise<Response>): Promise<T> {
     if (error instanceof Error) {
       throw error;
     }
-    
+
     throw new Error("Unknown error occurred");
   }
 }
@@ -298,21 +298,21 @@ export const dogsApi = {
   // Hard delete a dog (permanent removal)
   hardDelete: async (dogId: string): Promise<void> => {
     return apiRequest(api.delete(`dogs/${dogId}`));
-  },
-
-  // Generate presigned URL for photo upload
+  },  // Generate presigned URL for photo upload
   generatePhotoUploadUrl: async (dogId: string, contentType?: string): Promise<PhotoUploadUrlResponse> => {
-    return apiRequest(api.post(`dogs/${dogId}/photo/upload-url`, { 
-      json: { contentType } 
+    return apiRequest(api.post(`dogs/${dogId}/photo/upload-url`, {
+      json: { contentType }
     }));
   },
 
-  // Generate cropped version of uploaded photo
-  generateCroppedPhoto: async (dogId: string, originalKey: string, cropData: { x: number; y: number; width: number; height: number }): Promise<{ croppedPhotoUrl: string; croppedKey: string }> => {
-    return apiRequest(api.post(`dogs/${dogId}/photo/crop`, {
-      json: { originalKey, cropData }
+  // Generate presigned URL for cropped photo upload
+  generateCroppedPhotoUploadUrl: async (dogId: string, contentType?: string): Promise<PhotoUploadUrlResponse> => {
+    return apiRequest(api.post(`dogs/${dogId}/photo/cropped-upload-url`, {
+      json: { contentType }
     }));
   },
+
+  // Note: Images are now processed on client-side for better performance
 };
 
 // Runs API

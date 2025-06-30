@@ -13,6 +13,7 @@ import {
   Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
+import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import type {
   CompetitionClass,
@@ -20,7 +21,7 @@ import type {
   DogClass,
   UpdateDogRequest,
 } from "@my-agility-qs/shared";
-import { IconArrowLeft, IconCheck } from "@tabler/icons-react";
+import { IconArrowLeft, IconCheck, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
@@ -112,6 +113,23 @@ export const EditDogPage: React.FC = () => {
       setError(errorMessage);
     },
   });
+
+  const hardDeleteMutation = useMutation({
+    mutationFn: dogsApi.hardDelete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dogs"] });
+      notifications.show({
+        title: "Success",
+        message: "Dog has been permanently deleted",
+        color: "green",
+      });
+      setLocation("/dogs");
+    },
+    onError: (error) => {
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete dog";
+      setError(errorMessage);
+    },
+  });
   const handleSubmit = (values: DogFormData) => {
     if (!dogId) return;
 
@@ -129,6 +147,28 @@ export const EditDogPage: React.FC = () => {
       active: values.active,
     };
     updateDogMutation.mutate({ dogId, data: apiData });
+  };
+
+  const handleHardDelete = () => {
+    if (!dog || !dogId) return;
+    
+    modals.openConfirmModal({
+      title: "Permanently Delete Dog",
+      children: (
+        <Stack gap="sm">
+          <Text size="sm">
+            Are you sure you want to permanently delete <strong>{dog.name}</strong>?
+          </Text>
+          <Text size="sm" c="orange">
+            <strong>Warning:</strong> This action cannot be undone. All runs associated with this
+            dog will also be permanently deleted.
+          </Text>
+        </Stack>
+      ),
+      labels: { confirm: "Delete Permanently", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: () => hardDeleteMutation.mutate(dogId),
+    });
   };
   const toggleClass = (className: string, enabled: boolean) => {
     form.setFieldValue(`classSelections.${className}.enabled`, enabled);
@@ -292,6 +332,29 @@ export const EditDogPage: React.FC = () => {
               </Button>
             </Stack>
           </form>
+        </Paper>
+
+        {/* Dangerous Actions */}
+        <Paper withBorder shadow="sm" p="md" radius="md" style={{ borderColor: 'var(--mantine-color-red-3)' }}>
+          <Stack gap="md">
+            <Stack gap="xs">
+              <Text fw={500} c="red">Dangerous Actions</Text>
+              <Text size="sm" c="dimmed">
+                These actions cannot be undone. Please be certain before proceeding.
+              </Text>
+            </Stack>
+            
+            <Button
+              variant="outline"
+              color="red"
+              leftSection={<IconTrash size={16} />}
+              onClick={handleHardDelete}
+              loading={hardDeleteMutation.isPending}
+              size="sm"
+            >
+              Delete Dog Permanently
+            </Button>
+          </Stack>
         </Paper>
       </Stack>
     </Container>

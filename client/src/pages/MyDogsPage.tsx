@@ -1,5 +1,4 @@
 import {
-  ActionIcon,
   Badge,
   Button,
   Card,
@@ -11,13 +10,10 @@ import {
   Stack,
   Text,
   Title,
-  Image,
 } from "@mantine/core";
-import { modals } from "@mantine/modals";
-import { notifications } from "@mantine/notifications";
 import type { Dog } from "@my-agility-qs/shared";
-import { IconArrowLeft, IconDog, IconPlus, IconTrash } from "@tabler/icons-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconArrowLeft, IconDog, IconPlus } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { dogsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
@@ -26,7 +22,6 @@ import { PhotoUpload } from "../components/PhotoUpload";
 
 export const MyDogsPage: React.FC = () => {
   const [, setLocation] = useLocation();
-  const queryClient = useQueryClient();
   const { goBack } = useNavigationHistory();
 
   // Create reverse mapping from full names to display names
@@ -46,46 +41,6 @@ export const MyDogsPage: React.FC = () => {
     queryFn: dogsApi.getAllDogs,
   });
 
-  const hardDeleteMutation = useMutation({
-    mutationFn: dogsApi.hardDelete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dogs"] });
-      notifications.show({
-        title: "Success",
-        message: "Dog has been permanently deleted",
-        color: "green",
-      });
-    },
-    onError: (error) => {
-      notifications.show({
-        title: "Error",
-        message: `Failed to delete dog: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-        color: "red",
-      });
-    },
-  });
-
-  const handleHardDelete = (dog: Dog) => {
-    modals.openConfirmModal({
-      title: "Permanently Delete Dog",
-      children: (
-        <Stack gap="sm">
-          <Text size="sm">
-            Are you sure you want to permanently delete <strong>{dog.name}</strong>?
-          </Text>
-          <Text size="sm" c="orange">
-            <strong>Warning:</strong> This action cannot be undone. All runs associated with this
-            dog will also be permanently deleted.
-          </Text>
-        </Stack>
-      ),
-      labels: { confirm: "Delete Permanently", cancel: "Cancel" },
-      confirmProps: { color: "red" },
-      onConfirm: () => hardDeleteMutation.mutate(dog.id),
-    });
-  };
 
   if (isLoading) {
     return (
@@ -192,75 +147,102 @@ export const MyDogsPage: React.FC = () => {
                 return a.name.localeCompare(b.name);
               })
               .map((dog) => (
-                <Card key={dog.id} withBorder shadow="sm" radius="md" padding="lg">
-                  <Group justify="space-between" mb="md">
-                    <Group>
-                      {dog.photoUrl ? (
-                        <Image
-                          src={dog.photoUrl}
-                          alt={`${dog.name} photo`}
-                          w={32}
-                          h={32}
-                          radius="sm"
-                          fit="cover"
-                        />
-                      ) : (
-                        <IconDog size={24} color="var(--mantine-color-blue-6)" />
-                      )}
-                      <Title order={3}>{dog.name}</Title>
-                    </Group>
-                    <Group>
-                      <Badge color={dog.active ? "green" : "gray"} variant="light">
-                        {dog.active ? "Active" : "Inactive"}
-                      </Badge>
-                      <ActionIcon
-                        color="red"
-                        variant="subtle"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleHardDelete(dog);
-                        }}
-                        title="Delete permanently"
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Group>
-                  </Group>
-                  
-                  <Stack gap="md">
-                    <Stack
-                      gap="xs"
-                      onClick={() => setLocation(`/dogs/${dog.id}/edit`)}
-                      style={{ cursor: "pointer" }}
+                <Card key={dog.id} withBorder shadow="sm" radius="md" p="xs">
+                  <Group gap="xs" align="stretch" wrap="nowrap">
+                    {/* Left side - Photo and button stack, vertically centered */}
+                    <Stack 
+                      gap="xs" 
+                      align="center" 
+                      justify="center"
+                      style={{ width: '140px', flexShrink: 0 }}
                     >
-                      <Text size="sm" c="dimmed" fw={500}>
-                        Classes:
-                      </Text>
-                      {dog.classes && dog.classes.length > 0 ? (
-                        <Stack gap="xs">
-                          {dog.classes.map((dogClass, index) => (
-                            <Group key={index} gap="md" align="center">
-                              <Text size="sm" fw={500} style={{ minWidth: "100px" }}>
-                                {getDisplayName(dogClass.name)}
-                              </Text>
-                              <Text size="sm" c="dimmed">
-                                {dogClass.level}
-                              </Text>
-                            </Group>
-                          ))}
-                        </Stack>
-                      ) : (
-                        <Text size="sm" c="dimmed">
-                          No classes assigned
-                        </Text>
-                      )}
-                    </Stack>
-                    
-                    <Group justify="flex-end">
+                      {/* Photo area - flexible height based on aspect ratio */}
+                      <div
+                        style={{
+                          width: '140px',
+                          position: 'relative',
+                          backgroundColor: dog.photoUrl ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-gray-1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 'var(--mantine-radius-md)',
+                          overflow: 'hidden',
+                          minHeight: dog.photoUrl ? 'auto' : '140px', // Only min height for placeholder
+                        }}
+                      >
+                        {dog.photoUrl ? (
+                          <img
+                            src={dog.photoUrl}
+                            alt={`${dog.name} photo`}
+                            style={{
+                              width: '140px',
+                              height: 'auto',
+                              display: 'block',
+                            }}
+                          />
+                        ) : (
+                          <IconDog size={48} color="var(--mantine-color-gray-5)" />
+                        )}
+                      </div>
+                      
+                      {/* Photo button - always same distance from photo container */}
                       <PhotoUpload dog={dog} />
-                    </Group>
-                  </Stack>
+                    </Stack>
+
+                    {/* Right side - Dog information (clickable to edit) */}
+                    <Stack 
+                      gap="xs" 
+                      style={{ 
+                        flex: 1,
+                        cursor: 'pointer',
+                        borderRadius: 'var(--mantine-radius-md)',
+                        padding: '4px',
+                        margin: '-4px'
+                      }}
+                      onClick={() => setLocation(`/dogs/${dog.id}/edit`)}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      {/* Header with name and inactive status if applicable */}
+                      <Group gap="sm" align="center">
+                        <Title order={3} size="h3">{dog.name}</Title>
+                        {!dog.active && (
+                          <Badge color="gray" variant="light" size="sm">
+                            Inactive
+                          </Badge>
+                        )}
+                      </Group>
+
+                      {/* Classes section */}
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed" fw={500}>
+                          Classes:
+                        </Text>
+                        {dog.classes && dog.classes.length > 0 ? (
+                          <Stack gap="xs">
+                            {dog.classes.map((dogClass, index) => (
+                              <Group key={index} gap="md" align="center">
+                                <Text size="sm" fw={500} style={{ minWidth: "80px" }}>
+                                  {getDisplayName(dogClass.name)}
+                                </Text>
+                                <Text size="sm" c="dimmed">
+                                  {dogClass.level}
+                                </Text>
+                              </Group>
+                            ))}
+                          </Stack>
+                        ) : (
+                          <Text size="sm" c="dimmed">
+                            No classes assigned
+                          </Text>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </Group>
                 </Card>
               ))}
           </SimpleGrid>

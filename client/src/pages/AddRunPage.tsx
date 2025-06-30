@@ -1,6 +1,7 @@
 import {
   Alert,
   Autocomplete,
+  Box,
   Button,
   Container,
   Group,
@@ -223,13 +224,8 @@ export const AddRunPage: React.FC = () => {
                 ) : (
                   <SimpleGrid cols={2} spacing="xs">
                     {dogs.map((dog: Dog) => (
-                      <Button
+                      <Box
                         key={dog.id}
-                        variant={form.values.dogId === dog.id ? "filled" : "outline"}
-                        color={form.values.dogId === dog.id ? "blue" : "gray"}
-                        size="lg"
-                        h={60}
-                        px="sm"
                         onClick={() => {
                           form.setFieldValue("dogId", dog.id);
                           // Auto-select level based on dog's class level
@@ -242,30 +238,89 @@ export const AddRunPage: React.FC = () => {
                             }
                           }
                         }}
-                        styles={{
-                          inner: {
-                            justifyContent: "flex-start",
-                          },
+                        style={{
+                          height: '80px',
+                          borderRadius: 'var(--mantine-radius-md)',
+                          border: form.values.dogId === dog.id 
+                            ? '2px solid var(--mantine-color-blue-filled)' 
+                            : '1px solid var(--mantine-color-gray-4)',
+                          backgroundColor: form.values.dogId === dog.id 
+                            ? 'var(--mantine-color-blue-filled)' 
+                            : 'var(--mantine-color-white)',
+                          cursor: 'pointer',
+                          overflow: 'hidden',
+                          display: 'flex',
+                          alignItems: 'stretch',
+                          transition: 'all 0.2s ease',
+                        }}
+                        __vars={{
+                          '--button-hover': form.values.dogId === dog.id 
+                            ? 'var(--mantine-color-blue-6)' 
+                            : 'var(--mantine-color-gray-0)',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (form.values.dogId !== dog.id) {
+                            e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (form.values.dogId !== dog.id) {
+                            e.currentTarget.style.backgroundColor = 'var(--mantine-color-white)';
+                          }
                         }}
                       >
-                        <Group gap="sm" align="center">
-                          {dog.photoUrl ? (
-                            <Image
-                              src={dog.photoUrl}
-                              alt={`${dog.name} photo`}
-                              w={32}
-                              h={32}
-                              radius="sm"
-                              fit="cover"
-                            />
-                          ) : (
-                            <IconDog size={24} />
-                          )}
-                          <Text fw={600} size="md">
+                        {/* Photo - flush left, natural width */}
+                        {dog.photoUrl ? (
+                          <img
+                            src={dog.photoUrl}
+                            alt={`${dog.name} photo`}
+                            style={{
+                              height: '80px',
+                              width: 'auto', // This will maintain aspect ratio
+                              objectFit: 'cover',
+                              objectPosition: 'center',
+                              flexShrink: 0,
+                              display: 'block',
+                            }}
+                          />
+                        ) : (
+                          <Box
+                            w={80} // Fallback square for icon
+                            h="100%"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: 'var(--mantine-color-gray-1)',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <IconDog size={32} color="var(--mantine-color-gray-6)" />
+                          </Box>
+                        )}
+                        
+                        {/* Name - centered in remaining space */}
+                        <Box
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: '100%',
+                            paddingLeft: '12px',
+                            paddingRight: '12px',
+                          }}
+                        >
+                          <Text 
+                            fw={600} 
+                            size="md" 
+                            ta="center"
+                            c={form.values.dogId === dog.id ? 'white' : 'black'}
+                          >
                             {dog.name}
                           </Text>
-                        </Group>
-                      </Button>
+                        </Box>
+                      </Box>
                     ))}
                   </SimpleGrid>
                 )}
