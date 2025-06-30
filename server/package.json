@@ -30,7 +30,6 @@
     "@types/http-errors": "^2.0.5",
     "aws-jwt-verify": "^5.1.0",
     "http-errors": "^2.0.0",
-    "jimp": "^1.6.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

@@ -1,15 +1,14 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ApiResponse, CreateDogRequest, UpdateDogRequest } from "@my-agility-qs/shared";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import createError from "http-errors";
-import { Jimp } from "jimp";
 import {
-  createDog,
-  getDogById,
-  getDogsByUserId,
-  hardDeleteDog,
-  updateDog,
+    createDog,
+    getDogById,
+    getDogsByUserId,
+    hardDeleteDog,
+    updateDog,
 } from "../database/index.js";
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
 
@@ -311,8 +310,11 @@ export const dogHandler = {
     }
   },
 
-  // POST /dogs/{id}/photo/upload-url - Generate presigned URL for photo upload
-  generatePhotoUploadUrl: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+  // Shared function to generate presigned URLs for photo uploads with full validation
+  _generatePhotoUploadUrlInternal: async (
+    event: AuthenticatedEvent,
+    isCropped: boolean = false
+  ): Promise<APIGatewayProxyResultV2> => {
     try {
       const userId = event.user!.userId;
       const dogId = event.pathParameters?.id;
@@ -331,14 +333,14 @@ export const dogHandler = {
         throw createError(403, "Not authorized to upload photo for this dog");
       }
 
+      // Parse content type from request body if provided
+      const body = event.body as any;
+      const contentType = body?.contentType || "image/jpeg";
+
       // Initialize S3 client
       const s3Client = new S3Client({
         region: process.env.AWS_REGION || "us-east-1"
       });
-
-      // Parse content type from request body if provided
-      const body = event.body as any;
-      const contentType = body?.contentType || "image/jpeg";
 
       // Generate file extension based on content type
       const getFileExtension = (type: string): string => {
@@ -353,18 +355,26 @@ export const dogHandler = {
       // Generate unique key for the photo
       const timestamp = Date.now();
       const extension = getFileExtension(contentType);
-      const key = `dog-photos/${dogId}/${timestamp}.${extension}`;
+      const suffix = isCropped ? "-cropped" : "";
+      const key = `dog-photos/${dogId}/${timestamp}${suffix}.${extension}`;
+
+      // Create metadata
+      const metadata: Record<string, string> = {
+        dogId: dogId,
+        userId: userId,
+        uploadedAt: timestamp.toString()
+      };
+
+      if (isCropped) {
+        metadata.imageType = "cropped";
+      }
 
       // Create the PutObject command
       const command = new PutObjectCommand({
         Bucket: "myagilityqs-frontend",
         Key: key,
         ContentType: contentType,
-        Metadata: {
-          dogId: dogId,
-          userId: userId,
-          uploadedAt: timestamp.toString()
-        }
+        Metadata: metadata
       });
 
       // Generate presigned URL (expires in 5 minutes)
@@ -380,7 +390,7 @@ export const dogHandler = {
           photoUrl,
           key
         },
-        message: "Presigned URL generated successfully",
+        message: `Presigned URL${isCropped ? " for cropped photo" : ""} generated successfully`,
         meta: {
           corsNote: "If you get CORS errors, ensure the S3 bucket has proper CORS configuration allowing PUT requests from your origin",
           expiresIn: 300
@@ -392,7 +402,8 @@ export const dogHandler = {
         body: JSON.stringify(response),
       };
     } catch (error: any) {
-      console.error("Error generating photo upload URL:", error);
+      const errorType = isCropped ? "cropped photo" : "photo";
+      console.error(`Error generating ${errorType} upload URL:`, error);
 
       if (error.statusCode) {
         const response: ApiResponse = {
@@ -410,7 +421,7 @@ export const dogHandler = {
       const response: ApiResponse = {
         success: false,
         error: "server_error",
-        message: "Failed to generate photo upload URL",
+        message: `Failed to generate ${errorType} upload URL`,
       };
 
       return {
@@ -420,137 +431,14 @@ export const dogHandler = {
     }
   },
 
-  // POST /dogs/{id}/photo/crop - Generate cropped version of uploaded photo
-  generateCroppedPhoto: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
-    try {
-      const userId = event.user!.userId;
-      const dogId = event.pathParameters?.id;
+  // POST /dogs/{id}/photo/upload-url - Generate presigned URL for photo upload
+  generatePhotoUploadUrl: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    return dogHandler._generatePhotoUploadUrlInternal(event, false);
+  },
 
-      if (!dogId) {
-        throw createError(400, "Dog ID is required");
-      }
 
-      // Verify dog exists and belongs to user
-      const existingDog = await getDogById(dogId);
-      if (!existingDog) {
-        throw createError(404, "Dog not found");
-      }
-
-      if (existingDog.userId !== userId) {
-        throw createError(403, "Not authorized to crop photo for this dog");
-      }
-
-      const body = event.body as any;
-      if (!body?.originalKey || !body?.cropData) {
-        throw createError(400, "Original photo key and crop data are required");
-      }
-
-      const { originalKey, cropData } = body;
-      const { x, y, width, height } = cropData;
-
-      // Initialize S3 client
-      const s3Client = new S3Client({
-        region: process.env.AWS_REGION || "us-east-1"
-      });
-
-      // Download original image from S3
-      const getCommand = new GetObjectCommand({
-        Bucket: "myagilityqs-frontend",
-        Key: originalKey
-      });
-
-      const originalObject = await s3Client.send(getCommand);
-      if (!originalObject.Body) {
-        throw createError(404, "Original photo not found");
-      }
-
-      // Convert stream to buffer
-      const originalBuffer = Buffer.from(await originalObject.Body.transformToByteArray());
-
-      // Load image with Jimp
-      const image = await Jimp.read(originalBuffer);
-
-      // Get original image dimensions
-      const imageWidth = image.width;
-      const imageHeight = image.height;
-
-      // Convert percentage-based crop coordinates to pixels
-      const cropLeft = Math.round((x / 100) * imageWidth);
-      const cropTop = Math.round((y / 100) * imageHeight);
-      const cropWidth = Math.round((width / 100) * imageWidth);
-      const cropHeight = Math.round((height / 100) * imageHeight);
-
-      // Generate cropped image with Jimp
-      const croppedImage = image.crop({ x: cropLeft, y: cropTop, w: cropWidth, h: cropHeight });
-
-      // Get buffer with JPEG quality setting
-      const croppedBuffer = await croppedImage.getBuffer("image/jpeg", { quality: 85 });
-
-      // Generate key for cropped image
-      const originalKeyParts = originalKey.split('.');
-      const extension = originalKeyParts.pop();
-      const baseName = originalKeyParts.join('.');
-      const croppedKey = `${baseName}-cropped.${extension}`;
-
-      // Upload cropped image to S3
-      const putCommand = new PutObjectCommand({
-        Bucket: "myagilityqs-frontend",
-        Key: croppedKey,
-        Body: croppedBuffer,
-        ContentType: "image/jpeg",
-        Metadata: {
-          dogId: dogId,
-          userId: userId,
-          originalKey: originalKey,
-          cropData: JSON.stringify(cropData),
-          generatedAt: Date.now().toString()
-        }
-      });
-
-      await s3Client.send(putCommand);
-
-      // Generate the URL for the cropped image
-      const croppedPhotoUrl = `https://myagilityqs.com/${croppedKey}`;
-
-      const response: ApiResponse = {
-        success: true,
-        data: {
-          croppedPhotoUrl,
-          croppedKey
-        },
-        message: "Cropped photo generated successfully"
-      };
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    } catch (error: any) {
-      console.error("Error generating cropped photo:", error);
-
-      if (error.statusCode) {
-        const response: ApiResponse = {
-          success: false,
-          error: error.statusCode === 404 ? "not_found" : "validation_error",
-          message: error.message,
-        };
-
-        return {
-          statusCode: error.statusCode,
-          body: JSON.stringify(response),
-        };
-      }
-
-      const response: ApiResponse = {
-        success: false,
-        error: "server_error",
-        message: "Failed to generate cropped photo",
-      };
-
-      return {
-        statusCode: 500,
-        body: JSON.stringify(response),
-      };
-    }
+  // POST /dogs/{id}/photo/cropped-upload-url - Generate presigned URL for cropped photo upload
+  generateCroppedPhotoUploadUrl: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    return dogHandler._generatePhotoUploadUrlInternal(event, true);
   },
 };
