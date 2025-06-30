@@ -13,12 +13,13 @@ import {
 } from "@mantine/core";
 import type { Dog } from "@my-agility-qs/shared";
 import { IconArrowLeft, IconDog, IconPlus } from "@tabler/icons-react";
+import { calculateEarnedTitles } from "../utils/titleUtils";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { PhotoUpload } from "../components/PhotoUpload";
+import { useNavigationHistory } from "../hooks/useNavigationHistory";
 import { dogsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
-import { useNavigationHistory } from "../hooks/useNavigationHistory";
-import { PhotoUpload } from "../components/PhotoUpload";
 
 export const MyDogsPage: React.FC = () => {
   const [, setLocation] = useLocation();
@@ -31,6 +32,16 @@ export const MyDogsPage: React.FC = () => {
       ([, fullValue]) => fullValue === fullName
     )?.[0];
     return displayKey || fullName; // Fallback to original if not found
+  };
+
+  // Format full registered name with earned titles
+  const getFullNameWithTitles = (dog: Dog): string | null => {
+    if (!dog.registeredName) return null;
+    
+    const earnedTitles = calculateEarnedTitles(dog.classes || []);
+    return earnedTitles.length > 0 
+      ? `${dog.registeredName} ${earnedTitles.join(' ')}`
+      : dog.registeredName;
   };
   const {
     data: dogs = [],
@@ -148,11 +159,11 @@ export const MyDogsPage: React.FC = () => {
               })
               .map((dog) => (
                 <Card key={dog.id} withBorder shadow="sm" radius="md" p="xs">
-                  <Group gap="xs" align="stretch" wrap="nowrap">
+                  <Group gap="md" align="stretch" wrap="nowrap">
                     {/* Left side - Photo and button stack, vertically centered */}
-                    <Stack 
-                      gap="xs" 
-                      align="center" 
+                    <Stack
+                      gap="xs"
+                      align="center"
                       justify="center"
                       style={{ width: '140px', flexShrink: 0 }}
                     >
@@ -184,15 +195,15 @@ export const MyDogsPage: React.FC = () => {
                           <IconDog size={48} color="var(--mantine-color-gray-5)" />
                         )}
                       </div>
-                      
+
                       {/* Photo button - always same distance from photo container */}
                       <PhotoUpload dog={dog} />
                     </Stack>
 
                     {/* Right side - Dog information (clickable to edit) */}
-                    <Stack 
-                      gap="xs" 
-                      style={{ 
+                    <Stack
+                      gap="xs"
+                      style={{
                         flex: 1,
                         cursor: 'pointer',
                         borderRadius: 'var(--mantine-radius-md)',
@@ -200,22 +211,25 @@ export const MyDogsPage: React.FC = () => {
                         margin: '-4px'
                       }}
                       onClick={() => setLocation(`/dogs/${dog.id}/edit`)}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
                     >
                       {/* Header with name and inactive status if applicable */}
-                      <Group gap="sm" align="center">
-                        <Title order={3} size="h3">{dog.name}</Title>
-                        {!dog.active && (
-                          <Badge color="gray" variant="light" size="sm">
-                            Inactive
-                          </Badge>
+                      <Stack gap="xs">
+                        <Group gap="sm" align="center">
+                          <Title order={3} size="h3">{dog.name}</Title>
+                          {!dog.active && (
+                            <Badge color="gray" variant="light" size="sm">
+                              Inactive
+                            </Badge>
+                          )}
+                        </Group>
+                        
+                        {/* Registered name with titles */}
+                        {getFullNameWithTitles(dog) && (
+                          <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
+                            {getFullNameWithTitles(dog)}
+                          </Text>
                         )}
-                      </Group>
+                      </Stack>
 
                       {/* Classes section */}
                       <Stack gap="xs">

@@ -30,6 +30,7 @@ import { CLASS_DISPLAY_NAMES, COMPETITION_CLASSES, COMPETITION_LEVELS } from "..
 
 interface DogFormData {
   name: string;
+  registeredName: string;
   classSelections: Record<string, { enabled: boolean; level: string }>;
   active: boolean;
 }
@@ -52,6 +53,7 @@ export const EditDogPage: React.FC = () => {
   const form = useForm<DogFormData>({
     initialValues: {
       name: "",
+      registeredName: "",
       classSelections: COMPETITION_CLASSES.reduce((acc, className) => {
         acc[className] = { enabled: false, level: "" };
         return acc;
@@ -88,6 +90,7 @@ export const EditDogPage: React.FC = () => {
 
       form.setValues({
         name: dog.name,
+        registeredName: dog.registeredName || "",
         classSelections,
         active: dog.active,
       });
@@ -143,6 +146,7 @@ export const EditDogPage: React.FC = () => {
 
     const apiData: UpdateDogRequest = {
       name: values.name.trim(),
+      registeredName: values.registeredName.trim() || undefined,
       classes,
       active: values.active,
     };
@@ -265,11 +269,19 @@ export const EditDogPage: React.FC = () => {
               )}
               {/* Dog Name */}
               <TextInput
-                label="Dog Name"
-                placeholder="Enter your dog's name"
+                label="Call Name"
+                placeholder="Enter your dog's call name"
                 required
                 {...form.getInputProps("name")}
-              />{" "}
+              />
+              
+              {/* Registered Name */}
+              <TextInput
+                label="AKC Registered Name"
+                placeholder="Enter your dog's AKC registered name (optional)"
+                {...form.getInputProps("registeredName")}
+              />
+              
               {/* Active Status */}
               <Switch
                 label="Active"

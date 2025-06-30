@@ -219,3 +219,4 @@ export function calculateMastersTitleProgress(runs: any[], dogClasses: Array<{ n
   };
 }
 
+

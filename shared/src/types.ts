@@ -39,6 +39,7 @@ export interface Dog {
   id: string;
   userId: string;
   name: string;
+  registeredName?: string; // AKC registered name
   active: boolean;
   classes: DogClass[];
   photoUrl?: string; // URL to the cropped/display version of the photo
@@ -55,11 +56,13 @@ export interface Dog {
 
 export interface CreateDogRequest {
   name: string;
+  registeredName?: string;
   classes: DogClass[];
 }
 
 export interface UpdateDogRequest {
   name?: string;
+  registeredName?: string;
   classes?: DogClass[];
   active?: boolean;
   photoUrl?: string; // URL to the cropped/display version of the photo

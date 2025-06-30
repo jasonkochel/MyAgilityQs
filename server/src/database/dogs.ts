@@ -17,6 +17,7 @@ export async function createDog(userId: string, request: CreateDogRequest): Prom
     id: dogId,
     userId,
     name: request.name,
+    registeredName: request.registeredName,
     active: true,
     classes: request.classes,
     createdAt: now,
@@ -119,6 +120,12 @@ export async function updateDog(
     updateExpressions.push("#name = :name");
     expressionAttributeNames["#name"] = "name";
     expressionAttributeValues[":name"] = request.name;
+  }
+
+  if (request.registeredName !== undefined) {
+    updateExpressions.push("#registeredName = :registeredName");
+    expressionAttributeNames["#registeredName"] = "registeredName";
+    expressionAttributeValues[":registeredName"] = request.registeredName;
   }
 
   if (request.classes !== undefined) {
