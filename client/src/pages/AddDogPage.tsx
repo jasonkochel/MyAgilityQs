@@ -32,7 +32,7 @@ interface DogFormData {
 }
 
 export const AddDogPage: React.FC = () => {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const form = useForm<DogFormData>({
@@ -69,7 +69,7 @@ export const AddDogPage: React.FC = () => {
         color: "green",
         icon: <IconCheck size="1rem" />,
       });
-      setLocation("/dogs");
+      navigate("/dogs");
     },
     onError: (err) => {
       const errorMessage = err instanceof Error ? err.message : "Failed to add dog";
@@ -110,7 +110,7 @@ export const AddDogPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={() => setLocation("/dogs")}
+            onClick={() => navigate("/dogs")}
             size="sm"
           >
             Back

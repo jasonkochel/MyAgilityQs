@@ -3,17 +3,15 @@ import { notifications } from "@mantine/notifications";
 import { IconArrowLeft, IconFileImport, IconLogout } from "@tabler/icons-react";
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
-import { useNavigationHistory } from "../hooks/useNavigationHistory";
 import PWAInstallButton from "../components/PWAInstallButton";
 
 export const ProfilePage: React.FC = () => {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const { user, logout, updateUserPreferences } = useAuth();
-  const { goBack } = useNavigationHistory();
 
   const handleLogout = () => {
     logout();
-    setLocation("/login");
+    navigate("/login");
   };
 
 
@@ -23,7 +21,7 @@ export const ProfilePage: React.FC = () => {
         <Button
           variant="subtle"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={goBack}
+          onClick={() => navigate('/')}
           w="fit-content"
         >
           Back
@@ -71,7 +69,7 @@ export const ProfilePage: React.FC = () => {
             <Button
               variant="light"
               leftSection={<IconFileImport size={16} />}
-              onClick={() => setLocation("/import")}
+              onClick={() => navigate("/import")}
               fullWidth
             >
               Import Runs from Text

@@ -8,6 +8,7 @@ interface ViewRunsFilters {
   dog?: string;
   class?: CompetitionClass;
   level?: 'current' | 'all';
+  from?: string;
 }
 
 export function createViewRunsLink(filters: ViewRunsFilters = {}): string {
@@ -16,6 +17,7 @@ export function createViewRunsLink(filters: ViewRunsFilters = {}): string {
   if (filters.dog) params.set('dog', filters.dog);
   if (filters.class) params.set('class', filters.class);
   if (filters.level && filters.level !== 'all') params.set('level', filters.level);
+  if (filters.from) params.set('from', filters.from);
   
   const search = params.toString();
   return `/view-runs${search ? '?' + search : ''}`;

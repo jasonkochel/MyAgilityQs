@@ -36,7 +36,7 @@ interface DogFormData {
 }
 
 export const EditDogPage: React.FC = () => {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const { dogId } = useParams<{ dogId: string }>();
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -109,7 +109,7 @@ export const EditDogPage: React.FC = () => {
         color: "green",
         icon: <IconCheck size="1rem" />,
       });
-      setLocation("/dogs");
+      navigate("/my-dogs");
     },
     onError: (err) => {
       const errorMessage = err instanceof Error ? err.message : "Failed to update dog";
@@ -126,7 +126,7 @@ export const EditDogPage: React.FC = () => {
         message: "Dog has been permanently deleted",
         color: "green",
       });
-      setLocation("/dogs");
+      navigate("/my-dogs");
     },
     onError: (error) => {
       const errorMessage = error instanceof Error ? error.message : "Failed to delete dog";
@@ -205,7 +205,7 @@ export const EditDogPage: React.FC = () => {
             <Button
               variant="subtle"
               leftSection={<IconArrowLeft size={16} />}
-              onClick={() => setLocation("/dogs")}
+              onClick={() => navigate("/my-dogs")}
               size="sm"
             >
               Back
@@ -239,7 +239,7 @@ export const EditDogPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={() => setLocation("/dogs")}
+            onClick={() => navigate("/my-dogs")}
             size="sm"
           >
             Back

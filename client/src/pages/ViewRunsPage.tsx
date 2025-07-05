@@ -24,7 +24,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { dogsApi, runsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
 import { useURLState } from "../hooks/useURLState";
-import { useNavigationHistory } from "../hooks/useNavigationHistory";
+import { useLocation } from "wouter";
 
 type SortField = "date" | "dog" | "class" | "level";
 type SortDirection = "asc" | "desc";
@@ -32,7 +32,7 @@ type SortDirection = "asc" | "desc";
 export const ViewRunsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { goBack, goToRoute } = useNavigationHistory();
+  const [, navigate] = useLocation();
 
   // Responsive breakpoints
   const isLargeScreen = useMediaQuery("(min-width: 1200px)"); // xl breakpoint
@@ -42,11 +42,12 @@ export const ViewRunsPage: React.FC = () => {
   const [filters, setFilters] = useURLState({
     dog: null as string | null,
     class: null as CompetitionClass | null,
-    level: 'all' as 'current' | 'all'
+    level: 'all' as 'current' | 'all',
+    from: null as string | null
   });
   
   // Extract individual filter values for easier access
-  const { dog: selectedDogId, class: selectedClass, level: selectedLevel } = filters;
+  const { dog: selectedDogId, class: selectedClass, level: selectedLevel, from } = filters;
   
   // Local state for non-URL state
   const [showOnlyQs, setShowOnlyQs] = useState(false);
@@ -282,7 +283,7 @@ export const ViewRunsPage: React.FC = () => {
             <Button
               variant="subtle"
               leftSection={<IconArrowLeft size={16} />}
-              onClick={goBack}
+              onClick={() => navigate('/')}
               size="sm"
             >
               Back
@@ -315,7 +316,7 @@ export const ViewRunsPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={goBack}
+            onClick={() => navigate(from === 'title-progress' ? '/title-progress' : '/')}
             size="sm"
           >
             Back
@@ -461,7 +462,7 @@ export const ViewRunsPage: React.FC = () => {
                 {runs.length === 0 ? "No runs recorded yet" : "No runs match your filters"}
               </Text>
               {runs.length === 0 && (
-                <Button onClick={() => goToRoute("/add-run")}>Add Your First Run</Button>
+                <Button onClick={() => navigate("/add-run")}>Add Your First Run</Button>
               )}
             </Stack>
           </Paper>

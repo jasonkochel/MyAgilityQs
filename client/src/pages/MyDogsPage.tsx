@@ -13,17 +13,15 @@ import {
 } from "@mantine/core";
 import type { Dog } from "@my-agility-qs/shared";
 import { IconArrowLeft, IconDog, IconPlus } from "@tabler/icons-react";
-import { calculateEarnedTitles } from "../utils/titleUtils";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { PhotoUpload } from "../components/PhotoUpload";
-import { useNavigationHistory } from "../hooks/useNavigationHistory";
 import { dogsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
+import { calculateEarnedTitles } from "../utils/titleUtils";
 
 export const MyDogsPage: React.FC = () => {
-  const [, setLocation] = useLocation();
-  const { goBack } = useNavigationHistory();
+  const [, navigate] = useLocation();
 
   // Create reverse mapping from full names to display names
   const getDisplayName = (fullName: string): string => {
@@ -37,12 +35,13 @@ export const MyDogsPage: React.FC = () => {
   // Format full registered name with earned titles
   const getFullNameWithTitles = (dog: Dog): string | null => {
     if (!dog.registeredName) return null;
-    
+
     const earnedTitles = calculateEarnedTitles(dog.classes || []);
-    return earnedTitles.length > 0 
+    return earnedTitles.length > 0
       ? `${dog.registeredName} ${earnedTitles.join(' ')}`
       : dog.registeredName;
   };
+
   const {
     data: dogs = [],
     isLoading,
@@ -71,7 +70,7 @@ export const MyDogsPage: React.FC = () => {
             <Button
               variant="subtle"
               leftSection={<IconArrowLeft size={16} />}
-              onClick={goBack}
+              onClick={() => navigate('/')}
               size="sm"
             >
               Back
@@ -104,7 +103,7 @@ export const MyDogsPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={goBack}
+            onClick={() => navigate('/')}
             size="sm"
           >
             Back
@@ -125,7 +124,7 @@ export const MyDogsPage: React.FC = () => {
             leftSection={<IconPlus size={16} />}
             variant="light"
             size="sm"
-            onClick={() => setLocation("/dogs/add")}
+            onClick={() => navigate("/dogs/add")}
           >
             Add Dog
           </Button>
@@ -141,7 +140,7 @@ export const MyDogsPage: React.FC = () => {
               <Text size="sm" c="dimmed">
                 Add your first dog to start tracking runs
               </Text>
-              <Button leftSection={<IconPlus size={16} />} onClick={() => setLocation("/dogs/add")}>
+              <Button leftSection={<IconPlus size={16} />} onClick={() => navigate("/dogs/add")}>
                 Add Your First Dog
               </Button>
             </Stack>
@@ -206,14 +205,12 @@ export const MyDogsPage: React.FC = () => {
                       style={{
                         flex: 1,
                         cursor: 'pointer',
-                        borderRadius: 'var(--mantine-radius-md)',
-                        padding: '4px',
-                        margin: '-4px'
+                        borderRadius: 'var(--mantine-radius-md)'
                       }}
-                      onClick={() => setLocation(`/dogs/${dog.id}/edit`)}
+                      onClick={() => navigate(`/dogs/${dog.id}/edit`)}
                     >
                       {/* Header with name and inactive status if applicable */}
-                      <Stack gap="xs">
+                      <Stack gap={0}>
                         <Group gap="sm" align="center">
                           <Title order={3} size="h3">{dog.name}</Title>
                           {!dog.active && (
@@ -222,7 +219,7 @@ export const MyDogsPage: React.FC = () => {
                             </Badge>
                           )}
                         </Group>
-                        
+
                         {/* Registered name with titles */}
                         {getFullNameWithTitles(dog) && (
                           <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>

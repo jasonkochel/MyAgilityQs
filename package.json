@@ -21,7 +21,7 @@
     "test": "npm run test --workspace=client",
     "clean": "npm run clean --workspace=client && npm run clean --workspace=server && npm run clean --workspace=shared",
     "deploy": "npm run build && sam deploy",
-    "deploy:frontend": "aws s3 sync client/dist/ s3://$(aws cloudformation describe-stacks --stack-name my-agility-qs --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text) --delete && aws cloudfront create-invalidation --distribution-id $(aws cloudformation describe-stacks --stack-name my-agility-qs --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text) --paths '/*'"
+    "deploy:frontend": "aws s3 sync client/dist/ s3://$(aws cloudformation describe-stacks --stack-name my-agility-qs --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text) --delete --exclude 'dog-photos/*' && aws cloudfront create-invalidation --distribution-id $(aws cloudformation describe-stacks --stack-name my-agility-qs --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text) --paths '/*'"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

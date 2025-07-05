@@ -18,7 +18,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { dogsApi, progressApi } from "../lib/api";
 import { createViewRunsLink } from "../utils/viewRunsLinks";
-import { useNavigationHistory } from "../hooks/useNavigationHistory";
 
 const LEVEL_ORDER: CompetitionLevel[] = ["Novice", "Open", "Excellent", "Masters"];
 
@@ -83,7 +82,8 @@ const ClassProgressDisplay: React.FC<{
     const link = createViewRunsLink({ 
       dog: dogId, 
       class: className as CompetitionClass, 
-      level: 'current' 
+      level: 'current',
+      from: 'title-progress'
     });
     setLocation(link);
   };
@@ -270,7 +270,6 @@ const DogProgressCard: React.FC<{
 
 export const TitleProgressPage: React.FC = () => {
   const [, setLocation] = useLocation();
-  const { goBack } = useNavigationHistory();
 
   // Fetch dogs and progress data
   const {
@@ -314,7 +313,7 @@ export const TitleProgressPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={goBack}
+            onClick={() => setLocation('/')}
             w="fit-content"
           >
             Back
@@ -338,7 +337,7 @@ export const TitleProgressPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={goBack}
+            onClick={() => setLocation('/')}
             w="fit-content"
             size="sm"
           >

@@ -49,7 +49,7 @@ interface ImportStats {
 }
 
 export const ImportPage: React.FC = () => {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
 
   // Import feature state
@@ -291,7 +291,7 @@ export const ImportPage: React.FC = () => {
         <Button
           variant="subtle"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => setLocation("/profile")}
+          onClick={() => navigate("/profile")}
           w="fit-content"
         >
           Back to Profile
