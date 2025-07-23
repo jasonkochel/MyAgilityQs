@@ -1,26 +1,4 @@
-import { CompetitionClass, CompetitionLevel, Run } from './types';
-
-export interface ProgressionRule {
-  /** Starting level for this rule */
-  fromLevel: CompetitionLevel;
-  /** Number of qualifying runs required at fromLevel */
-  qualifyingRunsRequired: number;
-  /** Level to advance to (null means stay at current level) */
-  toLevel: CompetitionLevel | null;
-  /** Title earned when this rule is satisfied */
-  titleEarned?: string;
-  /** Additional qualifying runs required at toLevel (for titles like MX) */
-  additionalQsAtToLevel?: number;
-}
-
-export interface ClassProgressionRules {
-  /** Competition class these rules apply to */
-  class: CompetitionClass;
-  /** Starting level for new dogs in this class */
-  startingLevel: CompetitionLevel;
-  /** Ordered list of progression rules (evaluated in order) */
-  rules: ProgressionRule[];
-}
+import { CompetitionClass, CompetitionLevel, Run, ProgressionRule, ClassProgressionRules, LevelComputationResult } from './types';
 
 /**
  * AKC Agility Progression Rules
@@ -210,22 +188,6 @@ export function getProgressionRules(competitionClass: CompetitionClass): ClassPr
 export function getStartingLevel(competitionClass: CompetitionClass): CompetitionLevel {
   const rules = getProgressionRules(competitionClass);
   return rules?.startingLevel || "Novice";
-}
-
-/**
- * Result of level computation for a dog in a specific class
- */
-export interface LevelComputationResult {
-  /** Current level the dog should be at */
-  currentLevel: CompetitionLevel;
-  /** Titles earned in this class */
-  titlesEarned: string[];
-  /** Qualifying runs at current level */
-  qualifyingRunsAtCurrentLevel: number;
-  /** Next progression rule that applies (null if at terminal level) */
-  nextRule: ProgressionRule | null;
-  /** Whether this dog has progressed from their starting level */
-  hasProgressed: boolean;
 }
 
 /**

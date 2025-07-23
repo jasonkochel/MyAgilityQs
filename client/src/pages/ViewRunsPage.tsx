@@ -15,16 +15,18 @@ import {
 import { useMediaQuery } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import type { Dog, Run, CompetitionClass, CompetitionLevel } from "@my-agility-qs/shared";
+import type { CompetitionClass, CompetitionLevel, Dog, Run } from "@my-agility-qs/shared";
+// import { computeDogLevel } from "@my-agility-qs/shared";
 import { IconArrowLeft, IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import dayjs from "dayjs";
+import { useCallback, useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { RunDetailsModal } from "../components/RunDetailsModal";
 import { useAuth } from "../contexts/AuthContext";
+import { useURLState } from "../hooks/useURLState";
 import { dogsApi, runsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
-import { useURLState } from "../hooks/useURLState";
-import { useLocation } from "wouter";
 
 type SortField = "date" | "dog" | "class" | "level";
 type SortDirection = "asc" | "desc";
@@ -37,18 +39,18 @@ export const ViewRunsPage: React.FC = () => {
   // Responsive breakpoints
   const isLargeScreen = useMediaQuery("(min-width: 1200px)"); // xl breakpoint
   const isMediumScreen = useMediaQuery("(min-width: 768px)"); // md breakpoint
-  
+
   // URL state management - single source of truth
   const [filters, setFilters] = useURLState({
     dog: null as string | null,
     class: null as CompetitionClass | null,
-    level: 'all' as 'current' | 'all',
-    from: null as string | null
+    level: "all" as "current" | "all",
+    from: null as string | null,
   });
-  
+
   // Extract individual filter values for easier access
   const { dog: selectedDogId, class: selectedClass, level: selectedLevel, from } = filters;
-  
+
   // Local state for non-URL state
   const [showOnlyQs, setShowOnlyQs] = useState(false);
   const [sortField, setSortField] = useState<SortField>("date");
@@ -136,13 +138,7 @@ export const ViewRunsPage: React.FC = () => {
   };
 
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const formatTime = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = (seconds % 60).toFixed(2);
-    return `${minutes}:${remainingSeconds.padStart(5, "0")}`;
+    return dayjs(dateString).format("M/D/YYYY");
   };
 
   const getPlacementBadge = (placement: number | null) => {
@@ -164,30 +160,33 @@ export const ViewRunsPage: React.FC = () => {
 
   // Get distinct classes from actual data
   const distinctClasses = useMemo(() => {
-    const classSet = new Set(runs.map(run => run.class));
+    const classSet = new Set(runs.map((run) => run.class));
     return Array.from(classSet).sort();
   }, [runs]);
 
   // Helper to determine current level for a dog in a class
-  const getCurrentLevel = (dogId: string, className: string): CompetitionLevel | null => {
-    const dogRuns = runs.filter(r => r.dogId === dogId && r.class === className && r.qualified);
-    if (dogRuns.length === 0) return 'Novice';
-    
-    const levelCounts = dogRuns.reduce((acc, run) => {
-      acc[run.level] = (acc[run.level] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    // Determine current level based on progression rules
-    if (levelCounts['Masters'] || (levelCounts['Excellent'] && levelCounts['Excellent'] >= 3)) {
-      return 'Masters';
-    } else if (levelCounts['Excellent'] || (levelCounts['Open'] && levelCounts['Open'] >= 3)) {
-      return 'Excellent';
-    } else if (levelCounts['Open'] || (levelCounts['Novice'] && levelCounts['Novice'] >= 3)) {
-      return 'Open';
-    }
-    return 'Novice';
-  };
+  const getCurrentLevel = useCallback(
+    (dogId: string, className: string): CompetitionLevel | null => {
+      const dogRuns = runs.filter((r) => r.dogId === dogId && r.class === className && r.qualified);
+      if (dogRuns.length === 0) return "Novice";
+
+      const levelCounts = dogRuns.reduce((acc, run) => {
+        acc[run.level] = (acc[run.level] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Determine current level based on progression rules
+      if (levelCounts["Masters"] || (levelCounts["Excellent"] && levelCounts["Excellent"] >= 3)) {
+        return "Masters";
+      } else if (levelCounts["Excellent"] || (levelCounts["Open"] && levelCounts["Open"] >= 3)) {
+        return "Excellent";
+      } else if (levelCounts["Open"] || (levelCounts["Novice"] && levelCounts["Novice"] >= 3)) {
+        return "Open";
+      }
+      return "Novice";
+    },
+    [runs]
+  );
 
   // Filter and sort runs
   const filteredAndSortedRuns = useMemo(() => {
@@ -197,20 +196,20 @@ export const ViewRunsPage: React.FC = () => {
     if (selectedDogId) {
       filtered = filtered.filter((run) => run.dogId === selectedDogId);
     }
-    
+
     // Apply class filter
     if (selectedClass) {
       filtered = filtered.filter((run) => run.class === selectedClass);
     }
-    
+
     // Apply level filter
-    if (selectedLevel === 'current') {
+    if (selectedLevel === "current") {
       filtered = filtered.filter((run) => {
         const currentLevel = getCurrentLevel(run.dogId, run.class);
         return run.level === currentLevel;
       });
     }
-    
+
     // Apply Q filter (only if not tracking Qs only, since in that mode all runs are Qs)
     if (showOnlyQs && !user?.trackQsOnly) {
       filtered = filtered.filter((run) => run.qualified);
@@ -222,7 +221,7 @@ export const ViewRunsPage: React.FC = () => {
 
       switch (sortField) {
         case "date":
-          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+          comparison = dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
           break;
         case "dog":
           comparison = (dogNameMap[a.dogId] || "").localeCompare(dogNameMap[b.dogId] || "");
@@ -244,7 +243,18 @@ export const ViewRunsPage: React.FC = () => {
     });
 
     return sorted;
-  }, [runs, selectedDogId, selectedClass, selectedLevel, showOnlyQs, sortField, sortDirection, dogNameMap, user?.trackQsOnly, getCurrentLevel]);
+  }, [
+    runs,
+    selectedDogId,
+    selectedClass,
+    selectedLevel,
+    showOnlyQs,
+    sortField,
+    sortDirection,
+    dogNameMap,
+    user?.trackQsOnly,
+    getCurrentLevel,
+  ]);
 
   // Handle column header clicks for sorting
   const handleSort = (field: SortField) => {
@@ -283,7 +293,7 @@ export const ViewRunsPage: React.FC = () => {
             <Button
               variant="subtle"
               leftSection={<IconArrowLeft size={16} />}
-              onClick={() => navigate('/')}
+              onClick={() => navigate("/")}
               size="sm"
             >
               Back
@@ -316,7 +326,7 @@ export const ViewRunsPage: React.FC = () => {
           <Button
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={() => navigate(from === 'title-progress' ? '/title-progress' : '/')}
+            onClick={() => navigate(from === "title-progress" ? "/title-progress" : "/")}
             size="sm"
           >
             Back
@@ -379,7 +389,7 @@ export const ViewRunsPage: React.FC = () => {
                   ))}
               </SimpleGrid>
             </Stack>
-            
+
             {/* Filter by Class - Button Style */}
             <Stack gap="xs">
               <Text fw={500} size="sm">
@@ -416,7 +426,7 @@ export const ViewRunsPage: React.FC = () => {
                 ))}
               </SimpleGrid>
             </Stack>
-            
+
             {/* Filter by Level - Button Style */}
             <Stack gap="xs">
               <Text fw={500} size="sm">
@@ -424,24 +434,24 @@ export const ViewRunsPage: React.FC = () => {
               </Text>
               <SimpleGrid cols={2} spacing="xs">
                 <Button
-                  variant={selectedLevel === 'all' ? "filled" : "outline"}
-                  color={selectedLevel === 'all' ? "blue" : "gray"}
+                  variant={selectedLevel === "all" ? "filled" : "outline"}
+                  color={selectedLevel === "all" ? "blue" : "gray"}
                   size="sm"
-                  onClick={() => setFilters({ level: 'all' })}
+                  onClick={() => setFilters({ level: "all" })}
                 >
                   All Levels
                 </Button>
                 <Button
-                  variant={selectedLevel === 'current' ? "filled" : "outline"}
-                  color={selectedLevel === 'current' ? "blue" : "gray"}
+                  variant={selectedLevel === "current" ? "filled" : "outline"}
+                  color={selectedLevel === "current" ? "blue" : "gray"}
                   size="sm"
-                  onClick={() => setFilters({ level: 'current' })}
+                  onClick={() => setFilters({ level: "current" })}
                 >
                   Current Level
                 </Button>
               </SimpleGrid>
             </Stack>
-            
+
             {/* Show only Qs toggle */}
             {!user?.trackQsOnly && (
               <div style={{ display: "flex", alignItems: "center" }}>
@@ -508,13 +518,11 @@ export const ViewRunsPage: React.FC = () => {
                     </Group>
                   </Table.Th>
                   {/* Result column - only show if tracking NQ runs */}
-                  {!user?.trackQsOnly && (
-                    <Table.Th>Result</Table.Th>
-                  )}
+                  {!user?.trackQsOnly && <Table.Th>Result</Table.Th>}
                   {/* Placement column - visible on medium+ screens */}
                   {isMediumScreen && <Table.Th>Place</Table.Th>}
                   {/* Time column - visible on large screens */}
-                  {isLargeScreen && <Table.Th>Time</Table.Th>}
+                  {isLargeScreen && <Table.Th>Points</Table.Th>}
                   {/* Location column - visible on large screens */}
                   {isLargeScreen && <Table.Th>Location</Table.Th>}
                 </Table.Tr>
@@ -557,7 +565,7 @@ export const ViewRunsPage: React.FC = () => {
                     {/* Time column - visible on large screens */}
                     {isLargeScreen && (
                       <Table.Td>
-                        <Text size="sm">{run.time ? formatTime(run.time) : "—"}</Text>
+                        <Text size="sm">{run.machPoints ?? "—"}</Text>
                       </Table.Td>
                     )}
                     {/* Location column - visible on large screens */}

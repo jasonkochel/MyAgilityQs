@@ -17,6 +17,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { locationsApi, runsApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES } from "../lib/constants";
+import dayjs from "dayjs";
 
 const PLACEMENT_OPTIONS = [
   { label: "1", value: 1, color: "blue" }, // Blue ribbon
@@ -186,7 +187,7 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
   };
 
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString();
+    return dayjs(dateString).format('M/D/YYYY');
   };
 
   if (!run) return null;

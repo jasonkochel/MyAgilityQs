@@ -23,6 +23,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { useLocation } from "wouter";
+import dayjs from "dayjs";
 import { dogsApi, runsApi } from "../lib/api";
 
 // Import data types
@@ -225,7 +226,7 @@ export const ImportPage: React.FC = () => {
       if (a.parsed!.dogId !== b.parsed!.dogId) {
         return a.dog.localeCompare(b.dog); // Sort by dog name first
       }
-      return new Date(a.parsed!.date).getTime() - new Date(b.parsed!.date).getTime(); // Then by date
+      return dayjs(a.parsed!.date).valueOf() - dayjs(b.parsed!.date).valueOf(); // Then by date
     });
     if (validRows.length === 0) return;
 

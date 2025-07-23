@@ -221,3 +221,64 @@ export interface PhotoUploadUrlResponse {
   photoUrl: string;
   key: string;
 }
+
+// Progression Rule types
+export interface ProgressionRule {
+  /** Starting level for this rule */
+  fromLevel: CompetitionLevel;
+  /** Number of qualifying runs required at fromLevel */
+  qualifyingRunsRequired: number;
+  /** Level to advance to (null means stay at current level) */
+  toLevel: CompetitionLevel | null;
+  /** Title earned when this rule is satisfied */
+  titleEarned?: string;
+  /** Additional qualifying runs required at toLevel (for titles like MX) */
+  additionalQsAtToLevel?: number;
+}
+
+export interface ClassProgressionRules {
+  /** Competition class these rules apply to */
+  class: CompetitionClass;
+  /** Starting level for new dogs in this class */
+  startingLevel: CompetitionLevel;
+  /** Ordered list of progression rules (evaluated in order) */
+  rules: ProgressionRule[];
+}
+
+export interface LevelComputationResult {
+  /** Current level the dog should be at */
+  currentLevel: CompetitionLevel;
+  /** Titles earned in this class */
+  titlesEarned: string[];
+  /** Qualifying runs at current level */
+  qualifyingRunsAtCurrentLevel: number;
+  /** Next progression rule that applies (null if at terminal level) */
+  nextRule: ProgressionRule | null;
+  /** Whether this dog has progressed from their starting level */
+  hasProgressed: boolean;
+}
+
+// Diagnostics types (for debugging progression rules)
+export interface RuleEvaluation {
+  rule: ProgressionRule;
+  qsAtLevel: number;
+  satisfied: boolean;
+  qualifyingRuns: Run[];
+}
+
+export interface ClassDiagnosticDetail {
+  className: string;
+  result: LevelComputationResult;
+  classRuns: Run[];
+  rules: ClassProgressionRules | undefined;
+  ruleEvaluations: RuleEvaluation[];
+}
+
+export interface DogDiagnostic {
+  dog: Dog;
+  dogRuns: Run[];
+  allLevels: Record<CompetitionClass, LevelComputationResult>;
+  classDetails: ClassDiagnosticDetail[];
+}
+
+export type ProgressionDiagnostics = DogDiagnostic[];

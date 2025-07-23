@@ -1,15 +1,17 @@
 import type {
-    ApiResponse,
-    CreateDogRequest,
-    CreateRunRequest,
-    Dog,
-    LoginRequest,
-    PhotoUploadUrlResponse,
-    Run,
-    UpdateDogRequest,
-    UpdateRunRequest,
-    UpdateUserRequest,
-    User,
+  ApiResponse,
+  CreateDogRequest,
+  CreateRunRequest,
+  Dog,
+  DogProgress,
+  LoginRequest,
+  PhotoUploadUrlResponse,
+  ProgressionDiagnostics,
+  Run,
+  UpdateDogRequest,
+  UpdateRunRequest,
+  UpdateUserRequest,
+  User,
 } from "@my-agility-qs/shared";
 import ky from "ky";
 import type { AuthResponse } from "../types";
@@ -20,7 +22,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 // Validate required environment variables
 if (!API_BASE_URL) {
-  throw new Error('VITE_API_URL environment variable is required');
+  throw new Error("VITE_API_URL environment variable is required");
 }
 
 // Enhanced token management with security improvements
@@ -154,19 +156,20 @@ export const api = ky.create({
       (error) => {
         // Report HTTP errors to Sentry with detailed context (centralized error handling)
         if (error instanceof Error) {
-          const requestContext: Record<string, any> = {};
+          const requestContext: Record<string, unknown> = {};
 
           // Add HTTP-specific context if available
-          if ('response' in error && error.response) {
+          if ("response" in error && error.response) {
             const response = error.response as Response;
             requestContext.url = response.url;
             requestContext.status = response.status;
             requestContext.statusText = response.statusText;
-            requestContext.method = (error as any).request?.method || 'unknown';
+            requestContext.method =
+              (error as Error & { request?: { method?: string } })?.request?.method || "unknown";
           }
 
           // Add request context if available
-          if ('request' in error && error.request) {
+          if ("request" in error && error.request) {
             const request = error.request as Request;
             requestContext.requestUrl = request.url;
             requestContext.requestMethod = request.method;
@@ -233,8 +236,10 @@ export const authApi = {
 
   signup: async (signupData: { email: string; password: string }): Promise<void> => {
     return apiRequest(api.post("auth/signup", { json: signupData }));
-  },  // Google OAuth methods
-  getGoogleLoginUrl: async (redirectUri?: string): Promise<{ url: string; redirectUri: string }> => {
+  }, // Google OAuth methods
+  getGoogleLoginUrl: async (
+    redirectUri?: string
+  ): Promise<{ url: string; redirectUri: string }> => {
     const searchParams = redirectUri ? { redirect_uri: redirectUri } : undefined;
     return apiRequest(api.get("auth/google/login", searchParams ? { searchParams } : {}));
   },
@@ -298,18 +303,28 @@ export const dogsApi = {
   // Hard delete a dog (permanent removal)
   hardDelete: async (dogId: string): Promise<void> => {
     return apiRequest(api.delete(`dogs/${dogId}`));
-  },  // Generate presigned URL for photo upload
-  generatePhotoUploadUrl: async (dogId: string, contentType?: string): Promise<PhotoUploadUrlResponse> => {
-    return apiRequest(api.post(`dogs/${dogId}/photo/upload-url`, {
-      json: { contentType }
-    }));
+  }, // Generate presigned URL for photo upload
+  generatePhotoUploadUrl: async (
+    dogId: string,
+    contentType?: string
+  ): Promise<PhotoUploadUrlResponse> => {
+    return apiRequest(
+      api.post(`dogs/${dogId}/photo/upload-url`, {
+        json: { contentType },
+      })
+    );
   },
 
   // Generate presigned URL for cropped photo upload
-  generateCroppedPhotoUploadUrl: async (dogId: string, contentType?: string): Promise<PhotoUploadUrlResponse> => {
-    return apiRequest(api.post(`dogs/${dogId}/photo/cropped-upload-url`, {
-      json: { contentType }
-    }));
+  generateCroppedPhotoUploadUrl: async (
+    dogId: string,
+    contentType?: string
+  ): Promise<PhotoUploadUrlResponse> => {
+    return apiRequest(
+      api.post(`dogs/${dogId}/photo/cropped-upload-url`, {
+        json: { contentType },
+      })
+    );
   },
 
   // Note: Images are now processed on client-side for better performance
@@ -327,7 +342,7 @@ export const runsApi = {
   },
 
   // Batch import runs
-  batchImportRuns: async (runs: CreateRunRequest[]): Promise<any> => {
+  batchImportRuns: async (runs: CreateRunRequest[]): Promise<unknown> => {
     return apiRequest(api.post("runs/batch", { json: { runs } }));
   },
 
@@ -365,19 +380,14 @@ export const userApi = {
 
 // Progress API
 export const progressApi = {
-  // Get progress for a specific dog
-  getDogProgress: async (dogId: string) => {
-    return apiRequest(api.get(`progress/dog/${dogId}`));
-  },
-
   // Get progress for all user's dogs
-  getAllProgress: async () => {
-    return apiRequest(api.get("progress"));
+  getAllProgress: async (): Promise<DogProgress[]> => {
+    return apiRequest(api.get("progress")) as Promise<DogProgress[]>;
   },
 
-  // Get user progress summary
-  getProgressSummary: async () => {
-    return apiRequest(api.get("progress/summary"));
+  // Get detailed progression diagnostics for all user's dogs
+  getDiagnostics: async (): Promise<ProgressionDiagnostics> => {
+    return apiRequest(api.get("progress/diagnostics")) as Promise<ProgressionDiagnostics>;
   },
 };
 
