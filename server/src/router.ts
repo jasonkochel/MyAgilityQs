@@ -170,6 +170,11 @@ export const routes: ExtendedRoute[] = [
   },
   {
     method: "GET",
+    path: "/progress/diagnostics",
+    handler: progressHandler.getDiagnostics,
+  },
+  {
+    method: "GET",
     path: "/locations",
     handler: progressHandler.getLocations,
   },

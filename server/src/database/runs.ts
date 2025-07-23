@@ -11,6 +11,9 @@ import {
   Run,
   RunsQuery,
   UpdateRunRequest,
+  computeDogLevel,
+  computeAllDogLevels,
+  getStartingLevel,
 } from "@my-agility-qs/shared";
 import {
   createSortableTimestamp,
@@ -21,52 +24,18 @@ import {
 } from "./client.js";
 import { getDogById, updateDog } from "./dogs.js";
 
-// Helper function to count qualifying runs for a specific dog, class, and level
-async function countQualifyingRuns(
-  dogId: string,
-  competitionClass: string,
-  level: string
-): Promise<number> {
-  const result = await dynamoClient.send(
-    new QueryCommand({
-      TableName: TABLE_NAME,
-      IndexName: "GSI1",
-      KeyConditionExpression: "GSI1PK = :dogId AND begins_with(GSI1SK, :runPrefix)",
-      FilterExpression: "#class = :class AND #level = :level AND qualified = :qualified",
-      ExpressionAttributeNames: {
-        "#class": "class",
-        "#level": "level",
-      },
-      ExpressionAttributeValues: {
-        ":dogId": `DOG#${dogId}`,
-        ":runPrefix": "RUN#",
-        ":class": competitionClass,
-        ":level": level,
-        ":qualified": true,
-      },
-    })
-  );
+// Note: countQualifyingRuns function removed - progression logic now uses rules engine
 
-  return result.Items?.length || 0;
+// Helper function to get all runs for a dog (used by progression engine)
+async function getAllRunsForDog(dogId: string): Promise<Run[]> {
+  return await getRunsByDogId(dogId);
 }
 
-// Helper function to get the next level
-function getNextLevel(currentLevel: string): CompetitionLevel | null {
-  const levelProgression: Record<string, CompetitionLevel | null> = {
-    Novice: "Open",
-    Open: "Excellent",
-    Excellent: "Masters",
-    Masters: null, // Stay in Masters forever
-  };
-  return levelProgression[currentLevel] || null;
-}
-
-// Function to check and update dog levels after a qualifying run
+// Function to check and update dog levels after a qualifying run using rules engine
 async function checkAndUpdateDogLevel(
   userId: string,
   dogId: string,
-  competitionClass: string,
-  currentLevel: string
+  competitionClass: string
 ): Promise<{
   progressed: boolean;
   fromLevel?: string;
@@ -74,29 +43,26 @@ async function checkAndUpdateDogLevel(
   dogName?: string;
   class?: string;
 } | null> {
-  // Only check progression if not already at Masters level
-  if (currentLevel === "Masters") {
-    return null;
+  // Get all runs for the dog to compute their current level with rules engine
+  const allRuns = await getAllRunsForDog(dogId);
+  const levelResult = computeDogLevel(allRuns, competitionClass as any);
+  
+  // Get current dog data
+  const dog = await getDogById(dogId);
+  if (!dog) {
+    throw new Error(`Dog not found: ${dogId}`);
   }
 
-  // Count qualifying runs at the current level for this class
-  const qualifyingRuns = await countQualifyingRuns(dogId, competitionClass, currentLevel);
+  // Find current level in dog's class configuration
+  const dogClass = dog.classes.find(dc => dc.name === competitionClass);
+  const currentStoredLevel = dogClass?.level || getStartingLevel(competitionClass as any);
 
-  // If dog has 3 or more Qs at current level, advance to next level
-  if (qualifyingRuns >= 3) {
-    const nextLevel = getNextLevel(currentLevel);
-    if (!nextLevel) {
-      return null; // Should not happen since we check for Masters above
-    }
-
-    // Get current dog data
-    const dog = await getDogById(dogId);
-    if (!dog) {
-      throw new Error(`Dog not found: ${dogId}`);
-    } // Update the specific class level
+  // Check if the computed level is different from stored level
+  if (levelResult.currentLevel !== currentStoredLevel) {
+    // Update the specific class level
     const updatedClasses = dog.classes.map((dogClass) =>
       dogClass.name === competitionClass
-        ? { ...dogClass, level: nextLevel as CompetitionLevel }
+        ? { ...dogClass, level: levelResult.currentLevel as CompetitionLevel }
         : dogClass
     );
 
@@ -104,13 +70,13 @@ async function checkAndUpdateDogLevel(
     await updateDog(dogId, userId, { classes: updatedClasses });
 
     console.log(
-      `🎉 Auto-progression: ${dog.name} advanced from ${currentLevel} to ${nextLevel} in ${competitionClass}`
+      `🎉 Auto-progression: ${dog.name} advanced from ${currentStoredLevel} to ${levelResult.currentLevel} in ${competitionClass}`
     );
 
     return {
       progressed: true,
-      fromLevel: currentLevel,
-      toLevel: nextLevel,
+      fromLevel: currentStoredLevel,
+      toLevel: levelResult.currentLevel,
       dogName: dog.name,
       class: competitionClass,
     };
@@ -119,14 +85,11 @@ async function checkAndUpdateDogLevel(
   return { progressed: false };
 }
 
-// Recalculate dog levels from scratch based on all runs in chronological order
+// Recalculate dog levels from scratch based on all runs using rules engine
 // This is used after batch imports to ensure correct levels regardless of import order
 export async function recalculateDogLevels(userId: string, dogId: string): Promise<void> {
-  // Get all qualifying runs for this dog, sorted chronologically
+  // Get all runs for this dog
   const allRuns = await getRunsByDogId(dogId);
-  const qualifyingRuns = allRuns
-    .filter(run => run.qualified)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // Get current dog data
   const dog = await getDogById(dogId);
@@ -134,56 +97,25 @@ export async function recalculateDogLevels(userId: string, dogId: string): Promi
     throw new Error(`Dog not found: ${dogId}`);
   }
 
-  // Track Qs by class and level
-  const classLevelQs = new Map<string, Map<string, number>>();
-  const finalLevels = new Map<string, string>();
+  // Use rules engine to compute levels for all classes
+  const levelResults = computeAllDogLevels(allRuns);
 
-  // Initialize starting levels for each class
-  for (const dogClass of dog.classes) {
-    finalLevels.set(dogClass.name, "Novice"); // Everyone starts at Novice
-    classLevelQs.set(dogClass.name, new Map([
-      ["Novice", 0],
-      ["Open", 0], 
-      ["Excellent", 0],
-      ["Masters", 0]
-    ]));
-  }
-
-  // Process runs chronologically to determine correct final levels
-  for (const run of qualifyingRuns) {
-    const classMap = classLevelQs.get(run.class);
-    if (!classMap) continue; // Skip if dog doesn't compete in this class
-
-    const currentLevel = finalLevels.get(run.class) || "Novice";
-    
-    // Only count Qs at the current level (you can't get credit for higher level Qs)
-    if (run.level === currentLevel) {
-      const currentCount = classMap.get(currentLevel) || 0;
-      classMap.set(currentLevel, currentCount + 1);
-      
-      // Check if dog should advance after this Q
-      if (currentCount + 1 >= 3 && currentLevel !== "Masters") {
-        const nextLevel = getNextLevel(currentLevel);
-        if (nextLevel) {
-          finalLevels.set(run.class, nextLevel);
-          console.log(`📈 ${dog.name} advanced from ${currentLevel} to ${nextLevel} in ${run.class} after Q #${currentCount + 1} on ${run.date}`);
-        }
-      }
-    }
-    // Note: Qs at levels higher than current are ignored (can't skip levels)
-    // Qs at levels lower than current are also ignored (already advanced past)
-  }
-
-  // Update dog's class levels in database
-  const updatedClasses = dog.classes.map(dogClass => ({
-    ...dogClass,
-    level: (finalLevels.get(dogClass.name) || "Novice") as any
-  }));
+  // Update dog's class levels in database based on computed results
+  const updatedClasses = dog.classes.map(dogClass => {
+    const levelResult = levelResults[dogClass.name];
+    return {
+      ...dogClass,
+      level: levelResult ? levelResult.currentLevel as CompetitionLevel : dogClass.level
+    };
+  });
 
   await updateDog(dogId, userId, { classes: updatedClasses });
   
-  console.log(`📊 Recalculated levels for ${dog.name}:`, 
-    Object.fromEntries(finalLevels));
+  // Log the results
+  const finalLevels = Object.fromEntries(
+    Object.entries(levelResults).map(([className, result]) => [className, result.currentLevel])
+  );
+  console.log(`📊 Recalculated levels for ${dog.name}:`, finalLevels);
 }
 
 // Response type for createRun with progression info
@@ -248,8 +180,7 @@ export async function createRun(
       const progressionResult = await checkAndUpdateDogLevel(
         userId,
         request.dogId,
-        request.class,
-        request.level
+        request.class
       );
       if (progressionResult && progressionResult.progressed) {
         levelProgression = {
@@ -448,38 +379,11 @@ export async function updateRun(
   const currentSortableTimestamp = createSortableTimestamp(new Date(currentRun.date));
   const currentSK = `RUN#${currentSortableTimestamp}#${runId}`;
 
-  // Build update expression
+  // Build update expression for allowed fields only
+  // Core fields (date, class, level, qualified) cannot be updated
   const updateExpressions: string[] = [];
   const expressionAttributeNames: Record<string, string> = {};
   const expressionAttributeValues: Record<string, any> = {};
-
-  let needsKeyUpdate = false;
-  let newSortableTimestamp = currentSortableTimestamp;
-
-  if (request.date !== undefined) {
-    updateExpressions.push("#date = :date");
-    expressionAttributeNames["#date"] = "date";
-    expressionAttributeValues[":date"] = request.date;
-    newSortableTimestamp = createSortableTimestamp(new Date(request.date));
-    needsKeyUpdate = newSortableTimestamp !== currentSortableTimestamp;
-  }
-
-  if (request.class !== undefined) {
-    updateExpressions.push("#class = :class");
-    expressionAttributeNames["#class"] = "class";
-    expressionAttributeValues[":class"] = request.class;
-  }
-
-  if (request.level !== undefined) {
-    updateExpressions.push("#level = :level");
-    expressionAttributeNames["#level"] = "level";
-    expressionAttributeValues[":level"] = request.level;
-  }
-
-  if (request.qualified !== undefined) {
-    updateExpressions.push("qualified = :qualified");
-    expressionAttributeValues[":qualified"] = request.qualified;
-  }
 
   if (request.placement !== undefined) {
     updateExpressions.push("placement = :placement");
@@ -515,91 +419,32 @@ export async function updateRun(
     // Only updatedAt, no real changes
     return currentRun;
   }
-  // If date changed, we need to delete the old record and create a new one
-  // because the sort key includes the timestamp
-  if (needsKeyUpdate) {
-    const updatedRun = {
-      ...currentRun,
-      ...request,
-      updatedAt: createTimestamp(),
-    };
 
-    const newSK = `RUN#${newSortableTimestamp}#${runId}`;
-    const newGSI1SK = `RUN#${newSortableTimestamp}#${runId}`;
+  // Simple update - no key changes since core fields cannot be updated
+  const result = await dynamoClient.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        PK: `USER#${userId}`,
+        SK: currentSK,
+      },
+      UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+      ExpressionAttributeNames: expressionAttributeNames,
+      ExpressionAttributeValues: expressionAttributeValues,
+      ReturnValues: "ALL_NEW",
+    })
+  );
 
-    // Delete old record
-    await dynamoClient.send(
-      new DeleteCommand({
-        TableName: TABLE_NAME,
-        Key: {
-          PK: `USER#${userId}`,
-          SK: currentSK,
-        },
-      })
-    );
-
-    // Create new record with updated date
-    await dynamoClient.send(
-      new PutCommand({
-        TableName: TABLE_NAME,
-        Item: {
-          PK: `USER#${userId}`,
-          SK: newSK,
-          ...updatedRun,
-          EntityType: "USER_RUN",
-          GSI1PK: `DOG#${currentRun.dogId}`,
-          GSI1SK: newGSI1SK,
-        },
-      })
-    );
-
-    // Check for auto-level progression if this is now a qualifying run
-    if (updatedRun.qualified) {
-      try {
-        await checkAndUpdateDogLevel(userId, updatedRun.dogId, updatedRun.class, updatedRun.level);
-      } catch (error) {
-        console.error("Error checking dog level progression:", error);
-        // Don't fail the run update if level update fails - just log the error
-      }
-    }
-
-    return updatedRun;
-  } else {
-    // Simple update without key change
-    const result = await dynamoClient.send(
-      new UpdateCommand({
-        TableName: TABLE_NAME,
-        Key: {
-          PK: `USER#${userId}`,
-          SK: currentSK,
-        },
-        UpdateExpression: `SET ${updateExpressions.join(", ")}`,
-        ExpressionAttributeNames: expressionAttributeNames,
-        ExpressionAttributeValues: expressionAttributeValues,
-        ReturnValues: "ALL_NEW",
-      })
-    );
-
-    if (!result.Attributes) {
-      return null;
-    }
-
-    // Remove DynamoDB-specific fields
-    const { PK, SK, EntityType, GSI1PK, GSI1SK, ...run } = result.Attributes;
-    const updatedRun = run as Run;
-
-    // Check for auto-level progression if this is now a qualifying run
-    if (updatedRun.qualified) {
-      try {
-        await checkAndUpdateDogLevel(userId, updatedRun.dogId, updatedRun.class, updatedRun.level);
-      } catch (error) {
-        console.error("Error checking dog level progression:", error);
-        // Don't fail the run update if level update fails - just log the error
-      }
-    }
-
-    return updatedRun;
+  if (!result.Attributes) {
+    return null;
   }
+
+  // Remove DynamoDB-specific fields
+  const { PK, SK, EntityType, GSI1PK, GSI1SK, ...run } = result.Attributes;
+  const updatedRun = run as Run;
+
+  // No level progression check needed since core fields (qualified, class, level) cannot be updated
+  return updatedRun;
 }
 
 // Delete a run
@@ -624,6 +469,15 @@ export async function deleteRun(runId: string, userId: string): Promise<boolean>
         },
       })
     );
+
+    // Recalculate dog levels after deletion (in case deleted run affected progression)
+    try {
+      await recalculateDogLevels(userId, run.dogId);
+      console.log(`📊 Recalculated levels for dog ${run.dogId} after run deletion`);
+    } catch (error) {
+      console.error("Error recalculating dog levels after run deletion:", error);
+      // Don't fail the deletion if level recalculation fails - just log the error
+    }
 
     return true;
   } catch (error) {

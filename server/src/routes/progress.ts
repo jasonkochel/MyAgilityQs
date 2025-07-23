@@ -1,4 +1,4 @@
-import { ApiResponse } from "@my-agility-qs/shared";
+import { ApiResponse, computeAllDogLevels, getProgressionRules } from "@my-agility-qs/shared";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import createError from "http-errors";
 import {
@@ -7,6 +7,7 @@ import {
   getAllDogsProgress,
   getDogById,
   getRunsByUserId,
+  getDogsByUserId,
 } from "../database/index.js";
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
 
@@ -167,6 +168,83 @@ export const progressHandler = {
         success: false,
         error: "database_error",
         message: "Failed to retrieve locations",
+      };
+
+      return {
+        statusCode: 500,
+        body: JSON.stringify(response),
+      };
+    }
+  },
+
+  // GET /progress/diagnostics - Get detailed progression diagnostics for all user's dogs
+  getDiagnostics: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    try {
+      const userId = event.user!.userId;
+
+      // Get all dogs and runs for the user
+      const dogs = await getDogsByUserId(userId);
+      const runs = await getRunsByUserId(userId);
+
+      // Generate diagnostics for each active dog
+      const diagnostics = dogs
+        .filter((dog) => dog.active)
+        .map((dog) => {
+          const dogRuns = runs.filter((run) => run.dogId === dog.id);
+          const allLevels = computeAllDogLevels(dogRuns);
+
+          return {
+            dog,
+            dogRuns,
+            allLevels,
+            classDetails: Object.entries(allLevels).map(([className, result]) => {
+              const classRuns = dogRuns
+                .filter((run) => run.class === className)
+                .sort((a, b) => a.date.localeCompare(b.date));
+              const rules = getProgressionRules(className as any);
+
+              return {
+                className,
+                result,
+                classRuns,
+                rules,
+                ruleEvaluations:
+                  rules?.rules.map((rule) => {
+                    const qsAtLevel = classRuns.filter(
+                      (run) => run.level === rule.fromLevel && run.qualified
+                    ).length;
+
+                    return {
+                      rule,
+                      qsAtLevel,
+                      satisfied: qsAtLevel >= rule.qualifyingRunsRequired,
+                      qualifyingRuns: classRuns.filter(
+                        (run) => run.level === rule.fromLevel && run.qualified
+                      ),
+                    };
+                  }) || [],
+              };
+            }),
+          };
+        });
+
+      const response: ApiResponse = {
+        success: true,
+        data: diagnostics,
+        message: `Diagnostics generated for ${diagnostics.length} dogs`,
+      };
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+      };
+    } catch (error: any) {
+      console.error("Error getting progression diagnostics:", error);
+
+      const response: ApiResponse = {
+        success: false,
+        error: "database_error",
+        message: "Failed to retrieve progression diagnostics",
       };
 
       return {

@@ -116,10 +116,8 @@ export interface CreateRunResponse {
 }
 
 export interface UpdateRunRequest {
-  date?: string;
-  class?: CompetitionClass;
-  level?: CompetitionLevel;
-  qualified?: boolean;
+  // Core run fields (date, class, level, qualified) cannot be updated
+  // If these need to change, the run must be deleted and re-created
   placement?: number | null;
   time?: number;
   machPoints?: number;
