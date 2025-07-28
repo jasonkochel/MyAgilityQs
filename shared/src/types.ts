@@ -1,19 +1,14 @@
-// Competition classes
-export const COMPETITION_CLASSES = [
-  "Standard",
-  "Jumpers",
-  "T2B",
-  "FAST",
-  "Premier Std",
-  "Premier JWW",
-] as const;
+// Competition classes - explicit union type (no const array needed)
+export type CompetitionClass = 
+  | "Standard"
+  | "Jumpers" 
+  | "T2B"
+  | "FAST"
+  | "Premier Std"
+  | "Premier JWW";
 
-export type CompetitionClass = (typeof COMPETITION_CLASSES)[number];
-
-// Competition levels
-export const COMPETITION_LEVELS = ["Novice", "Open", "Excellent", "Masters"] as const;
-
-export type CompetitionLevel = (typeof COMPETITION_LEVELS)[number];
+// Competition levels - explicit union type (no const array needed)
+export type CompetitionLevel = "Novice" | "Open" | "Excellent" | "Masters";
 
 // User types
 export interface User {
@@ -116,8 +111,10 @@ export interface CreateRunResponse {
 }
 
 export interface UpdateRunRequest {
-  // Core run fields (date, class, level, qualified) cannot be updated
-  // If these need to change, the run must be deleted and re-created
+  date?: string; // YYYY-MM-DD format
+  class?: CompetitionClass;
+  level?: CompetitionLevel;
+  qualified?: boolean;
   placement?: number | null;
   time?: number;
   machPoints?: number;
@@ -282,3 +279,15 @@ export interface DogDiagnostic {
 }
 
 export type ProgressionDiagnostics = DogDiagnostic[];
+
+// MACH Progress types
+export interface MachProgress {
+  completeMachs: number;
+  nextMachNumber: number;
+  pointsTowardNext: number;
+  doubleQsTowardNext: number;
+  totalMachPoints: number;
+  totalDoubleQs: number;
+  pointsProgress: string; // e.g., "250/750"
+  doubleQProgress: string; // e.g., "5/20"
+}

@@ -4,19 +4,22 @@ import {
   Group,
   Modal,
   NumberInput,
+  Select,
   SimpleGrid,
   Stack,
+  Switch,
   Text,
+  TextInput,
   Textarea,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
-import type { Run, UpdateRunRequest } from "@my-agility-qs/shared";
+import type { CompetitionClass, CompetitionLevel, Run, UpdateRunRequest } from "@my-agility-qs/shared";
 import { IconEdit, IconTrash, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { locationsApi, runsApi } from "../lib/api";
-import { CLASS_DISPLAY_NAMES } from "../lib/constants";
+import { CLASS_DISPLAY_NAMES, COMPETITION_CLASSES, COMPETITION_LEVELS } from "../lib/constants";
 import dayjs from "dayjs";
 
 const PLACEMENT_OPTIONS = [
@@ -88,12 +91,22 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
   // Form for editing runs
   const editForm = useForm<UpdateRunRequest>({
     initialValues: {
+      date: "",
+      class: undefined,
+      level: undefined,
+      qualified: false,
       placement: undefined,
       location: "",
       machPoints: undefined,
       notes: "",
     },
     validate: {
+      date: (value) => {
+        if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          return "Date must be in YYYY-MM-DD format";
+        }
+        return null;
+      },
       placement: (value) => {
         if (value !== undefined && value !== null && (value < 1 || value > 999)) {
           return "Placement must be between 1 and 999";
@@ -113,6 +126,10 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
     if (!run) return;
     
     editForm.setValues({
+      date: run.date,
+      class: run.class,
+      level: run.level,
+      qualified: run.qualified,
       placement: run.placement || undefined,
       location: run.location || "",
       machPoints: run.machPoints || undefined,
@@ -126,7 +143,23 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
 
     const updateData: UpdateRunRequest = {};
     
-    // Only include fields that have values
+    // Include all editable fields
+    if (editForm.values.date && editForm.values.date !== run.date) {
+      updateData.date = editForm.values.date;
+    }
+    
+    if (editForm.values.class && editForm.values.class !== run.class) {
+      updateData.class = editForm.values.class;
+    }
+    
+    if (editForm.values.level && editForm.values.level !== run.level) {
+      updateData.level = editForm.values.level;
+    }
+    
+    if (editForm.values.qualified !== run.qualified) {
+      updateData.qualified = editForm.values.qualified;
+    }
+    
     if (editForm.values.placement !== undefined && editForm.values.placement !== null) {
       updateData.placement = editForm.values.placement;
     } else {
@@ -206,28 +239,74 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
       size="md"
     >
       <Stack gap="md">
-        {/* Non-editable fields */}
-        <Group justify="space-between">
-          <Text fw={500}>Date:</Text>
-          <Text>{formatDate(run.date)}</Text>
-        </Group>
+        {/* Core fields - editable in edit mode, display only in view mode */}
+        {isEditing ? (
+          <>
+            <Stack gap="xs">
+              <Text fw={500}>Date:</Text>
+              <TextInput
+                type="date"
+                value={editForm.values.date}
+                onChange={(event) => editForm.setFieldValue("date", event.currentTarget.value)}
+                error={editForm.errors.date}
+              />
+            </Stack>
 
-        <Group justify="space-between">
-          <Text fw={500}>Class:</Text>
-          <Text>{getClassDisplayName(run.class)}</Text>
-        </Group>
+            <Stack gap="xs">
+              <Text fw={500}>Class:</Text>
+              <Select
+                data={COMPETITION_CLASSES.map(c => ({ value: c, label: getClassDisplayName(c) }))}
+                value={editForm.values.class}
+                onChange={(value) => editForm.setFieldValue("class", value as CompetitionClass)}
+                placeholder="Select class"
+              />
+            </Stack>
 
-        <Group justify="space-between">
-          <Text fw={500}>Level:</Text>
-          <Text>{run.level}</Text>
-        </Group>
+            <Stack gap="xs">
+              <Text fw={500}>Level:</Text>
+              <Select
+                data={COMPETITION_LEVELS.map(l => ({ value: l, label: l }))}
+                value={editForm.values.level}
+                onChange={(value) => editForm.setFieldValue("level", value as CompetitionLevel)}
+                placeholder="Select level"
+              />
+            </Stack>
 
-        <Group justify="space-between">
-          <Text fw={500}>Result:</Text>
-          <Text fw={500} c={run.qualified ? "green" : "red"}>
-            {run.qualified ? "Qualified" : "Not Qualified"}
-          </Text>
-        </Group>
+            <Stack gap="xs">
+              <Text fw={500}>Result:</Text>
+              <Switch
+                label={editForm.values.qualified ? "Qualified" : "Not Qualified"}
+                checked={editForm.values.qualified}
+                onChange={(event) => editForm.setFieldValue("qualified", event.currentTarget.checked)}
+                color={editForm.values.qualified ? "green" : "red"}
+              />
+            </Stack>
+          </>
+        ) : (
+          <>
+            <Group justify="space-between">
+              <Text fw={500}>Date:</Text>
+              <Text>{formatDate(run.date)}</Text>
+            </Group>
+
+            <Group justify="space-between">
+              <Text fw={500}>Class:</Text>
+              <Text>{getClassDisplayName(run.class)}</Text>
+            </Group>
+
+            <Group justify="space-between">
+              <Text fw={500}>Level:</Text>
+              <Text>{run.level}</Text>
+            </Group>
+
+            <Group justify="space-between">
+              <Text fw={500}>Result:</Text>
+              <Text fw={500} c={run.qualified ? "green" : "red"}>
+                {run.qualified ? "Qualified" : "Not Qualified"}
+              </Text>
+            </Group>
+          </>
+        )}
 
         {run.time && (
           <Group justify="space-between">
@@ -272,8 +351,8 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
               />
             </Stack>
 
-            {(run.level === "Masters" && 
-              (run.class === "Standard" || run.class === "Jumpers")) && (
+            {(editForm.values.level === "Masters" && 
+              (editForm.values.class === "Standard" || editForm.values.class === "Jumpers")) && (
               <Stack gap="xs">
                 <Text fw={500}>MACH Points:</Text>
                 <NumberInput

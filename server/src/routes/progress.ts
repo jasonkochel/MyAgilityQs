@@ -1,4 +1,5 @@
-import { ApiResponse, computeAllDogLevels, getProgressionRules } from "@my-agility-qs/shared";
+import { ApiResponse } from "@my-agility-qs/shared";
+import { computeAllDogLevels, getProgressionRules } from "../utils/progressionRules.js";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import createError from "http-errors";
 import {

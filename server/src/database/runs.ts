@@ -11,10 +11,12 @@ import {
   Run,
   RunsQuery,
   UpdateRunRequest,
+} from "@my-agility-qs/shared";
+import { 
   computeDogLevel,
   computeAllDogLevels,
   getStartingLevel,
-} from "@my-agility-qs/shared";
+} from "../utils/progressionRules.js";
 import {
   createSortableTimestamp,
   createTimestamp,
@@ -379,71 +381,142 @@ export async function updateRun(
   const currentSortableTimestamp = createSortableTimestamp(new Date(currentRun.date));
   const currentSK = `RUN#${currentSortableTimestamp}#${runId}`;
 
-  // Build update expression for allowed fields only
-  // Core fields (date, class, level, qualified) cannot be updated
-  const updateExpressions: string[] = [];
-  const expressionAttributeNames: Record<string, string> = {};
-  const expressionAttributeValues: Record<string, any> = {};
+  // Check if we need to update core fields that affect the sort key
+  const needsKeyChange = request.date && request.date !== currentRun.date;
+  const needsRecalculation = request.qualified !== undefined || request.class || request.level;
+  
+  let updatedRun: Run;
+  
+  // If we need to change the sort key, delete old record and create new one
+  if (needsKeyChange) {
+    // Delete the old record
+    await dynamoClient.send(
+      new DeleteCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: `USER#${userId}`,
+          SK: currentSK,
+        },
+      })
+    );
 
-  if (request.placement !== undefined) {
-    updateExpressions.push("placement = :placement");
-    expressionAttributeValues[":placement"] = request.placement;
+    // Create updated run object with new values
+    updatedRun = {
+      ...currentRun,
+      ...request,
+      updatedAt: createTimestamp(),
+    };
+
+    const newSortableTimestamp = createSortableTimestamp(new Date(updatedRun.date));
+    const newSK = `RUN#${newSortableTimestamp}#${runId}`;
+
+    // Insert the updated record with new sort key
+    await dynamoClient.send(
+      new PutCommand({
+        TableName: TABLE_NAME,
+        Item: {
+          PK: `USER#${userId}`,
+          SK: newSK,
+          ...updatedRun,
+          EntityType: "USER_RUN",
+          GSI1PK: `DOG#${updatedRun.dogId}`,
+          GSI1SK: newSK,
+        },
+      })
+    );
+
+  } else {
+    // For updates that don't change the sort key, use UpdateCommand
+    const updateExpressions: string[] = [];
+    const expressionAttributeNames: Record<string, string> = {};
+    const expressionAttributeValues: Record<string, any> = {};
+
+    if (request.class !== undefined) {
+      updateExpressions.push("#class = :class");
+      expressionAttributeNames["#class"] = "class";
+      expressionAttributeValues[":class"] = request.class;
+    }
+
+    if (request.level !== undefined) {
+      updateExpressions.push("#level = :level");
+      expressionAttributeNames["#level"] = "level";
+      expressionAttributeValues[":level"] = request.level;
+    }
+
+    if (request.qualified !== undefined) {
+      updateExpressions.push("qualified = :qualified");
+      expressionAttributeValues[":qualified"] = request.qualified;
+    }
+
+    if (request.placement !== undefined) {
+      updateExpressions.push("placement = :placement");
+      expressionAttributeValues[":placement"] = request.placement;
+    }
+
+    if (request.time !== undefined) {
+      updateExpressions.push("#time = :time");
+      expressionAttributeNames["#time"] = "time";
+      expressionAttributeValues[":time"] = request.time;
+    }
+
+    if (request.machPoints !== undefined) {
+      updateExpressions.push("machPoints = :machPoints");
+      expressionAttributeValues[":machPoints"] = request.machPoints;
+    }
+
+    if (request.location !== undefined) {
+      updateExpressions.push("#location = :location");
+      expressionAttributeNames["#location"] = "location";
+      expressionAttributeValues[":location"] = request.location;
+    }
+
+    if (request.notes !== undefined) {
+      updateExpressions.push("notes = :notes");
+      expressionAttributeValues[":notes"] = request.notes;
+    }
+
+    updateExpressions.push("updatedAt = :updatedAt");
+    expressionAttributeValues[":updatedAt"] = createTimestamp();
+
+    if (updateExpressions.length === 1) {
+      // Only updatedAt, no real changes
+      return currentRun;
+    }
+
+    const result = await dynamoClient.send(
+      new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: `USER#${userId}`,
+          SK: currentSK,
+        },
+        UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+        ExpressionAttributeNames: expressionAttributeNames,
+        ExpressionAttributeValues: expressionAttributeValues,
+        ReturnValues: "ALL_NEW",
+      })
+    );
+
+    if (!result.Attributes) {
+      return null;
+    }
+
+    // Remove DynamoDB-specific fields
+    const { PK, SK, EntityType, GSI1PK, GSI1SK, ...run } = result.Attributes;
+    updatedRun = run as Run;
   }
 
-  if (request.time !== undefined) {
-    updateExpressions.push("#time = :time");
-    expressionAttributeNames["#time"] = "time";
-    expressionAttributeValues[":time"] = request.time;
+  // Recalculate dog levels if core fields changed (common to both paths)
+  if (needsRecalculation) {
+    try {
+      await recalculateDogLevels(userId, updatedRun.dogId);
+      console.log(`📊 Recalculated levels for dog ${updatedRun.dogId} after run update`);
+    } catch (error) {
+      console.error("Error recalculating dog levels after run update:", error);
+      // Don't fail the update if level recalculation fails - just log the error
+    }
   }
 
-  if (request.machPoints !== undefined) {
-    updateExpressions.push("machPoints = :machPoints");
-    expressionAttributeValues[":machPoints"] = request.machPoints;
-  }
-
-  if (request.location !== undefined) {
-    updateExpressions.push("#location = :location");
-    expressionAttributeNames["#location"] = "location";
-    expressionAttributeValues[":location"] = request.location;
-  }
-
-  if (request.notes !== undefined) {
-    updateExpressions.push("notes = :notes");
-    expressionAttributeValues[":notes"] = request.notes;
-  }
-
-  updateExpressions.push("updatedAt = :updatedAt");
-  expressionAttributeValues[":updatedAt"] = createTimestamp();
-
-  if (updateExpressions.length === 1) {
-    // Only updatedAt, no real changes
-    return currentRun;
-  }
-
-  // Simple update - no key changes since core fields cannot be updated
-  const result = await dynamoClient.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: {
-        PK: `USER#${userId}`,
-        SK: currentSK,
-      },
-      UpdateExpression: `SET ${updateExpressions.join(", ")}`,
-      ExpressionAttributeNames: expressionAttributeNames,
-      ExpressionAttributeValues: expressionAttributeValues,
-      ReturnValues: "ALL_NEW",
-    })
-  );
-
-  if (!result.Attributes) {
-    return null;
-  }
-
-  // Remove DynamoDB-specific fields
-  const { PK, SK, EntityType, GSI1PK, GSI1SK, ...run } = result.Attributes;
-  const updatedRun = run as Run;
-
-  // No level progression check needed since core fields (qualified, class, level) cannot be updated
   return updatedRun;
 }
 

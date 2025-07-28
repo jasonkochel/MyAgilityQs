@@ -1,4 +1,4 @@
-import { CompetitionClass, CompetitionLevel, Run, ProgressionRule, ClassProgressionRules, LevelComputationResult } from './types';
+import { CompetitionClass, CompetitionLevel, Run, ProgressionRule, ClassProgressionRules, LevelComputationResult } from "@my-agility-qs/shared";
 
 /**
  * AKC Agility Progression Rules

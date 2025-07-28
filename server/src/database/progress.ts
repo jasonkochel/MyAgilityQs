@@ -3,11 +3,13 @@ import {
   CompetitionClass,
   CompetitionLevel,
   DogProgress,
+} from "@my-agility-qs/shared";
+import {
   calculateDoubleQs,
   calculateTotalMachPoints,
   calculateMachProgress,
   calculateMastersTitleProgress,
-} from "@my-agility-qs/shared";
+} from "../utils/progressCalculations.js";
 import { getDogsByUserId } from "./dogs.js";
 import { getRunsByDogId, getRunsByUserId } from "./runs.js";
 
