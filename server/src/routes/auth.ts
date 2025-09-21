@@ -545,6 +545,7 @@ export const authHandler = {
           message: "Token refreshed successfully",
           data: {
             accessToken: result.AuthenticationResult.AccessToken,
+            refreshToken: result.AuthenticationResult.RefreshToken,
             idToken: result.AuthenticationResult.IdToken,
             expiresIn: result.AuthenticationResult.ExpiresIn,
           },

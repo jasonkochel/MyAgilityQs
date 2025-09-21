@@ -49,6 +49,7 @@ export const tokenManager = {
   getRefreshToken: (): string | null => {
     return localStorage.getItem("refreshToken");
   },
+
   removeToken: (): void => {
     sessionStorage.removeItem("accessToken");
     sessionStorage.removeItem("idToken");
@@ -67,6 +68,7 @@ export const tokenManager = {
     localStorage.setItem("refreshToken", authData.refreshToken);
     localStorage.setItem("tokenExpiry", (Date.now() + authData.expiresIn * 1000).toString());
   },
+
   isTokenExpired: (): boolean => {
     const expiry = localStorage.getItem("tokenExpiry");
     if (!expiry) return true;
@@ -86,7 +88,9 @@ export const tokenManager = {
       console.error("Failed to decode JWT token:", error);
       return null;
     }
-  }, // Refresh access token using refresh token
+  },
+
+  // Refresh access token using refresh token
   refreshAccessToken: async (): Promise<boolean> => {
     const refreshToken = tokenManager.getRefreshToken();
 
@@ -96,9 +100,7 @@ export const tokenManager = {
 
     try {
       const response = await ky
-        .post(`${API_BASE_URL}/auth/refresh`, {
-          json: { refreshToken },
-        })
+        .post(`${API_BASE_URL}/auth/refresh`, { json: { refreshToken } })
         .json<ApiResponse<AuthResponse>>();
 
       if (response.success && response.data) {

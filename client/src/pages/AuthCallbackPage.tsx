@@ -25,12 +25,14 @@ export const AuthCallbackPage: React.FC = () => {
           code: code ? `${code.substring(0, 10)}...` : null,
           error,
           errorDescription,
-          allParams: Object.fromEntries(urlParams.entries())
+          allParams: Object.fromEntries(urlParams.entries()),
         });
 
         if (error) {
           console.error("OAuth error details:", { error, errorDescription });
-          throw new Error(`OAuth error: ${error}${errorDescription ? ` - ${errorDescription}` : ''}`);
+          throw new Error(
+            `OAuth error: ${error}${errorDescription ? ` - ${errorDescription}` : ""}`
+          );
         }
 
         if (!code) {
@@ -43,15 +45,16 @@ export const AuthCallbackPage: React.FC = () => {
           console.log("Code already processed, skipping");
           return;
         }
-        sessionStorage.setItem(`oauth_code_${code}`, "used");        console.log("Exchanging code for tokens...");
+        sessionStorage.setItem(`oauth_code_${code}`, "used");
+        console.log("Exchanging code for tokens...");
         // Get the redirect URI that was used in the initial request
-        const redirectUri = sessionStorage.getItem('google_oauth_redirect_uri');
+        const redirectUri = sessionStorage.getItem("google_oauth_redirect_uri");
 
         // Exchange the code for tokens via our backend
         const authData: AuthResponse = await authApi.googleCallback(code, redirectUri || undefined);
 
         // Clean up the stored redirect URI
-        sessionStorage.removeItem('google_oauth_redirect_uri');
+        sessionStorage.removeItem("google_oauth_redirect_uri");
 
         console.log("Tokens received, logging in...");
         // Login with the received tokens
@@ -82,13 +85,13 @@ export const AuthCallbackPage: React.FC = () => {
 
   if (isProcessing) {
     return (
-      <Container 
-        size={420} 
-        style={{ 
-          display: "flex", 
-          justifyContent: "center", 
-          alignItems: "center", 
-          height: "100vh" 
+      <Container
+        size={420}
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
         }}
       >
         <Paper withBorder shadow="md" p={40} radius="md">
@@ -101,9 +104,6 @@ export const AuthCallbackPage: React.FC = () => {
               <Loader color="blue" size="lg" />
               <Text size="lg" fw={500} ta="center">
                 Processing sign in...
-              </Text>
-              <Text c="dimmed" size="sm" ta="center">
-                Please wait while we complete your authentication
               </Text>
             </Stack>
           </Stack>
