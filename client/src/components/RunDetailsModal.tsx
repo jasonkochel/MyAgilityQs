@@ -328,10 +328,11 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
                     color={editForm.values.placement === option.value ? option.color : "gray"}
                     size="md"
                     h={44}
+                    p={4}
                     onClick={() => editForm.setFieldValue("placement", option.value)}
                     styles={{
                       inner: { padding: "2px" },
-                      label: { fontSize: "16px", fontWeight: 600 },
+                      label: { fontSize: "16px", fontWeight: 600, lineHeight: 1 },
                     }}
                   >
                     {option.label}

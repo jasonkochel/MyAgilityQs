@@ -164,12 +164,12 @@ export const MyDogsPage: React.FC = () => {
                       gap="xs"
                       align="center"
                       justify="center"
-                      style={{ width: '140px', flexShrink: 0 }}
+                      style={{ width: 'clamp(100px, 25vw, 140px)', flexShrink: 0 }}
                     >
                       {/* Photo area - flexible height based on aspect ratio */}
                       <div
                         style={{
-                          width: '140px',
+                          width: 'clamp(100px, 25vw, 140px)',
                           position: 'relative',
                           backgroundColor: dog.photoUrl ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-gray-1)',
                           display: 'flex',
@@ -177,7 +177,7 @@ export const MyDogsPage: React.FC = () => {
                           justifyContent: 'center',
                           borderRadius: 'var(--mantine-radius-md)',
                           overflow: 'hidden',
-                          minHeight: dog.photoUrl ? 'auto' : '140px', // Only min height for placeholder
+                          minHeight: dog.photoUrl ? 'auto' : 'clamp(100px, 25vw, 140px)', // Only min height for placeholder
                         }}
                       >
                         {dog.photoUrl ? (
@@ -185,7 +185,7 @@ export const MyDogsPage: React.FC = () => {
                             src={dog.photoUrl}
                             alt={`${dog.name} photo`}
                             style={{
-                              width: '140px',
+                              width: 'clamp(100px, 25vw, 140px)',
                               height: 'auto',
                               display: 'block',
                             }}
@@ -234,13 +234,13 @@ export const MyDogsPage: React.FC = () => {
                           Classes:
                         </Text>
                         {dog.classes && dog.classes.length > 0 ? (
-                          <Stack gap="xs">
+                          <Stack gap="sm">
                             {dog.classes.map((dogClass, index) => (
-                              <Group key={index} gap="md" align="center">
-                                <Text size="sm" fw={500} style={{ minWidth: "80px" }}>
+                              <Group key={index} gap="md" align="flex-start" wrap="wrap" style={{ marginBottom: '4px' }}>
+                                <Text size="sm" fw={500} style={{ minWidth: "70px", lineHeight: 1.3 }}>
                                   {getDisplayName(dogClass.name)}
                                 </Text>
-                                <Text size="sm" c="dimmed">
+                                <Text size="sm" c="dimmed" style={{ lineHeight: 1.3, marginTop: '-2px' }}>
                                   {dogClass.level}
                                 </Text>
                               </Group>

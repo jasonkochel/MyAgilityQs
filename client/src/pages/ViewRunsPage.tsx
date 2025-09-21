@@ -12,7 +12,6 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import type { CompetitionClass, CompetitionLevel, Dog, Run } from "@my-agility-qs/shared";
@@ -35,10 +34,6 @@ export const ViewRunsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [, navigate] = useLocation();
-
-  // Responsive breakpoints
-  const isLargeScreen = useMediaQuery("(min-width: 1200px)"); // xl breakpoint
-  const isMediumScreen = useMediaQuery("(min-width: 768px)"); // md breakpoint
 
   // URL state management - single source of truth
   const [filters, setFilters] = useURLState({
@@ -478,98 +473,90 @@ export const ViewRunsPage: React.FC = () => {
           </Paper>
         ) : (
           <Paper withBorder shadow="sm" radius="md">
-            <Table highlightOnHover striped stickyHeader>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th
-                    style={{ cursor: "pointer", userSelect: "none" }}
-                    onClick={() => handleSort("date")}
-                  >
-                    <Group gap={4} wrap="nowrap">
-                      Date
-                      {renderSortIcon("date")}
-                    </Group>
-                  </Table.Th>
-                  <Table.Th
-                    style={{ cursor: "pointer", userSelect: "none" }}
-                    onClick={() => handleSort("dog")}
-                  >
-                    <Group gap={4} wrap="nowrap">
-                      Dog
-                      {renderSortIcon("dog")}
-                    </Group>
-                  </Table.Th>
-                  <Table.Th
-                    style={{ cursor: "pointer", userSelect: "none" }}
-                    onClick={() => handleSort("class")}
-                  >
-                    <Group gap={4} wrap="nowrap">
-                      Class
-                      {renderSortIcon("class")}
-                    </Group>
-                  </Table.Th>
-                  <Table.Th
-                    style={{ cursor: "pointer", userSelect: "none" }}
-                    onClick={() => handleSort("level")}
-                  >
-                    <Group gap={4} wrap="nowrap">
-                      Level
-                      {renderSortIcon("level")}
-                    </Group>
-                  </Table.Th>
-                  {/* Result column - only show if tracking NQ runs */}
-                  {!user?.trackQsOnly && <Table.Th>Result</Table.Th>}
-                  {/* Placement column - visible on medium+ screens */}
-                  {isMediumScreen && <Table.Th>Place</Table.Th>}
-                  {/* Time column - visible on large screens */}
-                  {isLargeScreen && <Table.Th>Points</Table.Th>}
-                  {/* Location column - visible on large screens */}
-                  {isLargeScreen && <Table.Th>Location</Table.Th>}
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {filteredAndSortedRuns.map((run: Run) => (
-                  <Table.Tr
-                    key={run.id}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setSelectedRun(run)}
-                  >
-                    <Table.Td>
-                      <Text size="sm">{formatDate(run.date)}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" fw={500}>
-                        {dogNameMap[run.dogId] || "Unknown Dog"}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{getClassDisplayName(run.class)}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{run.level}</Text>
-                    </Table.Td>
+            <div style={{ overflowX: "auto" }}>
+              <Table highlightOnHover striped stickyHeader>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th
+                      style={{ cursor: "pointer", userSelect: "none", minWidth: "80px" }}
+                      onClick={() => handleSort("date")}
+                    >
+                      <Group gap={4} wrap="nowrap">
+                        Date
+                        {renderSortIcon("date")}
+                      </Group>
+                    </Table.Th>
+                    <Table.Th
+                      style={{ cursor: "pointer", userSelect: "none", minWidth: "80px" }}
+                      onClick={() => handleSort("dog")}
+                    >
+                      <Group gap={4} wrap="nowrap">
+                        Dog
+                        {renderSortIcon("dog")}
+                      </Group>
+                    </Table.Th>
+                    <Table.Th
+                      style={{ cursor: "pointer", userSelect: "none", minWidth: "70px" }}
+                      onClick={() => handleSort("class")}
+                    >
+                      <Group gap={4} wrap="nowrap">
+                        Class
+                        {renderSortIcon("class")}
+                      </Group>
+                    </Table.Th>
+                    <Table.Th
+                      style={{ cursor: "pointer", userSelect: "none", minWidth: "80px" }}
+                      onClick={() => handleSort("level")}
+                    >
+                      <Group gap={4} wrap="nowrap">
+                        Level
+                        {renderSortIcon("level")}
+                      </Group>
+                    </Table.Th>
                     {/* Result column - only show if tracking NQ runs */}
-                    {!user?.trackQsOnly && (
+                    {!user?.trackQsOnly && <Table.Th style={{ minWidth: "60px" }}>Result</Table.Th>}
+                    <Table.Th style={{ minWidth: "60px" }}>Place</Table.Th>
+                    <Table.Th style={{ minWidth: "60px" }}>Points</Table.Th>
+                    <Table.Th style={{ minWidth: "100px" }}>Location</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {filteredAndSortedRuns.map((run: Run) => (
+                    <Table.Tr
+                      key={run.id}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setSelectedRun(run)}
+                    >
                       <Table.Td>
-                        <Badge
-                          color={run.qualified ? "green" : "red"}
-                          variant={run.qualified ? "filled" : "outline"}
-                          size="sm"
-                        >
-                          {run.qualified ? "Q" : "NQ"}
-                        </Badge>
+                        <Text size="sm">{formatDate(run.date)}</Text>
                       </Table.Td>
-                    )}
-                    {/* Placement column - visible on medium+ screens */}
-                    {isMediumScreen && <Table.Td>{getPlacementBadge(run.placement)}</Table.Td>}
-                    {/* Time column - visible on large screens */}
-                    {isLargeScreen && (
+                      <Table.Td>
+                        <Text size="sm" fw={500}>
+                          {dogNameMap[run.dogId] || "Unknown Dog"}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{getClassDisplayName(run.class)}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{run.level}</Text>
+                      </Table.Td>
+                      {/* Result column - only show if tracking NQ runs */}
+                      {!user?.trackQsOnly && (
+                        <Table.Td>
+                          <Badge
+                            color={run.qualified ? "green" : "red"}
+                            variant={run.qualified ? "filled" : "outline"}
+                            size="sm"
+                          >
+                            {run.qualified ? "Q" : "NQ"}
+                          </Badge>
+                        </Table.Td>
+                      )}
+                      <Table.Td>{getPlacementBadge(run.placement)}</Table.Td>
                       <Table.Td>
                         <Text size="sm">{run.machPoints ?? "—"}</Text>
                       </Table.Td>
-                    )}
-                    {/* Location column - visible on large screens */}
-                    {isLargeScreen && (
                       <Table.Td>
                         <Text
                           size="sm"
@@ -585,11 +572,11 @@ export const ViewRunsPage: React.FC = () => {
                           {run.location || "—"}
                         </Text>
                       </Table.Td>
-                    )}
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </div>
           </Paper>
         )}
         <RunDetailsModal

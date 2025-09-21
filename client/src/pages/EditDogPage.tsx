@@ -318,9 +318,14 @@ export const EditDogPage: React.FC = () => {
                             data={COMPETITION_LEVELS}
                             value={selection.level}
                             onChange={(value) => updateClassLevel(className, value || "")}
-                            style={{ flexShrink: 0, minWidth: "100px" }}
+                            style={{ flex: 1, maxWidth: "120px" }}
                             size="sm"
                             required
+                            comboboxProps={{
+                              position: "bottom-end",
+                              middlewares: { flip: true, shift: true },
+                              offset: 5
+                            }}
                           />
                         )}
                       </Group>

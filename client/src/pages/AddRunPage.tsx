@@ -236,7 +236,6 @@ export const AddRunPage: React.FC = () => {
                           }
                         }}
                         style={{
-                          height: '80px',
                           borderRadius: 'var(--mantine-radius-md)',
                           border: form.values.dogId === dog.id 
                             ? '2px solid var(--mantine-color-blue-filled)' 
@@ -247,7 +246,7 @@ export const AddRunPage: React.FC = () => {
                           cursor: 'pointer',
                           overflow: 'hidden',
                           display: 'flex',
-                          alignItems: 'stretch',
+                          flexDirection: 'column',
                           transition: 'all 0.2s ease',
                         }}
                         __vars={{
@@ -266,53 +265,51 @@ export const AddRunPage: React.FC = () => {
                           }
                         }}
                       >
-                        {/* Photo - flush left, natural width */}
-                        {dog.photoUrl ? (
-                          <img
-                            src={dog.photoUrl}
-                            alt={`${dog.name} photo`}
-                            style={{
-                              height: '80px',
-                              width: 'auto', // This will maintain aspect ratio
-                              objectFit: 'cover',
-                              objectPosition: 'center',
-                              flexShrink: 0,
-                              display: 'block',
-                            }}
-                          />
-                        ) : (
-                          <Box
-                            w={80} // Fallback square for icon
-                            h="100%"
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              backgroundColor: 'var(--mantine-color-gray-1)',
-                              flexShrink: 0,
-                            }}
-                          >
-                            <IconDog size={32} color="var(--mantine-color-gray-6)" />
-                          </Box>
-                        )}
-                        
-                        {/* Name - centered in remaining space */}
+                        {/* Photo - top section */}
                         <Box
                           style={{
                             flex: 1,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            height: '100%',
-                            paddingLeft: '12px',
-                            paddingRight: '12px',
+                            minHeight: '80px',
+                          }}
+                        >
+                          {dog.photoUrl ? (
+                            <img
+                              src={dog.photoUrl}
+                              alt={`${dog.name} photo`}
+                              style={{
+                                maxHeight: '80px',
+                                maxWidth: '100%',
+                                width: 'auto',
+                                height: 'auto',
+                                objectFit: 'cover',
+                                objectPosition: 'center',
+                                display: 'block',
+                              }}
+                            />
+                          ) : (
+                            <IconDog size={32} color="var(--mantine-color-gray-6)" />
+                          )}
+                        </Box>
+                        
+                        {/* Name - bottom section */}
+                        <Box
+                          style={{
+                            padding: '8px 4px',
+                            textAlign: 'center',
+                            borderTop: form.values.dogId === dog.id 
+                              ? '1px solid rgba(255,255,255,0.2)' 
+                              : '1px solid var(--mantine-color-gray-3)',
                           }}
                         >
                           <Text 
                             fw={600} 
-                            size="md" 
+                            size="sm" 
                             ta="center"
                             c={form.values.dogId === dog.id ? 'white' : 'black'}
+                            style={{ lineHeight: 1.2 }}
                           >
                             {dog.name}
                           </Text>
