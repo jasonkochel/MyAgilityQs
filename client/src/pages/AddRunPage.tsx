@@ -448,12 +448,12 @@ export const AddRunPage: React.FC = () => {
                             key={option.label}
                             variant={form.values.placement === option.value ? "filled" : "outline"}
                             color={form.values.placement === option.value ? option.color : "gray"}
-                            size="lg"
-                            h={56}
+                            size="md"
+                            h={44}
                             onClick={() => form.setFieldValue("placement", option.value)}
                             styles={{
-                              inner: { padding: "4px" },
-                              label: { fontSize: "18px", fontWeight: 600 },
+                              inner: { padding: "2px" },
+                              label: { fontSize: "16px", fontWeight: 600, lineHeight: 1 },
                             }}
                           >
                             {option.label}
