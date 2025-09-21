@@ -450,6 +450,7 @@ export const AddRunPage: React.FC = () => {
                             color={form.values.placement === option.value ? option.color : "gray"}
                             size="md"
                             h={44}
+                            p={4}
                             onClick={() => form.setFieldValue("placement", option.value)}
                             styles={{
                               inner: { padding: "2px" },
