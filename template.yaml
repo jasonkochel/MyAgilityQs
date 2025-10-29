@@ -326,7 +326,6 @@ Resources:
       FunctionName: !Ref ApiFunction
       Action: lambda:InvokeFunction
       Principal: "*"
-      FunctionUrlAuthType: NONE
 
 Outputs:
   ApiUrl:
