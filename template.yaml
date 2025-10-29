@@ -316,6 +316,18 @@ Resources:
       FunctionUrlConfig:
         AuthType: NONE
 
+  # Lambda Function URL Permission (required by new AWS authorization model)
+  # SAM automatically creates lambda:InvokeFunctionUrl permission for AuthType: NONE
+  # We only need to explicitly add lambda:InvokeFunction per new AWS requirements
+  # See: https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html
+  ApiFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunction
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
 Outputs:
   ApiUrl:
     Description: "Lambda Function URL"

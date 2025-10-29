@@ -127,49 +127,25 @@ export const AKC_PROGRESSION_RULES: ClassProgressionRules[] = [
   },
   {
     class: "Premier Std",
-    startingLevel: "Open", // Premier classes start at Open
+    startingLevel: "Masters", // Premier is an advanced class, starts and stays at Masters
     rules: [
       {
-        fromLevel: "Open",
-        qualifyingRunsRequired: 3,
-        toLevel: "Excellent",
-        titleEarned: "OP"
-      },
-      {
-        fromLevel: "Excellent",
-        qualifyingRunsRequired: 3,
-        toLevel: "Masters",
-        titleEarned: "XP"
-      },
-      {
         fromLevel: "Masters",
-        qualifyingRunsRequired: 10,
+        qualifyingRunsRequired: 25,
         toLevel: null, // Stay at Masters
-        titleEarned: "MP"
+        titleEarned: "PAD" // Premier Agility Dog
       }
     ]
   },
   {
     class: "Premier JWW",
-    startingLevel: "Open", // Premier classes start at Open
+    startingLevel: "Masters", // Premier is an advanced class, starts and stays at Masters
     rules: [
       {
-        fromLevel: "Open",
-        qualifyingRunsRequired: 3,
-        toLevel: "Excellent", 
-        titleEarned: "OPJ"
-      },
-      {
-        fromLevel: "Excellent",
-        qualifyingRunsRequired: 3,
-        toLevel: "Masters",
-        titleEarned: "XPJ"
-      },
-      {
         fromLevel: "Masters",
-        qualifyingRunsRequired: 10,
+        qualifyingRunsRequired: 25,
         toLevel: null, // Stay at Masters
-        titleEarned: "MPJ"
+        titleEarned: "PJD" // Premier Jumpers Dog
       }
     ]
   }
