@@ -31,3 +31,9 @@ export type CompetitionClass = (typeof COMPETITION_CLASSES)[number];
 
 // Type for competition levels
 export type CompetitionLevel = (typeof COMPETITION_LEVELS)[number];
+
+// Premier class helpers (duplicated from shared due to Vite CJS re-export limitation)
+export const PREMIER_CLASSES = ["Premier Std", "Premier JWW"] as const;
+export const isPremierClass = (className: string): boolean =>
+  className === "Premier Std" || className === "Premier JWW" ||
+  className === "Premier Standard" || className === "Premier Jumpers";

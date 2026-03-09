@@ -24,7 +24,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { dogsApi } from "../lib/api";
-import { CLASS_DISPLAY_NAMES, COMPETITION_CLASSES, COMPETITION_LEVELS } from "../lib/constants";
+import { CLASS_DISPLAY_NAMES, COMPETITION_CLASSES, COMPETITION_LEVELS, isPremierClass } from "../lib/constants";
 
 interface DogFormData {
   name: string;
@@ -50,7 +50,9 @@ export const AddDogPage: React.FC = () => {
         if (enabledClasses.length === 0) {
           return "At least one class must be selected";
         }
-        const missingLevels = enabledClasses.filter((c) => !c.level);
+        const missingLevels = Object.entries(value).filter(
+          ([name, sel]) => sel.enabled && !sel.level && !isPremierClass(name)
+        );
         if (missingLevels.length > 0) {
           return "All selected classes must have a level";
         }
@@ -96,6 +98,9 @@ export const AddDogPage: React.FC = () => {
     if (!enabled) {
       // Clear level when disabling a class
       form.setFieldValue(`classSelections.${className}.level`, "");
+    } else if (isPremierClass(className)) {
+      // Premier classes have no levels - auto-set to Masters (sentinel)
+      form.setFieldValue(`classSelections.${className}.level`, "Masters");
     }
   };
 
@@ -168,7 +173,7 @@ export const AddDogPage: React.FC = () => {
                         >
                           {className}
                         </Text>
-                        {selection.enabled && (
+                        {selection.enabled && !isPremierClass(className) && (
                           <Select
                             placeholder="Level"
                             data={COMPETITION_LEVELS}

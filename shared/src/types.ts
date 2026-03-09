@@ -1,7 +1,7 @@
 // Competition classes - explicit union type (no const array needed)
-export type CompetitionClass = 
+export type CompetitionClass =
   | "Standard"
-  | "Jumpers" 
+  | "Jumpers"
   | "T2B"
   | "FAST"
   | "Premier Std"
@@ -9,6 +9,12 @@ export type CompetitionClass =
 
 // Competition levels - explicit union type (no const array needed)
 export type CompetitionLevel = "Novice" | "Open" | "Excellent" | "Masters";
+
+// Premier class helpers
+export const PREMIER_CLASSES: CompetitionClass[] = ["Premier Std", "Premier JWW"];
+export const isPremierClass = (className: string): boolean =>
+  className === "Premier Std" || className === "Premier JWW" ||
+  className === "Premier Standard" || className === "Premier Jumpers";
 
 // User types
 export interface User {
@@ -79,6 +85,7 @@ export interface Run {
   level: CompetitionLevel;
   qualified: boolean;
   placement: number | null; // 1-4 for placements, null for no placement
+  topTwentyFivePercent?: boolean; // Premier only: placed in top 25% of jump height class
   time?: number; // decimal seconds
   machPoints?: number;
   location?: string;
@@ -94,6 +101,7 @@ export interface CreateRunRequest {
   level: CompetitionLevel;
   qualified?: boolean;
   placement?: number | null;
+  topTwentyFivePercent?: boolean; // Premier only: placed in top 25% of jump height class
   time?: number;
   machPoints?: number;
   location?: string;
@@ -116,6 +124,7 @@ export interface UpdateRunRequest {
   level?: CompetitionLevel;
   qualified?: boolean;
   placement?: number | null;
+  topTwentyFivePercent?: boolean; // Premier only: placed in top 25% of jump height class
   time?: number;
   machPoints?: number;
   location?: string;
@@ -158,6 +167,24 @@ export interface MastersTitleProgress {
   jumpersTitles: MastersTitle[];
 }
 
+export interface PremierTitleTier {
+  title: string; // e.g., "PAD", "PADB", "PADS", "PADG", "PADC"
+  level: string; // e.g., "Premier", "Bronze", "Silver", "Gold", "Century"
+  earned: boolean;
+  qsProgress: number; // Qs toward this tier
+  qsNeeded: number; // Cumulative: 25, 50, 75, 100, 125
+  top25Progress: number; // Top-25% placements toward this tier
+  top25Needed: number; // Cumulative: 5, 10, 15, 20, 25
+}
+
+export interface PremierProgress {
+  class: "Premier Std" | "Premier JWW";
+  totalQs: number;
+  topTwentyFivePercentQs: number;
+  tiers: PremierTitleTier[];
+  nextTier: PremierTitleTier | null; // Next unearned tier
+}
+
 export interface DogProgress {
   dogId: string;
   dogName: string;
@@ -166,6 +193,7 @@ export interface DogProgress {
   machProgress: number; // Total MACH points (not capped)
   completeMachs?: number; // Number of complete MACHs earned
   mastersTitles?: MastersTitleProgress; // Masters title progression
+  premierProgress?: PremierProgress[]; // Premier title progression (PAD/PJD)
 }
 
 // API Response types

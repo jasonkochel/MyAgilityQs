@@ -3,6 +3,7 @@ import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   Container,
   Group,
   NumberInput,
@@ -28,7 +29,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "../contexts/AuthContext";
 import { dogsApi, locationsApi, runsApi } from "../lib/api";
-import { CLASS_DISPLAY_NAMES } from "../lib/constants";
+import { CLASS_DISPLAY_NAMES, isPremierClass } from "../lib/constants";
 
 // AKC Agility Classes - use shared constants
 const AKC_CLASS_MAPPING = CLASS_DISPLAY_NAMES;
@@ -49,6 +50,7 @@ interface RunFormData {
   date: string; // Changed to string for new Mantine DateInput
   qualified: boolean;
   placement?: number;
+  topTwentyFivePercent: boolean;
   machPoints?: number;
   location: string;
   notes: string;
@@ -82,6 +84,7 @@ export const AddRunPage: React.FC = () => {
       date: new Date().toISOString().split("T")[0], // Today's date as YYYY-MM-DD string
       qualified: true, // Default to qualified
       placement: undefined, // Default to None
+      topTwentyFivePercent: false,
       machPoints: undefined,
       location: "",
       notes: "",
@@ -138,10 +141,11 @@ export const AddRunPage: React.FC = () => {
     const apiData: CreateRunRequest = {
       dogId: values.dogId,
       class: values.className as CompetitionClass,
-      level: values.level as CompetitionLevel,
+      level: (isPremierClass(values.className) ? "Masters" : values.level) as CompetitionLevel,
       date: values.date, // Already in YYYY-MM-DD string format
       qualified: values.qualified,
       placement: values.placement,
+      topTwentyFivePercent: isPremierClass(values.className) ? values.topTwentyFivePercent : undefined,
       machPoints: values.machPoints,
       location: values.location,
       notes: values.notes,
@@ -380,17 +384,19 @@ export const AddRunPage: React.FC = () => {
                                 <Text fw={600} size="md">
                                   {classInfo.displayName}
                                 </Text>
-                                <Text
-                                  size="xs"
-                                  fw={500}
-                                  c={
-                                    form.values.className === classInfo.actualName
-                                      ? "white"
-                                      : "dimmed"
-                                  }
-                                >
-                                  {classInfo.level}
-                                </Text>
+                                {!isPremierClass(classInfo.actualName) && (
+                                  <Text
+                                    size="xs"
+                                    fw={500}
+                                    c={
+                                      form.values.className === classInfo.actualName
+                                        ? "white"
+                                        : "dimmed"
+                                    }
+                                  >
+                                    {classInfo.level}
+                                  </Text>
+                                )}
                               </Stack>
                             </Button>
                           );
@@ -460,6 +466,19 @@ export const AddRunPage: React.FC = () => {
                       </SimpleGrid>
                     </Stack>
                   )}
+
+                  {/* Top 25% - Only show for qualified Premier runs */}
+                  {form.values.qualified &&
+                    isPremierClass(form.values.className) && (
+                      <Checkbox
+                        label="Placed in top 25% of jump height class"
+                        checked={form.values.topTwentyFivePercent}
+                        onChange={(event) =>
+                          form.setFieldValue("topTwentyFivePercent", event.currentTarget.checked)
+                        }
+                        size="md"
+                      />
+                    )}
 
                   {/* MACH Points - Only show for qualified Masters Standard/Jumpers */}
                   {(form.values.qualified || user?.trackQsOnly) &&

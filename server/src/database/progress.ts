@@ -9,6 +9,7 @@ import {
   calculateTotalMachPoints,
   calculateMachProgress,
   calculateMastersTitleProgress,
+  calculatePremierProgress,
 } from "../utils/progressCalculations.js";
 import { getDogsByUserId } from "./dogs.js";
 import { getRunsByDogId, getRunsByUserId } from "./runs.js";
@@ -60,6 +61,13 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
   // Calculate Masters title progress if dog has Masters classes
   const mastersTitles = dog ? calculateMastersTitleProgress(runs, dog.classes) : undefined;
 
+  // Calculate Premier progress if dog competes in Premier classes
+  const premierProgress = dog ? (() => {
+    const premierClasses = dog.classes.filter(c => c.name === "Premier Std" || c.name === "Premier JWW");
+    if (premierClasses.length === 0) return undefined;
+    return premierClasses.map(c => calculatePremierProgress(runs, c.name as "Premier Std" | "Premier JWW"));
+  })() : undefined;
+
   const progress: DogProgress = {
     dogId,
     dogName,
@@ -68,6 +76,7 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
     machProgress: totalMachPoints, // Total MACH points (not capped)
     completeMachs: machProgressData.completeMachs,
     mastersTitles,
+    premierProgress,
   };
 
   return progress;

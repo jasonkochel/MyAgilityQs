@@ -1,6 +1,7 @@
 import {
   Autocomplete,
   Button,
+  Checkbox,
   Group,
   Modal,
   NumberInput,
@@ -19,7 +20,7 @@ import { IconEdit, IconTrash, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { locationsApi, runsApi } from "../lib/api";
-import { CLASS_DISPLAY_NAMES, COMPETITION_CLASSES, COMPETITION_LEVELS } from "../lib/constants";
+import { CLASS_DISPLAY_NAMES, COMPETITION_CLASSES, COMPETITION_LEVELS, isPremierClass } from "../lib/constants";
 import dayjs from "dayjs";
 
 const PLACEMENT_OPTIONS = [
@@ -131,6 +132,7 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
       level: run.level,
       qualified: run.qualified,
       placement: run.placement || undefined,
+      topTwentyFivePercent: run.topTwentyFivePercent || false,
       location: run.location || "",
       machPoints: run.machPoints || undefined,
       notes: run.notes || "",
@@ -164,6 +166,11 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
       updateData.placement = editForm.values.placement;
     } else {
       updateData.placement = null; // Explicitly set to null to clear the field
+    }
+
+    // Top 25% - only relevant for Premier classes
+    if (editForm.values.class && isPremierClass(editForm.values.class)) {
+      updateData.topTwentyFivePercent = editForm.values.topTwentyFivePercent || false;
     }
     
     if (editForm.values.location && editForm.values.location.trim()) {
@@ -262,15 +269,18 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
               />
             </Stack>
 
-            <Stack gap="xs">
-              <Text fw={500}>Level:</Text>
-              <Select
-                data={COMPETITION_LEVELS.map(l => ({ value: l, label: l }))}
-                value={editForm.values.level}
-                onChange={(value) => editForm.setFieldValue("level", value as CompetitionLevel)}
-                placeholder="Select level"
-              />
-            </Stack>
+            {/* Hide level selector for Premier classes */}
+            {!isPremierClass(editForm.values.class || "") && (
+              <Stack gap="xs">
+                <Text fw={500}>Level:</Text>
+                <Select
+                  data={COMPETITION_LEVELS.map(l => ({ value: l, label: l }))}
+                  value={editForm.values.level}
+                  onChange={(value) => editForm.setFieldValue("level", value as CompetitionLevel)}
+                  placeholder="Select level"
+                />
+              </Stack>
+            )}
 
             <Stack gap="xs">
               <Text fw={500}>Result:</Text>
@@ -281,6 +291,7 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
                 color={editForm.values.qualified ? "green" : "red"}
               />
             </Stack>
+
           </>
         ) : (
           <>
@@ -294,10 +305,13 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
               <Text>{getClassDisplayName(run.class)}</Text>
             </Group>
 
-            <Group justify="space-between">
-              <Text fw={500}>Level:</Text>
-              <Text>{run.level}</Text>
-            </Group>
+            {/* Hide level for Premier classes */}
+            {!isPremierClass(run.class) && (
+              <Group justify="space-between">
+                <Text fw={500}>Level:</Text>
+                <Text>{run.level}</Text>
+              </Group>
+            )}
 
             <Group justify="space-between">
               <Text fw={500}>Result:</Text>
@@ -305,6 +319,16 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
                 {run.qualified ? "Qualified" : "Not Qualified"}
               </Text>
             </Group>
+
+            {/* Top 25% display for Premier runs */}
+            {isPremierClass(run.class) && run.qualified && (
+              <Group justify="space-between">
+                <Text fw={500}>Top 25%:</Text>
+                <Text fw={500} c={run.topTwentyFivePercent ? "green" : "dimmed"}>
+                  {run.topTwentyFivePercent ? "Yes" : "No"}
+                </Text>
+              </Group>
+            )}
           </>
         )}
 
@@ -341,18 +365,7 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
               </SimpleGrid>
             </Stack>
 
-            <Stack gap="xs">
-              <Text fw={500}>Location:</Text>
-              <Autocomplete
-                placeholder="Enter location (optional)"
-                data={locationSuggestions}
-                value={editForm.values.location}
-                onChange={(value) => editForm.setFieldValue("location", value)}
-                error={editForm.errors.location}
-              />
-            </Stack>
-
-            {(editForm.values.level === "Masters" && 
+            {(editForm.values.level === "Masters" &&
               (editForm.values.class === "Standard" || editForm.values.class === "Jumpers")) && (
               <Stack gap="xs">
                 <Text fw={500}>MACH Points:</Text>
@@ -367,6 +380,29 @@ export const RunDetailsModal: React.FC<RunDetailsModalProps> = ({
                 />
               </Stack>
             )}
+
+            {/* Top 25% checkbox in edit mode - only for qualified Premier runs */}
+            {editForm.values.qualified && isPremierClass(editForm.values.class || "") && (
+              <Checkbox
+                label="Placed in top 25% of jump height class"
+                checked={editForm.values.topTwentyFivePercent || false}
+                onChange={(event) =>
+                  editForm.setFieldValue("topTwentyFivePercent", event.currentTarget.checked)
+                }
+                size="md"
+              />
+            )}
+
+            <Stack gap="xs">
+              <Text fw={500}>Location:</Text>
+              <Autocomplete
+                placeholder="Enter location (optional)"
+                data={locationSuggestions}
+                value={editForm.values.location}
+                onChange={(value) => editForm.setFieldValue("location", value)}
+                error={editForm.errors.location}
+              />
+            </Stack>
 
             <Stack gap="xs">
               <Text fw={500}>Notes:</Text>

@@ -12,11 +12,12 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import type { CompetitionLevel, CompetitionClass, Dog, DogProgress } from "@my-agility-qs/shared";
+import type { CompetitionLevel, CompetitionClass, Dog, DogProgress, PremierProgress } from "@my-agility-qs/shared";
 import { IconArrowLeft, IconTarget, IconTrophy } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { dogsApi, progressApi } from "../lib/api";
+import { isPremierClass } from "../lib/constants";
 import { createViewRunsLink } from "../utils/viewRunsLinks";
 
 const LEVEL_ORDER: CompetitionLevel[] = ["Novice", "Open", "Excellent", "Masters"];
@@ -144,6 +145,92 @@ const ClassProgressDisplay: React.FC<{
 };
 
 
+const PremierProgressDisplay: React.FC<{
+  premier: PremierProgress;
+  dogId: string;
+}> = ({ premier, dogId }) => {
+  const [, setLocation] = useLocation();
+  const nextTier = premier.nextTier;
+  const earnedTiers = premier.tiers.filter(t => t.earned);
+
+  const handleClick = () => {
+    const link = createViewRunsLink({
+      dog: dogId,
+      class: premier.class as CompetitionClass,
+      level: "all",
+      from: "title-progress",
+    });
+    setLocation(link);
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: "var(--mantine-color-gray-0)",
+        padding: "12px",
+        borderRadius: "8px",
+        cursor: "pointer",
+        transition: "background-color 0.2s ease",
+      }}
+      onClick={handleClick}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = "var(--mantine-color-gray-1)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = "var(--mantine-color-gray-0)";
+      }}
+    >
+      <Stack gap={6}>
+        <Group justify="space-between" align="center">
+          <Text fw={600} size="md">
+            {premier.class === "Premier Std" ? "Premier Standard" : "Premier Jumpers"}
+          </Text>
+          {earnedTiers.length > 0 && (
+            <Group gap={4}>
+              {earnedTiers.map(t => (
+                <Badge key={t.title} color="violet" variant="filled" size="sm">
+                  {t.title}
+                </Badge>
+              ))}
+            </Group>
+          )}
+        </Group>
+
+        {/* Show progress toward next tier */}
+        {nextTier && (
+          <>
+            <div>
+              <Group justify="space-between" mb={4}>
+                <Text size="sm" fw={500}>
+                  {nextTier.qsProgress}/{nextTier.qsNeeded} Qs for {nextTier.title}
+                </Text>
+              </Group>
+              <Progress
+                value={(nextTier.qsProgress / nextTier.qsNeeded) * 100}
+                size="sm"
+                color={nextTier.qsProgress >= nextTier.qsNeeded ? "green" : "blue"}
+              />
+            </div>
+
+            <div>
+              <Group justify="space-between" mb={4}>
+                <Text size="sm" fw={500}>
+                  {nextTier.top25Progress}/{nextTier.top25Needed} Top 25% Placements
+                </Text>
+              </Group>
+              <Progress
+                value={(nextTier.top25Progress / nextTier.top25Needed) * 100}
+                size="sm"
+                color={nextTier.top25Progress >= nextTier.top25Needed ? "green" : "violet"}
+              />
+            </div>
+          </>
+        )}
+      </Stack>
+    </div>
+  );
+};
+
 const DogProgressCard: React.FC<{
   dog: Dog;
   dogProgress: DogProgress;
@@ -183,25 +270,38 @@ const DogProgressCard: React.FC<{
           )}
         </Group>
 
-        {/* Class Level Progress */}
+        {/* Class Level Progress (non-Premier) */}
         <Grid gutter={8}>
-          {dog.classes.map((dogClass) => {
-            const classProgress = dogProgress.classProgress.find(
-              (cp) => cp.class === dogClass.name
-            );
-            return (
-              <Grid.Col key={dogClass.name} span={{ base: 12, sm: 6 }}>
-                <ClassProgressDisplay
-                  className={dogClass.name}
-                  currentLevel={dogClass.level}
-                  classProgress={classProgress}
-                  dogProgress={dogProgress}
-                  dogId={dog.id}
-                />
-              </Grid.Col>
-            );
-          })}
+          {dog.classes
+            .filter((dogClass) => !isPremierClass(dogClass.name))
+            .map((dogClass) => {
+              const classProgress = dogProgress.classProgress.find(
+                (cp) => cp.class === dogClass.name
+              );
+              return (
+                <Grid.Col key={dogClass.name} span={{ base: 12, sm: 6 }}>
+                  <ClassProgressDisplay
+                    className={dogClass.name}
+                    currentLevel={dogClass.level}
+                    classProgress={classProgress}
+                    dogProgress={dogProgress}
+                    dogId={dog.id}
+                  />
+                </Grid.Col>
+              );
+            })}
         </Grid>
+
+        {/* Premier Title Progress */}
+        {dogProgress.premierProgress && dogProgress.premierProgress.length > 0 && (
+          <Grid gutter={8}>
+            {dogProgress.premierProgress.map((premier) => (
+              <Grid.Col key={premier.class} span={{ base: 12, sm: 6 }}>
+                <PremierProgressDisplay premier={premier} dogId={dog.id} />
+              </Grid.Col>
+            ))}
+          </Grid>
+        )}
 
         {/* MACH Progress - Only for Masters Standard + Jumpers dogs */}
         {isMachEligible && (

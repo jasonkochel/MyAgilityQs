@@ -25,7 +25,7 @@ import { RunDetailsModal } from "../components/RunDetailsModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useURLState } from "../hooks/useURLState";
 import { dogsApi, runsApi } from "../lib/api";
-import { CLASS_DISPLAY_NAMES } from "../lib/constants";
+import { CLASS_DISPLAY_NAMES, isPremierClass } from "../lib/constants";
 
 type SortField = "date" | "dog" | "class" | "level";
 type SortDirection = "asc" | "desc";
@@ -101,7 +101,7 @@ export const ViewRunsPage: React.FC = () => {
             Are you sure you want to permanently delete this run for <strong>{dogName}</strong>?
           </Text>
           <Text size="sm" c="dimmed">
-            {formatDate(run.date)} • {getClassDisplayName(run.class)} • {run.level}
+            {formatDate(run.date)} • {getClassDisplayName(run.class)}{!isPremierClass(run.class) ? ` • ${run.level}` : ""}
           </Text>
           <Text size="sm" c="orange">
             <strong>Warning:</strong> This action cannot be undone.
@@ -539,7 +539,7 @@ export const ViewRunsPage: React.FC = () => {
                         <Text size="sm">{getClassDisplayName(run.class)}</Text>
                       </Table.Td>
                       <Table.Td>
-                        <Text size="sm">{run.level}</Text>
+                        <Text size="sm">{isPremierClass(run.class) ? "—" : run.level}</Text>
                       </Table.Td>
                       {/* Result column - only show if tracking NQ runs */}
                       {!user?.trackQsOnly && (

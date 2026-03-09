@@ -8,6 +8,7 @@ import {
 import {
   CompetitionLevel,
   CreateRunRequest,
+  isPremierClass,
   Run,
   RunsQuery,
   UpdateRunRequest,
@@ -103,7 +104,11 @@ export async function recalculateDogLevels(userId: string, dogId: string): Promi
   const levelResults = computeAllDogLevels(allRuns);
 
   // Update dog's class levels in database based on computed results
+  // Premier classes have no level progression - always preserve existing level
   const updatedClasses = dog.classes.map(dogClass => {
+    if (isPremierClass(dogClass.name)) {
+      return dogClass; // Preserve Premier level as-is
+    }
     const levelResult = levelResults[dogClass.name];
     return {
       ...dogClass,
@@ -149,6 +154,7 @@ export async function createRun(
     level: request.level,
     qualified: request.qualified || false,
     placement: request.placement || null,
+    topTwentyFivePercent: request.topTwentyFivePercent,
     time: request.time,
     machPoints: request.machPoints,
     location: request.location,
@@ -177,7 +183,8 @@ export async function createRun(
   let levelProgression: CreateRunResponse["levelProgression"] = undefined;
 
   // Check for auto-level progression if this was a qualifying run and auto-progression is enabled
-  if (run.qualified && !skipAutoProgression) {
+  // Skip for Premier classes - they have no level progression
+  if (run.qualified && !skipAutoProgression && !isPremierClass(run.class)) {
     try {
       const progressionResult = await checkAndUpdateDogLevel(
         userId,
@@ -457,6 +464,11 @@ export async function updateRun(
       updateExpressions.push("#time = :time");
       expressionAttributeNames["#time"] = "time";
       expressionAttributeValues[":time"] = request.time;
+    }
+
+    if (request.topTwentyFivePercent !== undefined) {
+      updateExpressions.push("topTwentyFivePercent = :topTwentyFivePercent");
+      expressionAttributeValues[":topTwentyFivePercent"] = request.topTwentyFivePercent;
     }
 
     if (request.machPoints !== undefined) {

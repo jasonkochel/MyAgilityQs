@@ -140,21 +140,19 @@ export function calculateMastersTitleProgress(runs: any[], dogClasses: Array<{ n
     run.class === "Jumpers"
   ).length;
 
-  // Define title requirements
+  // Define title requirements (AKC rules)
   const titleRequirements = [
-    { title: "MX", level: "Masters", needed: 10 }, // Base title requires 10 Qs in Masters
+    { title: "MX", level: "Masters", needed: 10 },
     { title: "MXB", level: "Bronze", needed: 25 },
     { title: "MXS", level: "Silver", needed: 50 },
-    { title: "MXG", level: "Gold", needed: 75 },
-    { title: "MXC", level: "Century", needed: 100 }
+    { title: "MXG", level: "Gold", needed: 100 },
   ];
 
   const jumpersRequirements = [
-    { title: "MXJ", level: "Masters", needed: 10 }, // Base title requires 10 Qs in Masters
+    { title: "MXJ", level: "Masters", needed: 10 },
     { title: "MJB", level: "Bronze", needed: 25 },
     { title: "MJS", level: "Silver", needed: 50 },
-    { title: "MJG", level: "Gold", needed: 75 },
-    { title: "MJC", level: "Century", needed: 100 }
+    { title: "MJG", level: "Gold", needed: 100 },
   ];
 
   // Calculate Standard titles
@@ -196,13 +194,12 @@ export function calculateFastTitleProgress(runs: any[], dogClasses: Array<{ name
     run.class === "FAST"
   ).length;
 
-  // Define FAST title requirements
+  // Define FAST title requirements (AKC rules)
   const titleRequirements = [
-    { title: "MXF", level: "Masters", needed: 10 }, // Base title requires 10 Qs in Masters
+    { title: "MXF", level: "Masters", needed: 10 },
     { title: "MFB", level: "Bronze", needed: 25 },
     { title: "MFS", level: "Silver", needed: 50 },
-    { title: "MFG", level: "Gold", needed: 75 },
-    { title: "MFC", level: "Century", needed: 100 }
+    { title: "MFG", level: "Gold", needed: 100 },
   ];
 
   return titleRequirements.map(req => ({
@@ -214,68 +211,68 @@ export function calculateFastTitleProgress(runs: any[], dogClasses: Array<{ name
   }));
 }
 
-/**
- * Calculate title progress for Premier Standard class
- * Includes PAD (base), PADB (Bronze), PADS (Silver), PADG (Gold), PADC (Century)
- * Premier requires 25 Qs for base title, then 25 more for each advanced title
- */
-export function calculatePremierStdTitleProgress(runs: any[], dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>): MastersTitle[] {
-  const premierClass = dogClasses.find(c => c.name === "Premier Std");
-  const premierIsMasters = premierClass?.level === "Masters";
-
-  // Count all qualifying runs (Premier only has Masters level)
-  const premierQs = runs.filter(run =>
-    run.qualified &&
-    run.class === "Premier Std"
-  ).length;
-
-  // Define Premier Standard title requirements
-  const titleRequirements = [
-    { title: "PAD", level: "Premier", needed: 25 }, // Base title requires 25 Qs
-    { title: "PADB", level: "Bronze", needed: 50 },  // Additional 25 Qs
-    { title: "PADS", level: "Silver", needed: 75 },  // Additional 25 Qs
-    { title: "PADG", level: "Gold", needed: 100 },   // Additional 25 Qs
-    { title: "PADC", level: "Century", needed: 125 } // Additional 25 Qs
-  ];
-
-  return titleRequirements.map(req => ({
-    title: req.title,
-    level: req.level,
-    earned: premierIsMasters && premierQs >= req.needed,
-    progress: premierIsMasters ? Math.min(premierQs, req.needed) : 0,
-    needed: req.needed
-  }));
+export interface PremierTitleTier {
+  title: string; // e.g., "PAD", "PADB", "PADS", "PADG", "PADC"
+  level: string; // e.g., "Premier", "Bronze", "Silver", "Gold", "Century"
+  earned: boolean;
+  qsProgress: number; // Qs toward this tier
+  qsNeeded: number; // 25 per tier (cumulative: 25, 50, 75, 100, 125)
+  top25Progress: number; // Top-25% placements toward this tier
+  top25Needed: number; // 5 per tier (cumulative: 5, 10, 15, 20, 25)
 }
 
+export interface PremierProgress {
+  class: "Premier Std" | "Premier JWW";
+  totalQs: number;
+  topTwentyFivePercentQs: number;
+  tiers: PremierTitleTier[];
+  nextTier: PremierTitleTier | null; // Next unearned tier
+}
+
+const PREMIER_STD_TIERS = [
+  { title: "PAD", level: "Premier", qsNeeded: 25, top25Needed: 5 },
+  { title: "PADB", level: "Bronze", qsNeeded: 50, top25Needed: 10 },
+  { title: "PADS", level: "Silver", qsNeeded: 75, top25Needed: 15 },
+  { title: "PADG", level: "Gold", qsNeeded: 100, top25Needed: 20 },
+  { title: "PADC", level: "Century", qsNeeded: 125, top25Needed: 25 },
+];
+
+const PREMIER_JWW_TIERS = [
+  { title: "PJD", level: "Premier", qsNeeded: 25, top25Needed: 5 },
+  { title: "PJDB", level: "Bronze", qsNeeded: 50, top25Needed: 10 },
+  { title: "PJDS", level: "Silver", qsNeeded: 75, top25Needed: 15 },
+  { title: "PJDG", level: "Gold", qsNeeded: 100, top25Needed: 20 },
+  { title: "PJDC", level: "Century", qsNeeded: 125, top25Needed: 25 },
+];
+
 /**
- * Calculate title progress for Premier Jumpers class
- * Includes PJD (base), PJDB (Bronze), PJDS (Silver), PJDG (Gold), PJDC (Century)
- * Premier requires 25 Qs for base title, then 25 more for each advanced title
+ * Calculate Premier title progress for a specific Premier class.
+ * Each tier requires 25 qualifying scores + 5 top-25% placements (cumulative).
  */
-export function calculatePremierJwwTitleProgress(runs: any[], dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>): MastersTitle[] {
-  const premierClass = dogClasses.find(c => c.name === "Premier JWW");
-  const premierIsMasters = premierClass?.level === "Masters";
+export function calculatePremierProgress(runs: any[], premierClass: "Premier Std" | "Premier JWW"): PremierProgress {
+  const classRuns = runs.filter(run => run.class === premierClass && run.qualified);
+  const totalQs = classRuns.length;
+  const topTwentyFivePercentQs = classRuns.filter(run => run.topTwentyFivePercent).length;
 
-  // Count all qualifying runs (Premier only has Masters level)
-  const premierQs = runs.filter(run =>
-    run.qualified &&
-    run.class === "Premier JWW"
-  ).length;
+  const tierDefs = premierClass === "Premier Std" ? PREMIER_STD_TIERS : PREMIER_JWW_TIERS;
 
-  // Define Premier Jumpers title requirements
-  const titleRequirements = [
-    { title: "PJD", level: "Premier", needed: 25 }, // Base title requires 25 Qs
-    { title: "PJDB", level: "Bronze", needed: 50 },  // Additional 25 Qs
-    { title: "PJDS", level: "Silver", needed: 75 },  // Additional 25 Qs
-    { title: "PJDG", level: "Gold", needed: 100 },   // Additional 25 Qs
-    { title: "PJDC", level: "Century", needed: 125 } // Additional 25 Qs
-  ];
-
-  return titleRequirements.map(req => ({
-    title: req.title,
-    level: req.level,
-    earned: premierIsMasters && premierQs >= req.needed,
-    progress: premierIsMasters ? Math.min(premierQs, req.needed) : 0,
-    needed: req.needed
+  const tiers: PremierTitleTier[] = tierDefs.map(def => ({
+    title: def.title,
+    level: def.level,
+    earned: totalQs >= def.qsNeeded && topTwentyFivePercentQs >= def.top25Needed,
+    qsProgress: Math.min(totalQs, def.qsNeeded),
+    qsNeeded: def.qsNeeded,
+    top25Progress: Math.min(topTwentyFivePercentQs, def.top25Needed),
+    top25Needed: def.top25Needed,
   }));
+
+  const nextTier = tiers.find(t => !t.earned) || null;
+
+  return {
+    class: premierClass,
+    totalQs,
+    topTwentyFivePercentQs,
+    tiers,
+    nextTier,
+  };
 }

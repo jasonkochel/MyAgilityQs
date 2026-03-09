@@ -184,21 +184,46 @@ import { Dog, CreateRunRequest, ApiResponse, calculateMachProgress } from '@my-a
 - **Real-time updates**: Progress reflects actual runs data, cache invalidation for seamless UX
 - **Clean UI**: Streamlined display with MACH badges and progress toward next achievement
 
+### Premier Classes
+- **No levels**: Premier Standard and Premier Jumpers have no Novice/Open/Excellent/Masters progression
+- **Uses "Masters" as sentinel value** in the database `level` field (required by `CompetitionLevel` type)
+- **UI hides level**: Level selector hidden on AddDogPage, level subtitle hidden on AddRunPage class buttons, "—" shown in ViewRunsPage level column, level hidden in RunDetailsModal
+- **Title tiers**: PAD/PJD (25 Qs + 5 top-25%), PADB/PJDB Bronze (50 + 10), PADS/PJDS Silver (75 + 15), PADG/PJDG Gold (100 + 20), PADC/PJDC Century (125 + 25) — all cumulative
+- **Top 25% field**: `topTwentyFivePercent` boolean on Run/CreateRunRequest/UpdateRunRequest, stored in DynamoDB
+- **Auto-progression skipped**: `isPremierClass()` check prevents auto-level-progression for Premier runs
+- **Helper function**: `isPremierClass(className)` checks both short form ("Premier Std") and display form ("Premier Standard")
+- **Vite CJS limitation**: `isPremierClass` is duplicated in `client/src/lib/constants.ts` because Vite can't resolve shared package runtime functions through CJS re-exports
+
+**Key Files for Premier**:
+- `shared/src/types.ts` - `isPremierClass()`, `PREMIER_CLASSES`, `PremierProgress` interface, `topTwentyFivePercent` field
+- `client/src/lib/constants.ts` - Client-side `isPremierClass()` (Vite CJS workaround)
+- `client/src/pages/TitleProgressPage.tsx` - `PremierProgressDisplay` component with dual progress bars
+- `server/src/utils/progressCalculations.ts` - `calculatePremierProgress()` function
+- `server/src/database/runs.ts` - Stores `topTwentyFivePercent`, skips auto-progression for Premier
+
+### Masters Title Tiers (AKC Rules)
+- **Standard**: MX (10 Qs), MXB/Bronze (25), MXS/Silver (50), MXG/Gold (100)
+- **Jumpers**: MXJ (10 Qs), MJB/Bronze (25), MJS/Silver (50), MJG/Gold (100)
+- **FAST**: MXF (10 Qs), MFB/Bronze (25), MFS/Silver (50), MFG/Gold (100)
+- Calculated in `server/src/utils/progressCalculations.ts`
+
 ### Progress Calculation Architecture
 
 **Computed vs Stored**: Progress is calculated on-demand from runs data, not stored in database
 - **Benefits**: Always accurate, retroactive for existing data, no sync issues
-- **Shared utilities**: `shared/src/utils/progressCalculations.ts` contains reusable calculation logic
-- **Server**: `server/src/database/progress.ts` computes progress for API responses
-- **Client**: Uses shared utilities for real-time MACH progress display
+- **Server calculations**: `server/src/utils/progressCalculations.ts` contains all calculation logic
+- **Server orchestration**: `server/src/database/progress.ts` computes progress for API responses
+- **Progression rules engine**: `server/src/utils/progressionRules.ts` defines AKC level advancement rules
+- **Client display**: `client/src/pages/TitleProgressPage.tsx` renders all progress UI
 
-**Key Calculation Functions**:
+**Key Calculation Functions** (in `server/src/utils/progressCalculations.ts`):
 ```typescript
-// Shared utilities used by both client and server
-calculateDoubleQs(runs: Run[]): number
-calculateTotalMachPoints(runs: Run[]): number
-calculateMachProgress(runs: Run[]): MachProgress
-isMachEligible(dogClasses): boolean
+calculateDoubleQs(runs): number           // Masters Std + Jumpers same-day Qs
+calculateTotalMachPoints(runs): number     // Sum of machPoints from Masters Std/Jumpers
+calculateMachProgress(runs): MachProgress  // Complete MACH tracking with multiple MACHs
+calculateMastersTitleProgress(runs, dogClasses): MastersTitleProgress  // MX/MXJ through Gold
+calculateFastTitleProgress(runs, dogClasses): MastersTitle[]           // MXF through Gold
+calculatePremierProgress(runs, premierClass): PremierProgress          // PAD/PJD with top 25%
 ```
 
 **MACH Progress Logic**:
