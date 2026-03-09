@@ -11,13 +11,14 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import type { Dog } from "@my-agility-qs/shared";
+import type { Dog, DogProgress } from "@my-agility-qs/shared";
 import { IconArrowLeft, IconDog, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { PhotoUpload } from "../components/PhotoUpload";
-import { dogsApi } from "../lib/api";
-import { CLASS_DISPLAY_NAMES } from "../lib/constants";
+import { dogsApi, progressApi } from "../lib/api";
+import { CLASS_DISPLAY_NAMES, isPremierClass } from "../lib/constants";
 import { calculateEarnedTitles } from "../utils/titleUtils";
 
 export const MyDogsPage: React.FC = () => {
@@ -32,13 +33,53 @@ export const MyDogsPage: React.FC = () => {
     return displayKey || fullName; // Fallback to original if not found
   };
 
+  // Get the highest earned Masters-level title from progress data
+  const getMastersTitlesFromProgress = (dogProgress: DogProgress | undefined): string[] => {
+    if (!dogProgress?.mastersTitles) return [];
+    const titles: string[] = [];
+
+    // Get highest earned Standard Masters title
+    const stdTitles = dogProgress.mastersTitles.standardTitles || [];
+    const highestStd = [...stdTitles].reverse().find(t => t.earned);
+    if (highestStd) titles.push(highestStd.title);
+
+    // Get highest earned Jumpers Masters title
+    const jwwTitles = dogProgress.mastersTitles.jumpersTitles || [];
+    const highestJww = [...jwwTitles].reverse().find(t => t.earned);
+    if (highestJww) titles.push(highestJww.title);
+
+    return titles;
+  };
+
   // Format full registered name with earned titles
-  const getFullNameWithTitles = (dog: Dog): string | null => {
+  const getFullNameWithTitles = (dog: Dog, dogProgress: DogProgress | undefined): string | null => {
     if (!dog.registeredName) return null;
 
-    const earnedTitles = calculateEarnedTitles(dog.classes || []);
-    return earnedTitles.length > 0
-      ? `${dog.registeredName} ${earnedTitles.join(' ')}`
+    // Start with level-based titles (NA, OA, etc. for non-Masters)
+    const levelTitles = calculateEarnedTitles(dog.classes || []);
+
+    // Replace Masters-level titles (AX, AXJ) with progress-based titles if available
+    const mastersTitles = getMastersTitlesFromProgress(dogProgress);
+    const finalTitles = [...levelTitles];
+
+    // If we have a Standard Masters title from progress, replace AX
+    if (mastersTitles.some(t => ["MX", "MXB", "MXS", "MXG"].includes(t))) {
+      const idx = finalTitles.indexOf("AX");
+      if (idx >= 0) finalTitles.splice(idx, 1);
+      const stdTitle = mastersTitles.find(t => ["MX", "MXB", "MXS", "MXG"].includes(t));
+      if (stdTitle) finalTitles.push(stdTitle);
+    }
+
+    // If we have a Jumpers Masters title from progress, replace AXJ
+    if (mastersTitles.some(t => ["MXJ", "MJB", "MJS", "MJG"].includes(t))) {
+      const idx = finalTitles.indexOf("AXJ");
+      if (idx >= 0) finalTitles.splice(idx, 1);
+      const jwwTitle = mastersTitles.find(t => ["MXJ", "MJB", "MJS", "MJG"].includes(t));
+      if (jwwTitle) finalTitles.push(jwwTitle);
+    }
+
+    return finalTitles.length > 0
+      ? `${dog.registeredName} ${finalTitles.join(' ')}`
       : dog.registeredName;
   };
 
@@ -50,6 +91,19 @@ export const MyDogsPage: React.FC = () => {
     queryKey: ["dogs"],
     queryFn: dogsApi.getAllDogs,
   });
+
+  const { data: progressData = [] } = useQuery({
+    queryKey: ["progress"],
+    queryFn: progressApi.getAllProgress,
+  });
+
+  const progressByDogId = useMemo(() => {
+    const map = new Map<string, DogProgress>();
+    for (const dp of progressData) {
+      map.set(dp.dogId, dp);
+    }
+    return map;
+  }, [progressData]);
 
 
   if (isLoading) {
@@ -221,9 +275,9 @@ export const MyDogsPage: React.FC = () => {
                         </Group>
 
                         {/* Registered name with titles */}
-                        {getFullNameWithTitles(dog) && (
+                        {getFullNameWithTitles(dog, progressByDogId.get(dog.id)) && (
                           <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
-                            {getFullNameWithTitles(dog)}
+                            {getFullNameWithTitles(dog, progressByDogId.get(dog.id))}
                           </Text>
                         )}
                       </Stack>
@@ -236,13 +290,15 @@ export const MyDogsPage: React.FC = () => {
                         {dog.classes && dog.classes.length > 0 ? (
                           <Stack gap="sm">
                             {dog.classes.map((dogClass, index) => (
-                              <Group key={index} gap="md" align="flex-start" wrap="wrap" style={{ marginBottom: '4px' }}>
-                                <Text size="sm" fw={500} style={{ minWidth: "70px", lineHeight: 1.3 }}>
+                              <Group key={index} gap="md" align="baseline" wrap="wrap">
+                                <Text size="sm" fw={500} style={{ minWidth: "70px" }}>
                                   {getDisplayName(dogClass.name)}
                                 </Text>
-                                <Text size="sm" c="dimmed" style={{ lineHeight: 1.3, marginTop: '-2px' }}>
-                                  {dogClass.level}
-                                </Text>
+                                {!isPremierClass(dogClass.name) && (
+                                  <Text size="sm" c="dimmed">
+                                    {dogClass.level}
+                                  </Text>
+                                )}
                               </Group>
                             ))}
                           </Stack>
