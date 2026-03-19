@@ -1,7 +1,7 @@
 import React from 'react';
 
 export const DebugPage: React.FC = () => {
-  const [debugInfo, setDebugInfo] = React.useState<any>(null);
+  const [debugInfo, setDebugInfo] = React.useState<Record<string, unknown> | null>(null);
 
   React.useEffect(() => {
     // Collect debug information
@@ -13,7 +13,7 @@ export const DebugPage: React.FC = () => {
       localStorage: Object.keys(localStorage).reduce((acc, key) => {
         try {
           acc[key] = localStorage.getItem(key);
-        } catch (e) {
+        } catch {
           acc[key] = 'Error reading value';
         }
         return acc;
@@ -21,7 +21,7 @@ export const DebugPage: React.FC = () => {
       sessionStorage: Object.keys(sessionStorage).reduce((acc, key) => {
         try {
           acc[key] = sessionStorage.getItem(key);
-        } catch (e) {
+        } catch {
           acc[key] = 'Error reading value';
         }
         return acc;

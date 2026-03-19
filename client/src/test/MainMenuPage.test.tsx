@@ -21,6 +21,15 @@ vi.mock("../contexts/AuthContext", () => ({
   }),
 }));
 
+// Mock PWAContext
+vi.mock("../contexts/PWAContext", () => ({
+  usePWA: () => ({
+    canInstall: false,
+    isInstalled: false,
+    installApp: vi.fn(),
+  }),
+}));
+
 const createTestWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: {

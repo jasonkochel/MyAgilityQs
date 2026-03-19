@@ -40,7 +40,7 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
     // Check if already installed
     const checkIfInstalled = () => {
       const isRunningStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      const isIOSStandalone = (window.navigator as any).standalone === true;
+      const isIOSStandalone = (window.navigator as unknown as { standalone?: boolean }).standalone === true;
       const installed = isRunningStandalone || isIOSStandalone;
       setIsInstalled(installed);
       return installed;
@@ -106,7 +106,7 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
           color: 'yellow',
         });
       }
-    } catch (error) {
+    } catch {
       // Fallback to manual instructions
       notifications.show({
         title: 'Install MyAgilityQs',

@@ -64,11 +64,10 @@ describe("LoginPage", () => {
       </TestWrapper>
     );
 
-    expect(screen.getByText("MyAgilityQs")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "MyAgilityQs" })).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log In" })).toBeInTheDocument();
   });
 
   it("validates password length", async () => {
@@ -83,7 +82,7 @@ describe("LoginPage", () => {
 
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/password/i);
-    const submitButton = screen.getByRole("button", { name: /sign in/i });
+    const submitButton = screen.getByRole("button", { name: "Log In" });
 
     // Enter valid email but short password
     await user.type(emailInput, "test@example.com");

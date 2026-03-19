@@ -11,7 +11,7 @@
     "dev:watch": "echo \"Run 'npm run build:watch' in one terminal and 'npm run dev' in another for best development experience\"",
     "clean": "rimraf dist",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint src",
     "test": "npm run build && npm run type-check && echo \"✅ Server build and type check passed\""
   },
   "dependencies": {
@@ -20,30 +20,26 @@
     "@aws-sdk/client-s3": "^3.837.0",
     "@aws-sdk/lib-dynamodb": "^3.830.0",
     "@aws-sdk/s3-request-presigner": "^3.837.0",
-    "@middy/core": "^6.3.2",
-    "@middy/http-cors": "^6.3.2",
-    "@middy/http-error-handler": "^6.3.2",
-    "@middy/http-json-body-parser": "^6.3.2",
-    "@middy/http-router": "^6.3.2",
+    "@middy/core": "^7.2.1",
+    "@middy/http-cors": "^7.2.1",
+    "@middy/http-error-handler": "^7.2.1",
+    "@middy/http-json-body-parser": "^7.2.1",
+    "@middy/http-router": "^7.2.1",
     "@my-agility-qs/shared": "*",
     "@sentry/serverless": "^7.120.3",
     "@types/http-errors": "^2.0.5",
     "aws-jwt-verify": "^5.1.0",
-    "http-errors": "^2.0.0",
-    "uuid": "^11.1.0"
+    "http-errors": "^2.0.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.140",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.0.3",
-    "@types/uuid": "^10.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.34.1",
-    "@typescript-eslint/parser": "^8.34.1",
+    "@types/node": "^25.5.0",
     "concurrently": "^9.1.2",
-    "esbuild": "^0.25.5",
+    "esbuild": "^0.27.4",
     "eslint": "^9.29.0",
     "rimraf": "^6.0.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.5.2"
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.30.1"
   }
 }

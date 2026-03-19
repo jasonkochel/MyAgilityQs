@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/react";
 
 // Centralized Sentry error reporting utilities
 export interface ErrorContext {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ErrorReportOptions {

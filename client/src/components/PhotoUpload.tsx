@@ -65,7 +65,7 @@ const InteractiveCrop: React.FC<InteractiveCropProps> = ({ previewUrl, cropData,
     const deltaX = currentPos.x - dragStart.x;
     const deltaY = currentPos.y - dragStart.y;
 
-    let newCrop = { ...initialCrop };
+    const newCrop = { ...initialCrop };
 
     switch (isDragging) {
       case 'move':
