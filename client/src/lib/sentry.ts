@@ -33,7 +33,8 @@ export function reportError(
   if (errorMessage.includes('NotAuthorizedException') ||
       errorMessage.includes('UserNotConfirmedException') ||
       errorMessage.includes('Failed to fetch') ||
-      errorMessage.includes('NetworkError')) {
+      errorMessage.includes('NetworkError') ||
+      errorMessage.includes('401')) {
     return;
   }
 

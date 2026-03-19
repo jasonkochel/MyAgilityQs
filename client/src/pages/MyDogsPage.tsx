@@ -19,7 +19,7 @@ import { useLocation } from "wouter";
 import { PhotoUpload } from "../components/PhotoUpload";
 import { dogsApi, progressApi } from "../lib/api";
 import { CLASS_DISPLAY_NAMES, isPremierClass } from "../lib/constants";
-import { calculateEarnedTitles } from "../utils/titleUtils";
+import { getEarnedTitleSuffixes } from "../utils/titleUtils";
 
 export const MyDogsPage: React.FC = () => {
   const [, navigate] = useLocation();
@@ -33,53 +33,12 @@ export const MyDogsPage: React.FC = () => {
     return displayKey || fullName; // Fallback to original if not found
   };
 
-  // Get the highest earned Masters-level title from progress data
-  const getMastersTitlesFromProgress = (dogProgress: DogProgress | undefined): string[] => {
-    if (!dogProgress?.mastersTitles) return [];
-    const titles: string[] = [];
-
-    // Get highest earned Standard Masters title
-    const stdTitles = dogProgress.mastersTitles.standardTitles || [];
-    const highestStd = [...stdTitles].reverse().find(t => t.earned);
-    if (highestStd) titles.push(highestStd.title);
-
-    // Get highest earned Jumpers Masters title
-    const jwwTitles = dogProgress.mastersTitles.jumpersTitles || [];
-    const highestJww = [...jwwTitles].reverse().find(t => t.earned);
-    if (highestJww) titles.push(highestJww.title);
-
-    return titles;
-  };
-
   // Format full registered name with earned titles
   const getFullNameWithTitles = (dog: Dog, dogProgress: DogProgress | undefined): string | null => {
     if (!dog.registeredName) return null;
-
-    // Start with level-based titles (NA, OA, etc. for non-Masters)
-    const levelTitles = calculateEarnedTitles(dog.classes || []);
-
-    // Replace Masters-level titles (AX, AXJ) with progress-based titles if available
-    const mastersTitles = getMastersTitlesFromProgress(dogProgress);
-    const finalTitles = [...levelTitles];
-
-    // If we have a Standard Masters title from progress, replace AX
-    if (mastersTitles.some(t => ["MX", "MXB", "MXS", "MXG"].includes(t))) {
-      const idx = finalTitles.indexOf("AX");
-      if (idx >= 0) finalTitles.splice(idx, 1);
-      const stdTitle = mastersTitles.find(t => ["MX", "MXB", "MXS", "MXG"].includes(t));
-      if (stdTitle) finalTitles.push(stdTitle);
-    }
-
-    // If we have a Jumpers Masters title from progress, replace AXJ
-    if (mastersTitles.some(t => ["MXJ", "MJB", "MJS", "MJG"].includes(t))) {
-      const idx = finalTitles.indexOf("AXJ");
-      if (idx >= 0) finalTitles.splice(idx, 1);
-      const jwwTitle = mastersTitles.find(t => ["MXJ", "MJB", "MJS", "MJG"].includes(t));
-      if (jwwTitle) finalTitles.push(jwwTitle);
-    }
-
-    return finalTitles.length > 0
-      ? `${dog.registeredName} ${finalTitles.join(' ')}`
+    const titles = getEarnedTitleSuffixes(dog, dogProgress);
+    return titles.length > 0
+      ? `${dog.registeredName} ${titles.join(' ')}`
       : dog.registeredName;
   };
 

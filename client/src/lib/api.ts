@@ -108,8 +108,8 @@ export const tokenManager = {
         return true;
       }
       return false;
-    } catch (error) {
-      console.error("Token refresh failed:", error);
+    } catch {
+      // Expected when refresh token is expired/invalid — silently clear and let user re-login
       tokenManager.removeToken();
       return false;
     }

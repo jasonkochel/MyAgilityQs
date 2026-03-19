@@ -1,18 +1,14 @@
 import * as Sentry from "@sentry/react";
 
-// Validate required environment variables
-if (!import.meta.env.VITE_SENTRY_DSN) {
-  throw new Error('VITE_SENTRY_DSN environment variable is required');
-}
-if (!import.meta.env.VITE_ENVIRONMENT) {
-  throw new Error('VITE_ENVIRONMENT environment variable is required');
-}
+const isProduction = import.meta.env.PROD;
 
-// Initialize Sentry
+// Initialize Sentry (production only)
 export const initializeSentry = () => {
+  if (!isProduction) return;
+
   Sentry.init({
     dsn: import.meta.env.VITE_SENTRY_DSN,
-    environment: import.meta.env.VITE_ENVIRONMENT,
+    environment: import.meta.env.VITE_ENVIRONMENT || "production",
     release: `client-${import.meta.env.VITE_BUILD_TIMESTAMP || Date.now()}`,
     integrations: [
       Sentry.browserTracingIntegration({
@@ -24,9 +20,8 @@ export const initializeSentry = () => {
         blockAllMedia: false,
       }),
     ],
-    // Environment-specific sampling rates
-    tracesSampleRate: import.meta.env.VITE_ENVIRONMENT === "production" ? 0.1 : 1.0,
-    replaysSessionSampleRate: import.meta.env.VITE_ENVIRONMENT === "production" ? 0.1 : 1.0,
+    tracesSampleRate: 0.1,
+    replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
     sendDefaultPii: true,
     
@@ -45,15 +40,10 @@ export const initializeSentry = () => {
           return null;
         }
         
-        // React DevTools errors in development
-        if (import.meta.env.VITE_ENVIRONMENT !== "production" && 
-            message.includes('React DevTools')) {
-          return null;
-        }
-        
-        // Cognito expected auth errors
+        // Expected auth errors (expired tokens, refresh failures)
         if (message.includes('NotAuthorizedException') ||
-            message.includes('UserNotConfirmedException')) {
+            message.includes('UserNotConfirmedException') ||
+            message.includes('401')) {
           return null;
         }
       }

@@ -28,6 +28,7 @@ import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { dogsApi, progressApi, runsApi } from "../lib/api";
 import { isPremierClass } from "../lib/constants";
+import { getEarnedTitleSuffixes } from "../utils/titleUtils";
 import { createViewRunsLink } from "../utils/viewRunsLinks";
 
 // Client-side Premier progress calculation (server may not have this yet)
@@ -315,7 +316,13 @@ const DogProgressCard: React.FC<{
     <Paper withBorder p="sm" radius="md">
       <Stack gap="xs">
         <Group justify="space-between" align="center">
-          <Title order={3}>{dog.name}</Title>
+          <Title order={3}>
+            {dog.name}
+            {(() => {
+              const titles = getEarnedTitleSuffixes(dog, dogProgress);
+              return titles.length > 0 ? ` ${titles.join(' ')}` : '';
+            })()}
+          </Title>
           {completeMachs > 0 && (
             <Group gap="xs">
               <IconTrophy size={16} color="var(--mantine-color-green-6)" />
