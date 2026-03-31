@@ -3,7 +3,6 @@ import {
   Button,
   Container,
   Divider,
-  LoadingOverlay,
   Paper,
   PasswordInput,
   Stack,
@@ -13,18 +12,28 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { IconAlertCircle, IconDog } from "@tabler/icons-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { GoogleIcon } from "../components/GoogleIcon";
 import { useAuth } from "../contexts/AuthContext";
 import { authApi } from "../lib/api";
 import type { LoginForm } from "../types";
 
 export const LoginPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleRedirecting, setGoogleRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, setLocation] = useLocation();
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // Redirect when authenticated (after login completes)
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation("/");
+    }
+  }, [isAuthenticated, setLocation]);
 
   const form = useForm<LoginForm>({
     initialValues: {
@@ -37,19 +46,13 @@ export const LoginPage: React.FC = () => {
     },
   });
 
-  // Show loading while checking auth status
-  if (authLoading) {
-    return <LoadingOverlay visible={true} />;
-  }
-
-  // Redirect if already authenticated - this is event-driven logic, not synchronization
-  if (isAuthenticated) {
-    setLocation("/");
-    return null;
+  // Show branded loading while checking auth, after login, or during Google redirect
+  if (authLoading || isAuthenticated || googleRedirecting) {
+    return <AppLoadingScreen />;
   }
 
   const handleSubmit = async (values: LoginForm) => {
-    setLoading(true);
+    setEmailLoading(true);
     setError(null);
     try {
       const authData = await authApi.login(values);
@@ -81,32 +84,31 @@ export const LoginPage: React.FC = () => {
 
       setError(userFriendlyMessage);
     } finally {
-      setLoading(false);
+      setEmailLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
     try {
-      setLoading(true);
-      setError(null);      // Get the Google OAuth URL from our backend
+      setGoogleLoading(true);
+      setError(null);
       const redirectUri = `${window.location.origin}/auth/callback`;
       const { url, redirectUri: serverRedirectUri } = await authApi.getGoogleLoginUrl(redirectUri);
 
-      // Store the redirect URI in sessionStorage for use in the callback
       sessionStorage.setItem('google_oauth_redirect_uri', serverRedirectUri);
 
-      // Redirect to Google OAuth
+      // Show branded loading screen before the browser navigates away
+      setGoogleRedirecting(true);
       window.location.href = url;
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError("Failed to initiate Google sign-in. Please try again.");
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
   return (
     <Container size={420} my={40} style={{ position: "relative" }}>
-      <LoadingOverlay visible={loading} />
       <Stack align="center">
         <IconDog size={48} color="var(--mantine-color-blue-6)" />
         <Title ta="center" c="blue.6">
@@ -146,7 +148,8 @@ export const LoginPage: React.FC = () => {
                 fullWidth
                 size="lg"
                 mt="md"
-                loading={loading}
+                loading={emailLoading}
+                disabled={googleLoading}
                 style={{ height: "48px" }}
               >
                 Log In
@@ -170,10 +173,11 @@ export const LoginPage: React.FC = () => {
             size="lg"
             leftSection={<GoogleIcon size={20} />}
             onClick={handleGoogleSignIn}
-            loading={loading}
+            loading={googleLoading}
+            disabled={emailLoading}
             style={{
-              backgroundColor: "#4285f4",
-              color: "white",
+              backgroundColor: emailLoading ? undefined : "#4285f4",
+              color: emailLoading ? undefined : "white",
               border: "none",
               fontWeight: 500,
               height: "48px",

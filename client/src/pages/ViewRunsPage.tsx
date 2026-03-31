@@ -5,6 +5,7 @@ import {
   Group,
   Loader,
   Paper,
+  SegmentedControl,
   SimpleGrid,
   Stack,
   Switch,
@@ -22,6 +23,7 @@ import dayjs from "dayjs";
 import { useCallback, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { RunDetailsModal } from "../components/RunDetailsModal";
+import { RunsGraphView } from "../components/RunsGraphView";
 import { useAuth } from "../contexts/AuthContext";
 import { useURLState } from "../hooks/useURLState";
 import { dogsApi, runsApi } from "../lib/api";
@@ -47,6 +49,7 @@ export const ViewRunsPage: React.FC = () => {
   const { dog: selectedDogId, class: selectedClass, level: selectedLevel, from } = filters;
 
   // Local state for non-URL state
+  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
   const [showOnlyQs, setShowOnlyQs] = useState(false);
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -182,6 +185,18 @@ export const ViewRunsPage: React.FC = () => {
     },
     [runs]
   );
+
+  // Runs filtered by dog and class only (for graph view)
+  const graphFilteredRuns = useMemo(() => {
+    let filtered = runs;
+    if (selectedDogId) {
+      filtered = filtered.filter((run) => run.dogId === selectedDogId);
+    }
+    if (selectedClass) {
+      filtered = filtered.filter((run) => run.class === selectedClass);
+    }
+    return filtered;
+  }, [runs, selectedDogId, selectedClass]);
 
   // Filter and sort runs
   const filteredAndSortedRuns = useMemo(() => {
@@ -339,128 +354,110 @@ export const ViewRunsPage: React.FC = () => {
             View Runs
           </Title>
           <Text c="dimmed" size="sm">
-            {filteredAndSortedRuns.length} run{filteredAndSortedRuns.length !== 1 ? "s" : ""}
+            {(viewMode === "graph" ? graphFilteredRuns : filteredAndSortedRuns).length} run{(viewMode === "graph" ? graphFilteredRuns : filteredAndSortedRuns).length !== 1 ? "s" : ""}
           </Text>
         </Group>{" "}
         {/* Filters */}
-        <Paper withBorder p="md" radius="md">
-          <Stack gap="md">
-            {/* Filter by Dog - Button Style */}
-            <Stack gap="xs">
-              <Text fw={500} size="sm">
-                Filter by Dog
-              </Text>
-              <SimpleGrid
-                cols={(() => {
-                  const activeDogs = dogs.filter((dog) => dog.active);
-                  // If exactly 2 active dogs, show 3 columns (All + 2 dogs)
-                  // Otherwise show 2 columns and let them wrap
-                  return activeDogs.length === 2 ? 3 : 2;
-                })()}
-                spacing="xs"
+        <Paper withBorder p="sm" radius="md">
+          <Stack gap="sm">
+            {/* Dog filter */}
+            <SimpleGrid
+              cols={(() => {
+                const activeDogs = dogs.filter((dog) => dog.active);
+                return activeDogs.length === 2 ? 3 : 2;
+              })()}
+              spacing="xs"
+            >
+              <Button
+                variant={selectedDogId === null ? "filled" : "outline"}
+                color={selectedDogId === null ? "blue" : "gray"}
+                size="xs"
+                onClick={() => setFilters({ dog: null })}
               >
-                {/* All Dogs button */}
-                <Button
-                  variant={selectedDogId === null ? "filled" : "outline"}
-                  color={selectedDogId === null ? "blue" : "gray"}
-                  size="sm"
-                  onClick={() => setFilters({ dog: null })}
-                >
-                  All Dogs
-                </Button>
-                {/* Active dogs buttons */}
-                {dogs
-                  .filter((dog) => dog.active)
-                  .map((dog) => (
-                    <Button
-                      key={dog.id}
-                      variant={selectedDogId === dog.id ? "filled" : "outline"}
-                      color={selectedDogId === dog.id ? "blue" : "gray"}
-                      size="sm"
-                      onClick={() => setFilters({ dog: dog.id })}
-                    >
-                      {dog.name}
-                    </Button>
-                  ))}
-              </SimpleGrid>
-            </Stack>
-
-            {/* Filter by Class - Button Style */}
-            <Stack gap="xs">
-              <Text fw={500} size="sm">
-                Filter by Class
-              </Text>
-              <SimpleGrid
-                cols={(() => {
-                  // If exactly 2 distinct classes, show 3 columns (All + 2 classes)
-                  // Otherwise show 2 columns and let them wrap
-                  return distinctClasses.length === 2 ? 3 : 2;
-                })()}
-                spacing="xs"
-              >
-                {/* All Classes button */}
-                <Button
-                  variant={selectedClass === null ? "filled" : "outline"}
-                  color={selectedClass === null ? "blue" : "gray"}
-                  size="sm"
-                  onClick={() => setFilters({ class: null })}
-                >
-                  All Classes
-                </Button>
-                {/* Individual class buttons from actual data */}
-                {distinctClasses.map((className) => (
+                All Dogs
+              </Button>
+              {dogs
+                .filter((dog) => dog.active)
+                .map((dog) => (
                   <Button
-                    key={className}
-                    variant={selectedClass === className ? "filled" : "outline"}
-                    color={selectedClass === className ? "blue" : "gray"}
-                    size="sm"
-                    onClick={() => setFilters({ class: className as CompetitionClass })}
+                    key={dog.id}
+                    variant={selectedDogId === dog.id ? "filled" : "outline"}
+                    color={selectedDogId === dog.id ? "blue" : "gray"}
+                    size="xs"
+                    onClick={() => setFilters({ dog: dog.id })}
                   >
-                    {getClassDisplayName(className)}
+                    {dog.name}
                   </Button>
                 ))}
-              </SimpleGrid>
-            </Stack>
+            </SimpleGrid>
 
-            {/* Filter by Level - Button Style */}
-            <Stack gap="xs">
-              <Text fw={500} size="sm">
-                Filter by Level
-              </Text>
-              <SimpleGrid cols={2} spacing="xs">
+            {/* Class filter */}
+            <SimpleGrid
+              cols={(() => {
+                return distinctClasses.length === 2 ? 3 : 2;
+              })()}
+              spacing="xs"
+            >
+              <Button
+                variant={selectedClass === null ? "filled" : "outline"}
+                color={selectedClass === null ? "blue" : "gray"}
+                size="xs"
+                onClick={() => setFilters({ class: null })}
+              >
+                All Classes
+              </Button>
+              {distinctClasses.map((className) => (
                 <Button
-                  variant={selectedLevel === "all" ? "filled" : "outline"}
-                  color={selectedLevel === "all" ? "blue" : "gray"}
-                  size="sm"
-                  onClick={() => setFilters({ level: "all" })}
+                  key={className}
+                  variant={selectedClass === className ? "filled" : "outline"}
+                  color={selectedClass === className ? "blue" : "gray"}
+                  size="xs"
+                  onClick={() => setFilters({ class: className as CompetitionClass })}
                 >
-                  All Levels
+                  {getClassDisplayName(className)}
                 </Button>
-                <Button
-                  variant={selectedLevel === "current" ? "filled" : "outline"}
-                  color={selectedLevel === "current" ? "blue" : "gray"}
-                  size="sm"
-                  onClick={() => setFilters({ level: "current" })}
-                >
-                  Current Level
-                </Button>
-              </SimpleGrid>
-            </Stack>
+              ))}
+            </SimpleGrid>
 
-            {/* Show only Qs toggle */}
-            {!user?.trackQsOnly && (
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <Switch
-                  label="Show only Qs"
-                  checked={showOnlyQs}
-                  onChange={(event) => setShowOnlyQs(event.currentTarget.checked)}
-                  color="green"
-                />
-              </div>
+            {/* View mode + Level filter side by side */}
+            <Group grow gap="xs">
+              <SegmentedControl
+                size="xs"
+                value={viewMode}
+                onChange={(v) => setViewMode(v as "list" | "graph")}
+                data={[
+                  { label: "List", value: "list" },
+                  { label: "Graph", value: "graph" },
+                ]}
+              />
+              <SegmentedControl
+                size="xs"
+                value={selectedLevel ?? "all"}
+                onChange={(v) => setFilters({ level: v as "current" | "all" })}
+                data={[
+                  { label: "All Levels", value: "all" },
+                  { label: "Current Level", value: "current" },
+                ]}
+                disabled={viewMode === "graph"}
+                style={viewMode === "graph" ? { opacity: 0.4 } : undefined}
+              />
+            </Group>
+
+            {/* Show only Qs toggle - only in list mode */}
+            {viewMode === "list" && !user?.trackQsOnly && (
+              <Switch
+                label="Show only Qs"
+                checked={showOnlyQs}
+                onChange={(event) => setShowOnlyQs(event.currentTarget.checked)}
+                color="green"
+                size="sm"
+              />
             )}
           </Stack>
         </Paper>
-        {filteredAndSortedRuns.length === 0 ? (
+        {viewMode === "graph" ? (
+          <RunsGraphView runs={graphFilteredRuns} />
+        ) : filteredAndSortedRuns.length === 0 ? (
           <Paper withBorder p="xl" radius="md">
             <Stack align="center">
               <Text size="lg" c="dimmed">

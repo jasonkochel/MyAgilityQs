@@ -127,13 +127,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
 
-      // Initialize security enhancements
-      tokenManager.clearOnVisibilityChange();
       setIsLoading(false);
     };
 
     initializeAuth();
   }, [queryClient, preloadUserData, setUserWithSentry]);
+
+  // Validate auth when app resumes from background (PWA / long-idle tab)
+  useEffect(() => {
+    const cleanup = tokenManager.onVisibilityResumeValidate(() => {
+      // Session is no longer valid — log out immediately
+      tokenManager.removeToken();
+      queryClient.clear();
+      setUserWithSentry(null);
+    });
+
+    return cleanup;
+  }, [queryClient, setUserWithSentry]);
   const login = async (authData: AuthResponse) => {
     tokenManager.setTokens(authData);
 

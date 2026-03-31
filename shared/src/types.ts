@@ -193,6 +193,8 @@ export interface DogProgress {
   machProgress: number; // Total MACH points (not capped)
   completeMachs?: number; // Number of complete MACHs earned
   mastersTitles?: MastersTitleProgress; // Masters title progression
+  fastTitles?: MastersTitle[]; // FAST Masters title progression (MXF, MFB, MFS, MFG)
+  t2bTitles?: MastersTitle[]; // T2B Masters title progression (MXT)
   premierProgress?: PremierProgress[]; // Premier title progression (PAD/PJD)
 }
 

@@ -211,6 +211,41 @@ export function calculateFastTitleProgress(runs: any[], dogClasses: Array<{ name
   }));
 }
 
+/**
+ * Calculate T2B title progress.
+ * AKC T2B is a cumulative title: every 15 qualifying runs earns a title.
+ * First = T2B, then T2B2, T2B3, etc.
+ */
+export function calculateT2BTitleProgress(runs: any[], dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>): MastersTitle[] {
+  const t2bClass = dogClasses.find(c => c.name === "T2B");
+  if (!t2bClass) return [];
+
+  // Count ALL qualifying T2B runs (across all levels)
+  const totalQs = runs.filter(run =>
+    run.qualified && run.class === "T2B"
+  ).length;
+
+  const qsPerTitle = 15;
+  const completeTitles = Math.floor(totalQs / qsPerTitle);
+  const qsTowardNext = totalQs % qsPerTitle;
+
+  // Build title entries for earned titles + next in progress
+  const titles: MastersTitle[] = [];
+  const maxToShow = Math.max(completeTitles + 1, 1); // earned + next
+  for (let i = 1; i <= maxToShow; i++) {
+    const titleName = i === 1 ? "T2B" : `T2B${i}`;
+    titles.push({
+      title: titleName,
+      level: i === 1 ? "T2B" : `T2B x${i}`,
+      earned: i <= completeTitles,
+      progress: i <= completeTitles ? qsPerTitle : qsTowardNext,
+      needed: qsPerTitle,
+    });
+  }
+
+  return titles;
+}
+
 export interface PremierTitleTier {
   title: string; // e.g., "PAD", "PADB", "PADS", "PADG", "PADC"
   level: string; // e.g., "Premier", "Bronze", "Silver", "Gold", "Century"

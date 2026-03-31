@@ -1,7 +1,7 @@
-import { LoadingOverlay } from "@mantine/core";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "../../contexts/AuthContext";
+import { AppLoadingScreen } from "../AppLoadingScreen";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -18,7 +18,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }, [isAuthenticated, isLoading, setLocation]);
 
   if (isLoading) {
-    return <LoadingOverlay visible={true} />;
+    return <AppLoadingScreen />;
   }
 
   if (!isAuthenticated) {

@@ -115,14 +115,33 @@ export const tokenManager = {
     }
   },
 
-  // Clear sensitive data on page visibility change (user switches tabs/apps)
-  clearOnVisibilityChange: (): void => {
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) {
-        // Optional: Clear access token when tab becomes hidden
-        // sessionStorage.removeItem('accessToken');
+  // Validate auth when app becomes visible again (returning from background/tab switch)
+  // Returns a cleanup function to remove the listener
+  onVisibilityResumeValidate: (onAuthInvalid: () => void): (() => void) => {
+    const handler = async () => {
+      if (document.visibilityState !== "visible") return;
+
+      const token = tokenManager.getToken();
+      const refreshToken = tokenManager.getRefreshToken();
+
+      // No tokens at all — nothing to validate
+      if (!token && !refreshToken) return;
+
+      // Token still valid — nothing to do
+      if (token && !tokenManager.isTokenExpired()) return;
+
+      // Token expired or missing — try refresh
+      if (refreshToken) {
+        const refreshed = await tokenManager.refreshAccessToken();
+        if (refreshed) return; // Refresh succeeded
       }
-    });
+
+      // Refresh failed or no refresh token — session is dead
+      onAuthInvalid();
+    };
+
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
   },
 };
 
