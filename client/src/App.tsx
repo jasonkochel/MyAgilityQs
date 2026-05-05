@@ -6,13 +6,16 @@ import { PWAProvider } from "./contexts/PWAContext";
 import { AddDogPage } from "./pages/AddDogPage";
 import { AddRunPage } from "./pages/AddRunPage";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
+import { ConfirmSignupPage } from "./pages/ConfirmSignupPage";
 import { DebugPage } from "./pages/DebugPage";
 import { EditDogPage } from "./pages/EditDogPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ImportPage } from "./pages/ImportPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MainMenuPage } from "./pages/MainMenuPage";
 import { MyDogsPage } from "./pages/MyDogsPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SignupPage } from "./pages/SignupPage";
 import { TitleProgressPage } from "./pages/TitleProgressPage";
 import { ViewRunsPage } from "./pages/ViewRunsPage";
@@ -25,6 +28,9 @@ function App() {
         <Switch>
           <Route path="/login" component={LoginPage} />
           <Route path="/signup" component={SignupPage} />
+          <Route path="/confirm-signup" component={ConfirmSignupPage} />
+          <Route path="/forgot-password" component={ForgotPasswordPage} />
+          <Route path="/reset-password" component={ResetPasswordPage} />
           <Route path="/auth/callback" component={AuthCallbackPage} />
           <Route path="/debug" component={DebugPage} />
           <ProtectedRoute>

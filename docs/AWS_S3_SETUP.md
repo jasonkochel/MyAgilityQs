@@ -1,18 +1,24 @@
 # AWS S3 Setup for Photo Upload Feature
 
+> **Note:** S3 CORS configuration and Lambda IAM permissions are now applied
+> automatically by `template.yaml` (`FrontendBucket.CorsConfiguration` and
+> `ApiFunction.Policies`). This document is kept as a reference for what those
+> resources do and how to debug CORS issues — you should not need to apply
+> any of this manually.
+
 ## Overview
-The photo upload feature uses AWS S3 with presigned URLs for direct client-to-S3 uploads. This requires proper S3 bucket configuration including CORS settings.
+The photo upload feature uses AWS S3 with presigned URLs for direct client-to-S3 uploads. The Lambda generates a short-lived presigned URL, the client PUTs the file directly to S3, then updates the dog record with the resulting URL.
 
-## Required AWS Configuration
+## What `template.yaml` Configures
 
-### 1. S3 Bucket Setup
-- **Bucket Name**: `myagilityqs-frontend`
-- **Region**: `us-east-1` (or set `AWS_REGION` environment variable)
-- **Public Access**: Configured for web hosting (existing)
+### 1. S3 Bucket
+- **Bucket Name**: `myagilityqs-frontend` (prod) / `myagilityqs-frontend-dev` (non-prod)
+- **Region**: `us-east-1`
+- **Public Access**: Blocked at the bucket level; CloudFront serves files via Origin Access Control.
 
 ### 2. S3 CORS Configuration
 
-The bucket must have the following CORS configuration to allow uploads from your client application:
+Applied automatically by the template:
 
 ```json
 [
@@ -38,18 +44,14 @@ The bucket must have the following CORS configuration to allow uploads from your
 ]
 ```
 
-**To apply this configuration:**
-1. Go to AWS S3 Console
-2. Select the `myagilityqs-frontend` bucket
-3. Go to the "Permissions" tab
-4. Scroll down to "Cross-origin resource sharing (CORS)"
-5. Click "Edit"
-6. Paste the JSON configuration above
-7. Click "Save changes"
+**Manual application is not needed** — the template applies this on every
+`sam deploy`. If you've manually edited the bucket's CORS in the console
+and need to revert: re-deploy via SAM and CloudFormation will reapply the
+template's config (overwrites manual changes).
 
 ### 3. IAM Role Permissions
 
-The Lambda execution role needs the following S3 permissions:
+Applied automatically by the template via `ApiFunction.Policies`:
 
 ```json
 {

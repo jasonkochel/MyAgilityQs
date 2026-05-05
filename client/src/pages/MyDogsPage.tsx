@@ -18,7 +18,7 @@ import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { PhotoUpload } from "../components/PhotoUpload";
 import { dogsApi, progressApi } from "../lib/api";
-import { CLASS_DISPLAY_NAMES, isPremierClass } from "../lib/constants";
+import { CLASS_DISPLAY_NAMES, isPremierClass, sortDogClasses } from "../lib/constants";
 import { getEarnedTitleSuffixes } from "../utils/titleUtils";
 
 export const MyDogsPage: React.FC = () => {
@@ -248,12 +248,12 @@ export const MyDogsPage: React.FC = () => {
                         </Text>
                         {dog.classes && dog.classes.length > 0 ? (
                           <Stack gap="sm">
-                            {dog.classes.map((dogClass, index) => (
+                            {sortDogClasses(dog.classes).map((dogClass, index) => (
                               <Group key={index} gap="md" align="baseline" wrap="wrap">
                                 <Text size="sm" fw={500} style={{ minWidth: "70px" }}>
                                   {getDisplayName(dogClass.name)}
                                 </Text>
-                                {!isPremierClass(dogClass.name) && (
+                                {!isPremierClass(dogClass.name) && dogClass.name !== "T2B" && (
                                   <Text size="sm" c="dimmed">
                                     {dogClass.level}
                                   </Text>

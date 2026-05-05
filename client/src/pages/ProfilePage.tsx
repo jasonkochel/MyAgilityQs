@@ -1,4 +1,5 @@
 import {
+  Alert,
   Badge,
   Button,
   Code,
@@ -6,26 +7,77 @@ import {
   Container,
   Divider,
   Group,
+  PasswordInput,
   Paper,
   Stack,
   Switch,
   Text,
   Title,
 } from "@mantine/core";
+import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import type { Run, ProgressionDiagnostics, DogDiagnostic, ClassDiagnosticDetail, RuleEvaluation } from "@my-agility-qs/shared";
-import { IconArrowLeft, IconBug, IconFileImport, IconLogout } from "@tabler/icons-react";
+import { IconArrowLeft, IconBug, IconCheck, IconFileImport, IconKey, IconLogout } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import PWAInstallButton from "../components/PWAInstallButton";
 import { useAuth } from "../contexts/AuthContext";
-import { progressApi, dogsApi, runsApi } from "../lib/api";
+import { usePWA } from "../contexts/PWAContext";
+import { authApi, progressApi, dogsApi, runsApi } from "../lib/api";
 
 export const ProfilePage: React.FC = () => {
   const [, navigate] = useLocation();
   const { user, logout, updateUserPreferences } = useAuth();
+  const { isInstallable, isInstalled } = usePWA();
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+
+  const passwordForm = useForm({
+    initialValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+    validate: {
+      currentPassword: (v) => (v ? null : "Current password is required"),
+      newPassword: (v) => {
+        if (!v) return "New password is required";
+        if (v.length < 8) return "Password must be at least 8 characters";
+        if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(v)) {
+          return "Password must contain uppercase, lowercase, and a number";
+        }
+        return null;
+      },
+      confirmPassword: (v, values) =>
+        v === values.newPassword ? null : "Passwords do not match",
+    },
+  });
+
+  const handlePasswordSubmit = async (values: typeof passwordForm.values) => {
+    setPasswordSubmitting(true);
+    setPasswordError(null);
+    try {
+      await authApi.changePassword({
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      });
+      notifications.show({
+        title: "Password changed",
+        message: "Your password has been updated.",
+        color: "green",
+        icon: <IconCheck size="1rem" />,
+      });
+      passwordForm.reset();
+      setShowPasswordForm(false);
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : "Failed to change password");
+    } finally {
+      setPasswordSubmitting(false);
+    }
+  };
 
   // Fetch diagnostics via API instead of importing shared functions directly
   const { data: diagnostics, error: diagnosticsError, isLoading: diagnosticsLoading } = useQuery<ProgressionDiagnostics>({
@@ -83,12 +135,15 @@ export const ProfilePage: React.FC = () => {
               Preferences
             </Text>
             <Switch
-              label="Track Qs Only"
-              description="When enabled, only qualifying runs will be tracked. Q/NQ options will be hidden."
-              checked={user?.trackQsOnly ?? false}
+              label="Track NQs"
+              description="By default, only qualifying runs are tracked. Turn this on to also log non-qualifying runs."
+              checked={!(user?.trackQsOnly ?? true)}
               onChange={async (event) => {
                 try {
-                  await updateUserPreferences({ trackQsOnly: event.currentTarget.checked });
+                  // Toggle reads "Track NQs" — inverted from the underlying
+                  // `trackQsOnly` field. Checked means we're tracking NQs,
+                  // i.e. trackQsOnly is false.
+                  await updateUserPreferences({ trackQsOnly: !event.currentTarget.checked });
                   notifications.show({
                     title: "Success",
                     message: "Preference updated successfully",
@@ -108,6 +163,59 @@ export const ProfilePage: React.FC = () => {
 
           <div>
             <Text fw={500} mb="xs">
+              Change Password
+            </Text>
+            <Button
+              variant="light"
+              color="blue"
+              leftSection={<IconKey size={16} />}
+              onClick={() => {
+                setShowPasswordForm((v) => !v);
+                setPasswordError(null);
+                passwordForm.reset();
+              }}
+              fullWidth
+            >
+              {showPasswordForm ? "Cancel" : "Change Password"}
+            </Button>
+            <Collapse in={showPasswordForm} mt="md">
+              <Paper withBorder p="md">
+                <form onSubmit={passwordForm.onSubmit(handlePasswordSubmit)}>
+                  <Stack gap="md">
+                    {passwordError && (
+                      <Alert color="red" variant="light">
+                        {passwordError}
+                      </Alert>
+                    )}
+                    <PasswordInput
+                      label="Current password"
+                      required
+                      autoComplete="current-password"
+                      {...passwordForm.getInputProps("currentPassword")}
+                    />
+                    <PasswordInput
+                      label="New password"
+                      required
+                      autoComplete="new-password"
+                      {...passwordForm.getInputProps("newPassword")}
+                    />
+                    <PasswordInput
+                      label="Confirm new password"
+                      required
+                      autoComplete="new-password"
+                      {...passwordForm.getInputProps("confirmPassword")}
+                    />
+                    <Button type="submit" loading={passwordSubmitting} leftSection={<IconCheck size={16} />}>
+                      Update password
+                    </Button>
+                  </Stack>
+                </form>
+              </Paper>
+            </Collapse>
+          </div>
+
+          <div>
+            <Text fw={500} mb="xs">
               Import Data
             </Text>
             <Button
@@ -123,16 +231,20 @@ export const ProfilePage: React.FC = () => {
             </Text>
           </div>
 
-          {/* PWA Installation */}
-          <div>
-            <Text fw={500} mb="xs">
-              Install App
-            </Text>
-            <PWAInstallButton compact />
-            <Text size="xs" c="dimmed" mt="xs">
-              Install MyAgilityQs on your device for quick access and offline use
-            </Text>
-          </div>
+          {/* PWA Installation — only render section when actually installable
+              (mobile, browser-prompted, not already installed). On desktop the
+              entire section is hidden, not just the button. */}
+          {isInstallable && !isInstalled && (
+            <div>
+              <Text fw={500} mb="xs">
+                Install App
+              </Text>
+              <PWAInstallButton compact />
+              <Text size="xs" c="dimmed" mt="xs">
+                Install MyAgilityQs on your device for quick access and offline use
+              </Text>
+            </div>
+          )}
 
           {/* Level Progression Diagnostics */}
           <div>
@@ -176,6 +288,35 @@ export const ProfilePage: React.FC = () => {
                         {dogDiag.classDetails.length}
                       </Text>
 
+                      {/* Baseline summary — shows where the seeded counts come from */}
+                      {dogDiag.dog.baseline && (
+                        <Paper p="xs" withBorder mb="md" bg="blue.0">
+                          <Text fw={500} size="sm" mb={4}>
+                            Baseline (seeded counts)
+                          </Text>
+                          {dogDiag.dog.baseline.perClass &&
+                            Object.entries(dogDiag.dog.baseline.perClass).map(
+                              ([cls, b]) =>
+                                b && (
+                                  <Text key={cls} size="xs">
+                                    {cls}:
+                                    {b.level && ` level=${b.level}`}
+                                    {b.qs !== undefined && ` qs=${b.qs}`}
+                                    {b.top25 !== undefined && ` top25=${b.top25}`}
+                                  </Text>
+                                ),
+                            )}
+                          {(dogDiag.dog.baseline.machPoints ?? 0) > 0 && (
+                            <Text size="xs">
+                              MACH points: {dogDiag.dog.baseline.machPoints}
+                            </Text>
+                          )}
+                          {(dogDiag.dog.baseline.doubleQs ?? 0) > 0 && (
+                            <Text size="xs">Double Qs: {dogDiag.dog.baseline.doubleQs}</Text>
+                          )}
+                        </Paper>
+                      )}
+
                       {dogDiag.classDetails.map((classDetail: ClassDiagnosticDetail) => (
                         <div key={classDetail.className} style={{ marginBottom: "24px" }}>
                           <Group mb="sm">
@@ -201,37 +342,47 @@ export const ProfilePage: React.FC = () => {
                             Rule Evaluations:
                           </Text>
                           <Stack gap="xs" ml="md">
-                            {classDetail.ruleEvaluations.map((evaluation: RuleEvaluation, idx: number) => (
-                              <Paper
-                                key={idx}
-                                p="xs"
-                                bg={evaluation.satisfied ? "green.0" : "gray.0"}
-                              >
-                                <Group>
-                                  <Badge size="xs" color={evaluation.satisfied ? "green" : "gray"}>
-                                    {evaluation.satisfied ? "✓" : "✗"}
-                                  </Badge>
-                                  <Text size="xs">
-                                    <strong>{evaluation.rule.fromLevel}:</strong>{" "}
-                                    {evaluation.qsAtLevel}/{evaluation.rule.qualifyingRunsRequired}{" "}
-                                    Qs
-                                    {evaluation.rule.toLevel
-                                      ? ` → ${evaluation.rule.toLevel}`
-                                      : " (stay)"}
-                                    {evaluation.rule.titleEarned &&
-                                      ` (${evaluation.rule.titleEarned})`}
-                                  </Text>
-                                </Group>
-                                {evaluation.qualifyingRuns.length > 0 && (
-                                  <Text size="xs" c="dimmed" mt="xs">
-                                    Q dates:{" "}
-                                    {evaluation.qualifyingRuns
-                                      .map((run: Run) => run.date)
-                                      .join(", ")}
-                                  </Text>
-                                )}
-                              </Paper>
-                            ))}
+                            {classDetail.ruleEvaluations.map((evaluation: RuleEvaluation, idx: number) => {
+                              const loggedQs = evaluation.qualifyingRuns.length;
+                              const baselineQs = evaluation.qsAtLevel - loggedQs;
+                              return (
+                                <Paper
+                                  key={idx}
+                                  p="xs"
+                                  bg={evaluation.satisfied ? "green.0" : "gray.0"}
+                                >
+                                  <Group>
+                                    <Badge size="xs" color={evaluation.satisfied ? "green" : "gray"}>
+                                      {evaluation.satisfied ? "✓" : "✗"}
+                                    </Badge>
+                                    <Text size="xs">
+                                      <strong>{evaluation.rule.fromLevel}:</strong>{" "}
+                                      {evaluation.qsAtLevel}/{evaluation.rule.qualifyingRunsRequired}{" "}
+                                      Qs
+                                      {baselineQs > 0 && (
+                                        <Text span size="xs" c="dimmed">
+                                          {" "}
+                                          ({loggedQs} logged + {baselineQs} baseline)
+                                        </Text>
+                                      )}
+                                      {evaluation.rule.toLevel
+                                        ? ` → ${evaluation.rule.toLevel}`
+                                        : " (stay)"}
+                                      {evaluation.rule.titleEarned &&
+                                        ` (${evaluation.rule.titleEarned})`}
+                                    </Text>
+                                  </Group>
+                                  {evaluation.qualifyingRuns.length > 0 && (
+                                    <Text size="xs" c="dimmed" mt="xs">
+                                      Q dates:{" "}
+                                      {evaluation.qualifyingRuns
+                                        .map((run: Run) => run.date)
+                                        .join(", ")}
+                                    </Text>
+                                  )}
+                                </Paper>
+                              );
+                            })}
                           </Stack>
 
                           <Divider my="sm" />

@@ -3,7 +3,7 @@ import { APIGatewayProxyResultV2 } from "aws-lambda";
 import { AuthenticatedEvent } from "../middleware/jwtAuth";
 
 export const healthHandler = async (
-  event: AuthenticatedEvent
+  _event: AuthenticatedEvent
 ): Promise<APIGatewayProxyResultV2> => {
   const response: ApiResponse = {
     success: true,

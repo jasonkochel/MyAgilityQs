@@ -1,6 +1,7 @@
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import { APIGatewayProxyEventV2 } from "aws-lambda";
 import createError from "http-errors";
+import { asCaught } from "../utils/errors.js";
 import { anonymousRoutes } from "../router";
 
 // Create verifiers outside the handler to reuse them
@@ -48,38 +49,24 @@ export const conditionalJwtAuth = () => {
       const token = authHeader?.replace(/^Bearer\s+/i, "");
 
       if (!token) {
-        console.error("[JWT ERROR] Protected route accessed without token:", routeKey);
         throw createError(401, "Authorization header missing");
       }
       try {
-        let payload;
-
-        try {
-          // Verify the ID token (contains user profile information like email)
-          payload = await idTokenVerifier.verify(token);
-        } catch (idError) {
-          console.error("[JWT ERROR] ID token verification failed:", idError);
-          throw idError;
-        }
-
-        // Extract email from ID token
+        const payload = await idTokenVerifier.verify(token);
         const email = String(payload.email || "");
 
-        // Validate email exists and is not empty
         if (!email || email.trim() === "") {
-          console.error("JWT token missing email field:", { payload });
           throw createError(401, "Token missing required email field");
         }
 
         event.user = {
-          userId: email, // Use email as userId for consistent database operations
+          userId: email,
           email: email,
           username: String(payload["cognito:username"] || payload.username || ""),
-          cognitoSub: payload.sub, // Keep original Cognito user ID for reference
+          cognitoSub: payload.sub,
         };
-      } catch (error: any) {
-        console.error("[JWT ERROR] Authentication failed for protected route:", routeKey);
-        console.error("[JWT ERROR] Error:", error.message);
+      } catch (error: unknown) {
+        if (asCaught(error).statusCode === 401) throw error;
         throw createError(401, "Invalid or expired token");
       }
     },

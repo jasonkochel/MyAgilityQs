@@ -1,4 +1,8 @@
-import { CompetitionClass, CompetitionLevel, Run, ProgressionRule, ClassProgressionRules, LevelComputationResult } from "@my-agility-qs/shared";
+import { BaselineClassCounts, CompetitionClass, CompetitionLevel, Run, ClassProgressionRules, LevelComputationResult } from "@my-agility-qs/shared";
+
+const LEVEL_ORDER: CompetitionLevel[] = ["Novice", "Open", "Excellent", "Masters"];
+
+const levelIndex = (level: CompetitionLevel): number => LEVEL_ORDER.indexOf(level);
 
 /**
  * AKC Agility Progression Rules
@@ -168,11 +172,24 @@ export function getStartingLevel(competitionClass: CompetitionClass): Competitio
 
 /**
  * Compute a dog's current level and progress in a specific competition class
- * based on their complete run history
+ * based on their run history and an optional baseline.
+ *
+ * Rules walk: iterates every progression rule from the class's starting level,
+ * counting qualifying Qs at each `fromLevel` (logged runs + baseline qs at that
+ * level), advancing currentLevel and recording titles when thresholds are met.
+ *
+ * Floor clamp: after the walk, currentLevel is clamped to be at least the
+ * highest level we have evidence the dog has competed at — the max of the
+ * class's starting level, baseline.level, and the highest level appearing in
+ * any logged run for this class. A logged Q at Excellent is proof the dog
+ * entered Excellent class, so the engine never demotes them below it even if
+ * the qualifying count alone wouldn't justify the advancement (e.g. after a
+ * baseline that pushed them past a threshold is later removed).
  */
 export function computeDogLevel(
-  runs: Run[], 
-  competitionClass: CompetitionClass
+  runs: Run[],
+  competitionClass: CompetitionClass,
+  baseline?: BaselineClassCounts
 ): LevelComputationResult {
   const rules = getProgressionRules(competitionClass);
   if (!rules) {
@@ -184,20 +201,23 @@ export function computeDogLevel(
     .filter(run => run.class === competitionClass)
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  let currentLevel = rules.startingLevel;
+  // Walk all rules from the starting level so we record titles earned by
+  // organic progression (e.g. OA from 3 Open Qs) regardless of whether the
+  // dog later jumped further via baseline or back-entered higher-level runs.
+  let walkedLevel: CompetitionLevel = rules.startingLevel;
   const titlesEarned: string[] = [];
-  
-  // Process each rule in order to find the highest level achieved
+
   for (const rule of rules.rules) {
-    // Count qualifying runs at the rule's fromLevel
-    const qsAtLevel = classRuns.filter(run => 
+    const qsFromRuns = classRuns.filter(run =>
       run.level === rule.fromLevel && run.qualified
     ).length;
-    
-    // If this rule is satisfied, advance level and record title
+    const qsFromBaseline =
+      baseline?.level === rule.fromLevel ? (baseline.qs ?? 0) : 0;
+    const qsAtLevel = qsFromRuns + qsFromBaseline;
+
     if (qsAtLevel >= rule.qualifyingRunsRequired) {
       if (rule.toLevel) {
-        currentLevel = rule.toLevel;
+        walkedLevel = rule.toLevel;
       }
       if (rule.titleEarned) {
         titlesEarned.push(rule.titleEarned);
@@ -205,14 +225,31 @@ export function computeDogLevel(
     }
   }
 
-  // Count current qualifying runs at the computed level
-  const qualifyingRunsAtCurrentLevel = classRuns.filter(run =>
-    run.level === currentLevel && run.qualified
-  ).length;
+  // Floor: the dog's level can't be lower than the highest level we've seen
+  // them compete at — either via baseline or a logged run.
+  const highestRunLevel = classRuns.reduce<CompetitionLevel | null>((max, run) => {
+    if (max === null) return run.level;
+    return levelIndex(run.level) > levelIndex(max) ? run.level : max;
+  }, null);
+
+  const candidates: CompetitionLevel[] = [rules.startingLevel];
+  if (baseline?.level) candidates.push(baseline.level);
+  if (highestRunLevel) candidates.push(highestRunLevel);
+  const floorLevel = candidates.reduce((max, lvl) =>
+    levelIndex(lvl) > levelIndex(max) ? lvl : max
+  );
+
+  const currentLevel: CompetitionLevel =
+    levelIndex(walkedLevel) >= levelIndex(floorLevel) ? walkedLevel : floorLevel;
+
+  // Count current qualifying runs at the computed level (including baseline at this level)
+  const qualifyingRunsAtCurrentLevel =
+    classRuns.filter(run => run.level === currentLevel && run.qualified).length +
+    (baseline?.level === currentLevel ? (baseline.qs ?? 0) : 0);
 
   // Find the next applicable rule
-  const nextRule = rules.rules.find(rule => 
-    rule.fromLevel === currentLevel && 
+  const nextRule = rules.rules.find(rule =>
+    rule.fromLevel === currentLevel &&
     qualifyingRunsAtCurrentLevel < rule.qualifyingRunsRequired
   ) || null;
 
@@ -226,17 +263,23 @@ export function computeDogLevel(
 }
 
 /**
- * Compute levels for all classes a dog competes in
+ * Compute levels for all classes a dog competes in, given the dog's runs
+ * and optional per-class baselines.
  */
-export function computeAllDogLevels(runs: Run[]): Record<CompetitionClass, LevelComputationResult> {
+export function computeAllDogLevels(
+  runs: Run[],
+  baselines?: Partial<Record<CompetitionClass, BaselineClassCounts>>
+): Record<CompetitionClass, LevelComputationResult> {
   const result: Record<string, LevelComputationResult> = {};
-  
-  // Get unique classes from runs
-  const classesInRuns = [...new Set(runs.map(run => run.class))];
-  
-  for (const competitionClass of classesInRuns) {
-    result[competitionClass] = computeDogLevel(runs, competitionClass);
+
+  // Include both classes seen in runs and classes that have baseline entries.
+  const classesFromRuns = [...new Set(runs.map(run => run.class))];
+  const classesFromBaseline = baselines ? (Object.keys(baselines) as CompetitionClass[]) : [];
+  const allClasses = [...new Set([...classesFromRuns, ...classesFromBaseline])];
+
+  for (const competitionClass of allClasses) {
+    result[competitionClass] = computeDogLevel(runs, competitionClass, baselines?.[competitionClass]);
   }
-  
+
   return result as Record<CompetitionClass, LevelComputationResult>;
 }

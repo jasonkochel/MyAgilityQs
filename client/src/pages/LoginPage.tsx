@@ -11,7 +11,7 @@ import {
   Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
-import { IconAlertCircle, IconDog } from "@tabler/icons-react";
+import { IconAlertCircle, IconDog, IconUserPlus } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
@@ -60,15 +60,20 @@ export const LoginPage: React.FC = () => {
 
       // Success - redirect will be handled by useEffect
     } catch (err) {
-      // Convert raw error to user-friendly message
       let userFriendlyMessage = "Login failed. Please try again.";
 
       if (err instanceof Error) {
         const errorMessage = err.message.toLowerCase();
+        // Server returns this exact phrase for UserNotConfirmedException
+        if (errorMessage.includes("verify your email")) {
+          setLocation(`/confirm-signup?email=${encodeURIComponent(values.email)}`);
+          return;
+        }
         if (
           errorMessage.includes("401") ||
           errorMessage.includes("unauthorized") ||
-          errorMessage.includes("incorrect")
+          errorMessage.includes("incorrect") ||
+          errorMessage.includes("invalid email or password")
         ) {
           userFriendlyMessage =
             "Invalid email or password. Please check your credentials and try again.";
@@ -143,6 +148,11 @@ export const LoginPage: React.FC = () => {
                 autoComplete="current-password"
                 {...form.getInputProps("password")}
               />
+              <Text ta="right" size="sm" mt={-8}>
+                <Text component={Link} href="/forgot-password" c="blue" style={{ textDecoration: "none" }}>
+                  Forgot password?
+                </Text>
+              </Text>
               <Button
                 type="submit"
                 fullWidth
@@ -185,14 +195,24 @@ export const LoginPage: React.FC = () => {
           >
             Log In with Google
           </Button>
+
+          <Divider label="New to MyAgilityQs?" labelPosition="center" mt="xs" />
+
+          <Button
+            component={Link}
+            href="/signup"
+            fullWidth
+            size="lg"
+            variant="light"
+            color="blue"
+            leftSection={<IconUserPlus size={20} />}
+            disabled={emailLoading || googleLoading}
+            style={{ height: "48px", fontWeight: 500 }}
+          >
+            Create an Account
+          </Button>
         </Stack>
       </Paper>
-      <Text c="dimmed" size="sm" ta="center" mt="md" fw={500}>
-        Don't have an account?{" "}
-        <Text component={Link} href="/signup" c="blue" fw={500} style={{ textDecoration: "none" }}>
-          Create one here
-        </Text>
-      </Text>
     </Container>
   );
 };

@@ -47,6 +47,12 @@ coverage/
 temp/
 gcm.deb
 
+# Progression test CLI state
+.progtest-state.json
+
+# SAM local
+client/.env.local
+
 # Claude Code
 .claude/
 screenshots/AddRun.jpg

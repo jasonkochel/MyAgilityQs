@@ -384,7 +384,8 @@ export const AddRunPage: React.FC = () => {
                                 <Text fw={600} size="md">
                                   {classInfo.displayName}
                                 </Text>
-                                {!isPremierClass(classInfo.actualName) && (
+                                {!isPremierClass(classInfo.actualName) &&
+                                  classInfo.actualName !== "T2B" && (
                                   <Text
                                     size="xs"
                                     fw={500}
@@ -411,7 +412,7 @@ export const AddRunPage: React.FC = () => {
                   </Stack>
 
                   {/* Qualified/Not Qualified Toggle - Only show if user is not tracking Qs only */}
-                  {!user?.trackQsOnly && (
+                  {!(user?.trackQsOnly ?? true) && (
                     <Stack gap="xs">
                       <Text fw={500}>Result</Text>
                       <Group>
@@ -442,7 +443,7 @@ export const AddRunPage: React.FC = () => {
                   )}
 
                   {/* Placement Selection - Show when qualified OR when tracking Qs only */}
-                  {(form.values.qualified || user?.trackQsOnly) && (
+                  {(form.values.qualified || (user?.trackQsOnly ?? true)) && (
                     <Stack gap="xs">
                       <Text fw={500}>Placement</Text>
                       <SimpleGrid cols={5} spacing="xs">
@@ -481,7 +482,7 @@ export const AddRunPage: React.FC = () => {
                     )}
 
                   {/* MACH Points - Only show for qualified Masters Standard/Jumpers */}
-                  {(form.values.qualified || user?.trackQsOnly) &&
+                  {(form.values.qualified || (user?.trackQsOnly ?? true)) &&
                     form.values.level === "Masters" &&
                     (form.values.className === "Standard" ||
                       form.values.className === "Jumpers") && (

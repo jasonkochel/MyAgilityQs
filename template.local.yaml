@@ -1,0 +1,53 @@
+# MyAgilityQs SAM template for LOCAL DEVELOPMENT only.
+#
+# Production uses Lambda Function URLs (see template.yaml), which `sam local
+# start-api` does not support — it requires API Gateway events. This minimal
+# template wraps the same handler in an API Gateway with a catch-all proxy so
+# `sam local` can serve the routes.
+#
+# Env vars are baked in (Cognito IDs / Sentry DSN are not secrets — same values
+# live in template.yaml). The local Lambda hits real prod DynamoDB by default.
+# Edit DYNAMODB_TABLE_NAME below if you want to point at a different table.
+#
+# Run via:  npm run sam:local
+
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: MyAgilityQs — local development only
+
+Globals:
+  Function:
+    Timeout: 30
+    # nodejs22.x for compatibility with SAM CLI 1.140 (prod uses 24.x).
+    Runtime: nodejs22.x
+
+Resources:
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: server/dist/
+      Handler: index.handler
+      Environment:
+        Variables:
+          NODE_ENV: development
+          ENVIRONMENT: development
+          DYNAMODB_TABLE_NAME: MyAgilityQs
+          SENTRY_DSN: https://b9b22e43ca994eaf702953b3369b7a14@o4509555260981248.ingest.us.sentry.io/4509555265110016
+          COGNITO_USER_POOL_ID: us-east-1_808uxrU8E
+          COGNITO_CLIENT_ID: 7qaajum3pc6ehvkbhidjvmrjmq
+          COGNITO_DOMAIN: https://auth.myagilityqs.com
+          COGNITO_REGION: us-east-1
+          FRONTEND_URL: http://localhost:5174
+      Events:
+        # HttpApi (v2) matches the event shape Lambda Function URLs deliver in
+        # prod, so the server code's v2 field accesses work unchanged.
+        Proxy:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+        Root:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: ANY

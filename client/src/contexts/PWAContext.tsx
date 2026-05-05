@@ -20,6 +20,7 @@ interface PWAContextType {
 
 const PWAContext = createContext<PWAContextType | undefined>(undefined);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const usePWA = () => {
   const context = useContext(PWAContext);
   if (!context) {
@@ -31,6 +32,13 @@ export const usePWA = () => {
 interface PWAProviderProps {
   children: React.ReactNode;
 }
+
+// Touch-primary device check — true for phones and tablets, false for desktops
+// with a mouse (even touch-capable laptops typically still report `pointer: fine`
+// because they have a trackpad/mouse as primary).
+const isMobileDevice = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia("(pointer: coarse) and (hover: none)").matches;
 
 export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -50,10 +58,17 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
       return; // Don't listen for install events if already installed
     }
 
+    // Don't expose install UI on desktop — PWA installs are a mobile-first
+    // feature here. Chrome on desktop also fires `beforeinstallprompt`, which
+    // is why the button was showing up there before.
+    if (!isMobileDevice()) {
+      return;
+    }
+
     const handleBeforeInstallPrompt = (e: Event) => {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
-      
+
       // Save the event so it can be triggered later
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
@@ -61,7 +76,7 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
-      
+
       notifications.show({
         title: 'App Installed!',
         message: 'MyAgilityQs has been added to your home screen',
@@ -93,12 +108,12 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
 
     try {
       await deferredPrompt.prompt();
-      
+
       const { outcome } = await deferredPrompt.userChoice;
-      
+
       // Clear the prompt since it can only be used once
       setDeferredPrompt(null);
-      
+
       if (outcome === 'dismissed') {
         notifications.show({
           title: 'Installation Cancelled',

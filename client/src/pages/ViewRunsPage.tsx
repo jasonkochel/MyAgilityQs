@@ -221,7 +221,7 @@ export const ViewRunsPage: React.FC = () => {
     }
 
     // Apply Q filter (only if not tracking Qs only, since in that mode all runs are Qs)
-    if (showOnlyQs && !user?.trackQsOnly) {
+    if (showOnlyQs && !(user?.trackQsOnly ?? true)) {
       filtered = filtered.filter((run) => run.qualified);
     }
 
@@ -444,7 +444,7 @@ export const ViewRunsPage: React.FC = () => {
             </Group>
 
             {/* Show only Qs toggle - only in list mode */}
-            {viewMode === "list" && !user?.trackQsOnly && (
+            {viewMode === "list" && !(user?.trackQsOnly ?? true) && (
               <Switch
                 label="Show only Qs"
                 checked={showOnlyQs}
@@ -511,7 +511,7 @@ export const ViewRunsPage: React.FC = () => {
                       </Group>
                     </Table.Th>
                     {/* Result column - only show if tracking NQ runs */}
-                    {!user?.trackQsOnly && <Table.Th style={{ minWidth: "60px" }}>Result</Table.Th>}
+                    {!(user?.trackQsOnly ?? true) && <Table.Th style={{ minWidth: "60px" }}>Result</Table.Th>}
                     <Table.Th style={{ minWidth: "60px" }}>Place</Table.Th>
                     <Table.Th style={{ minWidth: "60px" }}>Points</Table.Th>
                     <Table.Th style={{ minWidth: "100px" }}>Location</Table.Th>
@@ -539,7 +539,7 @@ export const ViewRunsPage: React.FC = () => {
                         <Text size="sm">{isPremierClass(run.class) ? "—" : run.level}</Text>
                       </Table.Td>
                       {/* Result column - only show if tracking NQ runs */}
-                      {!user?.trackQsOnly && (
+                      {!(user?.trackQsOnly ?? true) && (
                         <Table.Td>
                           <Badge
                             color={run.qualified ? "green" : "red"}

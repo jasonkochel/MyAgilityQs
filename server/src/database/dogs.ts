@@ -5,7 +5,8 @@ import {
   QueryCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { CreateDogRequest, Dog, UpdateDogRequest } from "@my-agility-qs/shared";
+import { CompetitionClass, CompetitionLevel, CreateDogRequest, Dog, normalizeClassName, UpdateDogRequest } from "@my-agility-qs/shared";
+import { computeDogLevel } from "../utils/progressionRules.js";
 import { createTimestamp, dynamoClient, generateId, KeyPatterns, TABLE_NAME } from "./client.js";
 
 // Create a new dog
@@ -13,13 +14,27 @@ export async function createDog(userId: string, request: CreateDogRequest): Prom
   const dogId = generateId();
   const now = createTimestamp();
 
+  // Seed each class's level from baseline (if provided) or the class's
+  // default starting level. The client form no longer asks for level directly —
+  // it's derived from baseline.level (or defaulted to Novice).
+  const seededClasses = request.classes.map((dogClass) => {
+    const normalized = normalizeClassName(dogClass.name);
+    const classBaseline = normalized ? request.baseline?.perClass?.[normalized] : undefined;
+    const result = computeDogLevel([], normalized ?? (dogClass.name as CompetitionClass), classBaseline);
+    return {
+      ...dogClass,
+      level: result.currentLevel as CompetitionLevel,
+    };
+  });
+
   const dog: Dog = {
     id: dogId,
     userId,
     name: request.name,
     registeredName: request.registeredName,
     active: true,
-    classes: request.classes,
+    classes: seededClasses,
+    baseline: request.baseline,
     createdAt: now,
     updatedAt: now,
   };
@@ -114,7 +129,7 @@ export async function updateDog(
   // Build update expression
   const updateExpressions: string[] = [];
   const expressionAttributeNames: Record<string, string> = {};
-  const expressionAttributeValues: Record<string, any> = {};
+  const expressionAttributeValues: Record<string, unknown> = {};
 
   if (request.name !== undefined) {
     updateExpressions.push("#name = :name");
@@ -158,19 +173,35 @@ export async function updateDog(
     expressionAttributeValues[":photoCrop"] = request.photoCrop;
   }
 
+  // Baseline: null clears the field, an object sets/replaces it.
+  const removeExpressions: string[] = [];
+  if (request.baseline === null) {
+    removeExpressions.push("#baseline");
+    expressionAttributeNames["#baseline"] = "baseline";
+  } else if (request.baseline !== undefined) {
+    updateExpressions.push("#baseline = :baseline");
+    expressionAttributeNames["#baseline"] = "baseline";
+    expressionAttributeValues[":baseline"] = request.baseline;
+  }
+
   updateExpressions.push("#updatedAt = :updatedAt");
   expressionAttributeNames["#updatedAt"] = "updatedAt";
   expressionAttributeValues[":updatedAt"] = createTimestamp();
 
-  if (updateExpressions.length === 1) {
+  if (updateExpressions.length === 1 && removeExpressions.length === 0) {
     // Only updatedAt
     return null;
   }
+
+  const updateExpression =
+    `SET ${updateExpressions.join(", ")}` +
+    (removeExpressions.length > 0 ? ` REMOVE ${removeExpressions.join(", ")}` : "");
+
   const result = await dynamoClient.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
       Key: keys,
-      UpdateExpression: `SET ${updateExpressions.join(", ")}`,
+      UpdateExpression: updateExpression,
       ExpressionAttributeNames: expressionAttributeNames,
       ExpressionAttributeValues: {
         ...expressionAttributeValues,
@@ -190,7 +221,7 @@ export async function updateDog(
     const userDogKeys = KeyPatterns.userDog(userId, dogId);
     const userDogUpdateExpressions: string[] = [];
     const userDogExpressionAttributeNames: Record<string, string> = {};
-    const userDogExpressionAttributeValues: Record<string, any> = {};
+    const userDogExpressionAttributeValues: Record<string, unknown> = {};
 
     if (request.name !== undefined) {
       userDogUpdateExpressions.push("#dogName = :dogName");

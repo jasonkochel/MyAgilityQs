@@ -2,20 +2,22 @@ import {
   DeleteCommand,
   PutCommand,
   QueryCommand,
+  QueryCommandInput,
   ScanCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import {
+  CompetitionClass,
   CompetitionLevel,
   CreateRunRequest,
   isPremierClass,
+  normalizeClassName,
   Run,
   RunsQuery,
   UpdateRunRequest,
 } from "@my-agility-qs/shared";
-import { 
+import {
   computeDogLevel,
-  computeAllDogLevels,
   getStartingLevel,
 } from "../utils/progressionRules.js";
 import {
@@ -46,19 +48,29 @@ async function checkAndUpdateDogLevel(
   dogName?: string;
   class?: string;
 } | null> {
-  // Get all runs for the dog to compute their current level with rules engine
-  const allRuns = await getAllRunsForDog(dogId);
-  const levelResult = computeDogLevel(allRuns, competitionClass as any);
-  
-  // Get current dog data
+  // Get current dog data first so we can pass baseline into the engine.
   const dog = await getDogById(dogId);
   if (!dog) {
     throw new Error(`Dog not found: ${dogId}`);
   }
 
+  // Compute current level from runs + (optional) baseline. Baseline now
+  // participates in the rule walk as the dog's starting state, so a Masters
+  // dog with 30 baseline Qs is correctly seen as Masters.
+  const allRuns = await getAllRunsForDog(dogId);
+  const normalizedClass = normalizeClassName(competitionClass);
+  const classBaseline = normalizedClass
+    ? dog.baseline?.perClass?.[normalizedClass]
+    : undefined;
+  const levelResult = computeDogLevel(
+    allRuns,
+    competitionClass as CompetitionClass,
+    classBaseline
+  );
+
   // Find current level in dog's class configuration
   const dogClass = dog.classes.find(dc => dc.name === competitionClass);
-  const currentStoredLevel = dogClass?.level || getStartingLevel(competitionClass as any);
+  const currentStoredLevel = dogClass?.level || getStartingLevel(competitionClass as CompetitionClass);
 
   // Check if the computed level is different from stored level
   if (levelResult.currentLevel !== currentStoredLevel) {
@@ -100,27 +112,27 @@ export async function recalculateDogLevels(userId: string, dogId: string): Promi
     throw new Error(`Dog not found: ${dogId}`);
   }
 
-  // Use rules engine to compute levels for all classes
-  const levelResults = computeAllDogLevels(allRuns);
-
-  // Update dog's class levels in database based on computed results
-  // Premier classes have no level progression - always preserve existing level
+  // Update dog's class levels in database. Iterate every configured class so
+  // that classes without runs or baselines also get recomputed (back to their
+  // starting level) when their baseline is later removed. Premier has no level
+  // progression — preserve existing.
   const updatedClasses = dog.classes.map(dogClass => {
     if (isPremierClass(dogClass.name)) {
-      return dogClass; // Preserve Premier level as-is
+      return dogClass;
     }
-    const levelResult = levelResults[dogClass.name];
+    const normalized = normalizeClassName(dogClass.name) ?? (dogClass.name as CompetitionClass);
+    const classBaseline = dog.baseline?.perClass?.[normalized];
+    const result = computeDogLevel(allRuns, normalized, classBaseline);
     return {
       ...dogClass,
-      level: levelResult ? levelResult.currentLevel as CompetitionLevel : dogClass.level
+      level: result.currentLevel as CompetitionLevel
     };
   });
 
   await updateDog(dogId, userId, { classes: updatedClasses });
-  
-  // Log the results
+
   const finalLevels = Object.fromEntries(
-    Object.entries(levelResults).map(([className, result]) => [className, result.currentLevel])
+    updatedClasses.map((c) => [c.name, c.level])
   );
   console.log(`📊 Recalculated levels for ${dog.name}:`, finalLevels);
 }
@@ -194,9 +206,9 @@ export async function createRun(
       if (progressionResult && progressionResult.progressed) {
         levelProgression = {
           dogName: progressionResult.dogName!,
-          class: progressionResult.class! as any,
-          fromLevel: progressionResult.fromLevel! as any,
-          toLevel: progressionResult.toLevel! as any,
+          class: progressionResult.class! as CompetitionClass,
+          fromLevel: progressionResult.fromLevel! as CompetitionLevel,
+          toLevel: progressionResult.toLevel! as CompetitionLevel,
         };
       }
     } catch (error) {
@@ -241,7 +253,7 @@ export async function getRunById(runId: string): Promise<Run | null> {
 
 // Get runs for a dog with filtering and pagination
 export async function getRunsByDogId(dogId: string, query: RunsQuery = {}): Promise<Run[]> {
-  const queryParams: any = {
+  const queryParams: QueryCommandInput = {
     TableName: TABLE_NAME,
     IndexName: "GSI1",
     KeyConditionExpression: "GSI1PK = :pk AND begins_with(GSI1SK, :sk)",
@@ -260,7 +272,7 @@ export async function getRunsByDogId(dogId: string, query: RunsQuery = {}): Prom
   // Add filter expression for additional filtering
   const filterExpressions: string[] = [];
   const filterAttributeNames: Record<string, string> = {};
-  const filterAttributeValues: Record<string, any> = {};
+  const filterAttributeValues: Record<string, unknown> = {};
 
   if (query.class) {
     filterExpressions.push("#class = :class");
@@ -306,7 +318,7 @@ export async function getRunsByDogId(dogId: string, query: RunsQuery = {}): Prom
 
 // Get runs for a user with filtering and pagination
 export async function getRunsByUserId(userId: string, query: RunsQuery = {}): Promise<Run[]> {
-  const queryParams: any = {
+  const queryParams: QueryCommandInput = {
     TableName: TABLE_NAME,
     KeyConditionExpression: "PK = :pk AND begins_with(SK, :sk)",
     ExpressionAttributeValues: {
@@ -324,7 +336,7 @@ export async function getRunsByUserId(userId: string, query: RunsQuery = {}): Pr
   // Add filter expression for additional filtering
   const filterExpressions: string[] = [];
   const filterAttributeNames: Record<string, string> = {};
-  const filterAttributeValues: Record<string, any> = {};
+  const filterAttributeValues: Record<string, unknown> = {};
 
   if (query.dogId) {
     filterExpressions.push("dogId = :dogId");
@@ -436,7 +448,7 @@ export async function updateRun(
     // For updates that don't change the sort key, use UpdateCommand
     const updateExpressions: string[] = [];
     const expressionAttributeNames: Record<string, string> = {};
-    const expressionAttributeValues: Record<string, any> = {};
+    const expressionAttributeValues: Record<string, unknown> = {};
 
     if (request.class !== undefined) {
       updateExpressions.push("#class = :class");

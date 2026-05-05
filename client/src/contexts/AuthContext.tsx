@@ -18,6 +18,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -38,7 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Helper function to set user state and Sentry context
   const setUserWithSentry = useCallback((userProfile: User | null) => {
     setUser(userProfile);
-    
+
     if (userProfile) {
       // Set user context for Sentry
       Sentry.setUser({
@@ -51,78 +52,92 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  // Preload user data (dogs, locations, etc.) after authentication
-  const preloadUserData = useCallback(async (): Promise<void> => {
+  // Build a minimal User object from the JWT id token's claims so the UI can
+  // flip to "authenticated" state instantly, without waiting on /user/profile.
+  // Fields like `trackQsOnly` get filled in by a background getProfile() call.
+  const hydrateUserFromToken = useCallback((idToken: string): User | null => {
     try {
-      // Prefetch dogs data with infinite stale time since we'll invalidate on changes
-      await queryClient.prefetchQuery({
-        queryKey: ["dogs"],
-        queryFn: dogsApi.getAllDogs,
-        staleTime: Infinity, // Never stale - we'll invalidate explicitly on changes
-      });
-
-      // Prefetch locations data with infinite stale time since we'll invalidate on changes
-      await queryClient.prefetchQuery({
-        queryKey: ["locations"],
-        queryFn: locationsApi.getAll,
-        staleTime: Infinity, // Never stale - we'll invalidate explicitly on changes
-      });
-    } catch (error) {
-      console.error("❌ Failed to preload user data:", error);
+      const payload = JSON.parse(atob(idToken.split(".")[1])) as {
+        email?: string;
+      };
+      if (!payload.email) return null;
+      return {
+        id: payload.email, // server uses email as userId for DB ops
+        email: payload.email,
+        createdAt: "",
+        updatedAt: "",
+      };
+    } catch {
+      return null;
     }
+  }, []);
+
+  // Refresh the user profile from the API in the background. If the request
+  // fails with an auth error, log out; otherwise log and move on.
+  const refreshUserProfile = useCallback(async (): Promise<void> => {
+    try {
+      const userProfile = await userApi.getProfile();
+      setUserWithSentry(userProfile);
+    } catch (error) {
+      console.error("Background profile refresh failed:", error);
+      if (error instanceof Error) {
+        reportAuthError(error, 'refresh', { error: error.message, source: 'profile-refresh' });
+        // Token rejected — log out so the user can sign in again
+        if (/401|unauthorized/i.test(error.message)) {
+          tokenManager.removeToken();
+          setUserWithSentry(null);
+        }
+      }
+    }
+  }, [setUserWithSentry]);
+
+  // Kick off prefetches for /dogs and /locations. Returns immediately —
+  // intentionally NOT awaited inside `login()` so the post-auth navigation
+  // isn't blocked. TanStack Query de-dupes in-flight requests by queryKey,
+  // so if a downstream component (e.g. MainMenu) calls `useQuery(["dogs"])`
+  // before these resolve, it joins the same request rather than firing a
+  // second one.
+  const preloadUserData = useCallback(async (): Promise<void> => {
+    queryClient.prefetchQuery({
+      queryKey: ["dogs"],
+      queryFn: dogsApi.getAllDogs,
+      staleTime: Infinity,
+    }).catch((error) => console.error("Failed to preload dogs:", error));
+
+    queryClient.prefetchQuery({
+      queryKey: ["locations"],
+      queryFn: locationsApi.getAll,
+      staleTime: Infinity,
+    }).catch((error) => console.error("Failed to preload locations:", error));
   }, [queryClient]);
 
   useEffect(() => {
     const initializeAuth = async () => {
-      // Check if user is logged in on app start
       const token = tokenManager.getToken();
       const refreshToken = tokenManager.getRefreshToken();
 
-      if (token && !tokenManager.isTokenExpired()) {
-        // Fetch user profile from API - database is single source of truth for email
-        try {
-          const userProfile = await userApi.getProfile();
-          setUserWithSentry(userProfile);
-          await preloadUserData();
-        } catch (error) {
-          console.error("Failed to fetch user profile:", error);
-          
-          // Report auth initialization errors to Sentry
-          if (error instanceof Error) {
-            reportAuthError(error, 'init', {
-              hasToken: !!token,
-              hasRefreshToken: !!refreshToken,
-              isTokenExpired: tokenManager.isTokenExpired(),
-              error: error.message,
-            });
-          }
-          
-          // Fall back to clearing tokens if API call fails
-          tokenManager.removeToken();
+      const hydrateAndKickOffRefresh = (idToken: string) => {
+        const initialUser = hydrateUserFromToken(idToken);
+        if (initialUser) {
+          setUserWithSentry(initialUser);
         }
+        // Fire-and-forget — don't block app render on the network call
+        refreshUserProfile();
+        preloadUserData();
+      };
+
+      if (token && !tokenManager.isTokenExpired()) {
+        hydrateAndKickOffRefresh(token);
       } else if (refreshToken) {
-        // Try to refresh the token
+        // Try to refresh access tokens. If that succeeds, hydrate from the
+        // new id token; if it fails, clear and let the user log in again.
         const refreshed = await tokenManager.refreshAccessToken();
         if (refreshed) {
-          try {
-            const userProfile = await userApi.getProfile();
-            setUserWithSentry(userProfile); // Use database email as single source of truth
-            await preloadUserData();
-          } catch (error) {
-            console.error("Failed to fetch user profile after refresh:", error);
-            
-            // Report token refresh errors to Sentry
-            if (error instanceof Error) {
-              reportAuthError(error, 'refresh', {
-                refreshed: true,
-                error: error.message,
-              });
-            }
-            
-            tokenManager.removeToken();
+          const newToken = tokenManager.getToken();
+          if (newToken) {
+            hydrateAndKickOffRefresh(newToken);
           }
         } else {
-          // Refresh failed, clear user data
           tokenManager.removeToken();
         }
       }
@@ -131,7 +146,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
-  }, [queryClient, preloadUserData, setUserWithSentry]);
+  }, [hydrateUserFromToken, refreshUserProfile, preloadUserData, setUserWithSentry]);
 
   // Validate auth when app resumes from background (PWA / long-idle tab)
   useEffect(() => {
@@ -147,27 +162,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (authData: AuthResponse) => {
     tokenManager.setTokens(authData);
 
-    try {
-      // Fetch user profile from API - database is single source of truth for email
-      const userProfile = await userApi.getProfile();
-      setUserWithSentry(userProfile);
-
-      // Preload user data after successful login
-      await preloadUserData();
-    } catch (error) {
-      console.error("Error during login:", error);
-      
-      // Report login errors to Sentry
-      if (error instanceof Error) {
-        reportAuthError(error, 'login', {
-          error: error.message,
-        });
-      }
-      
-      // Clear tokens if something goes wrong
-      tokenManager.removeToken();
-      throw error;
+    // Hydrate user state from the JWT immediately so isAuthenticated flips
+    // true now, the post-login redirect happens without waiting on the
+    // network, and ProtectedRoute lets the user through. The full profile
+    // (with trackQsOnly etc.) is refreshed in the background.
+    const initialUser = hydrateUserFromToken(authData.idToken);
+    if (initialUser) {
+      setUserWithSentry(initialUser);
     }
+
+    // Background refresh + prefetches — fire-and-forget so login() resolves
+    // instantly. TanStack Query de-dupes any overlapping requests downstream.
+    refreshUserProfile();
+    preloadUserData();
   };
 
   const updateUserPreferences = async (preferences: Partial<Pick<User, "trackQsOnly">>) => {

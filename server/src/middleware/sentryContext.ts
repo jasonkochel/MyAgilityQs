@@ -1,57 +1,62 @@
 import * as Sentry from "@sentry/serverless";
 import type { Request } from "@middy/core";
+import type { AuthenticatedEvent } from "./jwtAuth";
+import { asCaught } from "../utils/errors.js";
+
+type SentryRequest = Request<AuthenticatedEvent>;
 
 /**
  * Middy middleware to add Sentry context for better error tracking
  */
 export const sentryContext = () => ({
-  before: (request: Request) => {
+  before: (request: SentryRequest) => {
+    const { event } = request;
+    const httpMethod = event.requestContext?.http?.method;
+    const path = event.rawPath;
+    const sourceIp = event.requestContext?.http?.sourceIp;
+
     Sentry.withScope((scope) => {
-      // Add request context
       scope.setTag("requestId", request.context.awsRequestId);
       scope.setTag("functionName", request.context.functionName);
       scope.setTag("functionVersion", request.context.functionVersion);
-      
-      // Add HTTP context
-      if (request.event.httpMethod) {
-        scope.setTag("httpMethod", request.event.httpMethod);
-        scope.setTag("path", request.event.path);
-        scope.setTag("userAgent", request.event.headers?.["User-Agent"] || request.event.headers?.["user-agent"]);
-        scope.setTag("sourceIp", request.event.requestContext?.identity?.sourceIp);
+
+      if (httpMethod) {
+        scope.setTag("httpMethod", httpMethod);
+        scope.setTag("path", path);
+        scope.setTag(
+          "userAgent",
+          event.headers?.["User-Agent"] || event.headers?.["user-agent"]
+        );
+        scope.setTag("sourceIp", sourceIp);
       }
 
-      // Add user context if available (from JWT auth middleware)
-      if (request.event.user) {
+      if (event.user) {
         scope.setUser({
-          id: request.event.user.userId,
-          email: request.event.user.email,
-          username: request.event.user.username,
+          id: event.user.userId,
+          email: event.user.email,
+          username: event.user.username,
         });
-        scope.setTag("userId", request.event.user.userId);
+        scope.setTag("userId", event.user.userId);
       }
 
-      // Add route-specific context
-      if (request.event.pathParameters) {
-        scope.setContext("pathParameters", request.event.pathParameters);
-      }
-      
-      if (request.event.queryStringParameters) {
-        scope.setContext("queryStringParameters", request.event.queryStringParameters);
+      if (event.pathParameters) {
+        scope.setContext("pathParameters", event.pathParameters);
       }
 
-      // Set transaction name for performance monitoring
-      const routeName = `${request.event.httpMethod} ${request.event.path}`;
-      scope.setTransactionName(routeName);
+      if (event.queryStringParameters) {
+        scope.setContext("queryStringParameters", event.queryStringParameters);
+      }
+
+      scope.setTransactionName(`${httpMethod} ${path}`);
     });
 
-    // Add breadcrumb for the incoming request
     Sentry.addBreadcrumb({
       category: "http",
-      message: `${request.event.httpMethod} ${request.event.path}`,
+      message: `${httpMethod} ${path}`,
       data: {
-        url: request.event.path,
-        method: request.event.httpMethod,
-        userId: request.event.user?.userId,
+        url: path,
+        method: httpMethod,
+        userId: event.user?.userId,
         requestId: request.context.awsRequestId,
       },
       level: "info",
@@ -59,16 +64,19 @@ export const sentryContext = () => ({
     });
   },
 
-  after: (request: Request) => {
-    // Add breadcrumb for successful responses
-    const response = request.response;
-    if (response && response.statusCode < 400) {
+  after: (request: SentryRequest) => {
+    const { event } = request;
+    const httpMethod = event.requestContext?.http?.method;
+    const path = event.rawPath;
+    const response = request.response as { statusCode?: number } | undefined;
+
+    if (response?.statusCode !== undefined && response.statusCode < 400) {
       Sentry.addBreadcrumb({
         category: "http",
-        message: `${request.event.httpMethod} ${request.event.path} - ${response.statusCode}`,
+        message: `${httpMethod} ${path} - ${response.statusCode}`,
         data: {
           statusCode: response.statusCode,
-          userId: request.event.user?.userId,
+          userId: event.user?.userId,
           requestId: request.context.awsRequestId,
         },
         level: "info",
@@ -77,19 +85,24 @@ export const sentryContext = () => ({
     }
   },
 
-  onError: (request: Request) => {
-    // Additional context on error
+  onError: (request: SentryRequest) => {
+    const errorInfo = asCaught(request.error);
+    const statusCode = errorInfo.statusCode ?? 500;
+    if (statusCode >= 400 && statusCode < 500) return;
+
+    const { event } = request;
+    const httpMethod = event.requestContext?.http?.method;
+    const path = event.rawPath;
+
     Sentry.withScope((scope) => {
       scope.setTag("hasError", true);
-      scope.setTag("apiRoute", `${request.event.httpMethod} ${request.event.path}`);
-      scope.setContext("requestBody", request.event.body);
-      scope.setContext("requestHeaders", request.event.headers);
-      
-      // Capture any additional error context
+      scope.setTag("apiRoute", `${httpMethod} ${path}`);
+      scope.setContext("requestBody", { body: event.body });
+      scope.setContext("requestHeaders", event.headers ?? {});
+
       if (request.error) {
         scope.setLevel("error");
-        
-        // Add specific context based on error type
+
         const errorName = request.error.name;
         if (errorName.includes("DynamoDB") || errorName.includes("Dynamo")) {
           scope.setTag("errorCategory", "database");
@@ -104,12 +117,11 @@ export const sentryContext = () => ({
         scope.setContext("errorDetails", {
           name: request.error.name,
           message: request.error.message,
-          statusCode: (request.error as any).statusCode || 500,
+          statusCode,
           stack: request.error.stack,
         });
       }
 
-      // Capture the error
       Sentry.captureException(request.error);
     });
   },

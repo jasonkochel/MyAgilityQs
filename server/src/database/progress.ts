@@ -3,6 +3,7 @@ import {
   CompetitionClass,
   CompetitionLevel,
   DogProgress,
+  normalizeClassName,
 } from "@my-agility-qs/shared";
 import {
   calculateDoubleQs,
@@ -26,6 +27,8 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
   const dog = dogs.find((d) => d.id === dogId);
   const dogName = dog?.name || "Unknown Dog";
 
+  const baseline = dog?.baseline;
+
   // Initialize class progress tracking
   const classProgressMap = new Map<CompetitionClass, Map<CompetitionLevel, number>>();
 
@@ -42,6 +45,22 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
     levelMap.set(run.level, currentQs + 1);
   }
 
+  // Apply baseline Qs at baseline.level for each baselined class.
+  // For classes without a baseline level (T2B/Premier), the baseline is
+  // additive in the title calcs but not exposed in the per-level map.
+  if (baseline?.perClass) {
+    for (const [className, classBaseline] of Object.entries(baseline.perClass)) {
+      const baselineQs = classBaseline?.qs ?? 0;
+      const baselineLevel = classBaseline?.level;
+      if (baselineQs <= 0 || !baselineLevel) continue;
+      const cls = className as CompetitionClass;
+      if (!classProgressMap.has(cls)) classProgressMap.set(cls, new Map());
+      const levelMap = classProgressMap.get(cls)!;
+      const existing = levelMap.get(baselineLevel) || 0;
+      levelMap.set(baselineLevel, existing + baselineQs);
+    }
+  }
+
   // Convert to ClassProgress format
   const classProgress: ClassProgress[] = [];
   for (const [className, levelMap] of classProgressMap.entries()) {
@@ -55,23 +74,26 @@ export async function calculateDogProgress(userId: string, dogId: string): Promi
     });
   }
 
-  // Calculate MACH-related progress using shared utilities
-  const doubleQs = calculateDoubleQs(runs);
-  const totalMachPoints = calculateTotalMachPoints(runs);
-  const machProgressData = calculateMachProgress(runs);
+  // Calculate MACH-related progress using shared utilities (baseline-aware)
+  const doubleQs = calculateDoubleQs(runs, baseline);
+  const totalMachPoints = calculateTotalMachPoints(runs, baseline);
+  const machProgressData = calculateMachProgress(runs, baseline);
 
   // Calculate Masters title progress if dog has Masters classes
-  const mastersTitles = dog ? calculateMastersTitleProgress(runs, dog.classes) : undefined;
+  const mastersTitles = dog ? calculateMastersTitleProgress(runs, dog.classes, baseline) : undefined;
 
   // Calculate FAST and T2B title progress
-  const fastTitles = dog ? calculateFastTitleProgress(runs, dog.classes) : undefined;
-  const t2bTitles = dog ? calculateT2BTitleProgress(runs, dog.classes) : undefined;
+  const fastTitles = dog ? calculateFastTitleProgress(runs, dog.classes, baseline) : undefined;
+  const t2bTitles = dog ? calculateT2BTitleProgress(runs, dog.classes, baseline) : undefined;
 
-  // Calculate Premier progress if dog competes in Premier classes
+  // Calculate Premier progress if dog competes in Premier classes.
+  // Normalize legacy long-form names ("Premier Standard") back to canonical short form.
   const premierProgress = dog ? (() => {
-    const premierClasses = dog.classes.filter(c => c.name === "Premier Std" || c.name === "Premier JWW");
+    const premierClasses = dog.classes
+      .map((c) => normalizeClassName(c.name))
+      .filter((c): c is "Premier Std" | "Premier JWW" => c === "Premier Std" || c === "Premier JWW");
     if (premierClasses.length === 0) return undefined;
-    return premierClasses.map(c => calculatePremierProgress(runs, c.name as "Premier Std" | "Premier JWW"));
+    return premierClasses.map((cls) => calculatePremierProgress(runs, cls, baseline));
   })() : undefined;
 
   const progress: DogProgress = {
@@ -125,9 +147,9 @@ export async function calculateUserProgressSummary(userId: string): Promise<{
 
   for (const dog of activeDogs) {
     const dogRuns = runs.filter((r) => r.dogId === dog.id);
-    const dogDoubleQs = calculateDoubleQs(dogRuns);
-    const dogMachPoints = calculateTotalMachPoints(dogRuns);
-    const dogMachProgress = calculateMachProgress(dogRuns);
+    const dogDoubleQs = calculateDoubleQs(dogRuns, dog.baseline);
+    const dogMachPoints = calculateTotalMachPoints(dogRuns, dog.baseline);
+    const dogMachProgress = calculateMachProgress(dogRuns, dog.baseline);
 
     totalDoubleQs += dogDoubleQs;
     totalMachPoints += dogMachPoints;

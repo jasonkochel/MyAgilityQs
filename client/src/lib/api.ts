@@ -228,16 +228,18 @@ async function apiRequest<T>(request: Promise<Response>): Promise<T> {
 
     return data.data as T;
   } catch (error) {
-    // Handle Ky HTTPError specifically - just parse and rethrow
+    // Handle Ky HTTPError specifically - parse the response body for the
+    // server's error message, then rethrow with that message.
     if (error && typeof error === "object" && "response" in error) {
+      let message = "API request failed";
       try {
         const errorResponse = error as { response: Response };
         const errorData = (await errorResponse.response.json()) as ApiResponse;
-        throw new Error(errorData.message || "API request failed");
+        if (errorData.message) message = errorData.message;
       } catch {
-        // If we can't parse the error response, fall back to generic message
-        throw new Error("API request failed");
+        // Body wasn't JSON or was empty — fall back to generic message
       }
+      throw new Error(message);
     }
 
     // Re-throw as-is (error reporting handled by ky beforeError hook)
@@ -257,7 +259,36 @@ export const authApi = {
 
   signup: async (signupData: { email: string; password: string }): Promise<void> => {
     return apiRequest(api.post("auth/signup", { json: signupData }));
-  }, // Google OAuth methods
+  },
+
+  confirmSignup: async (data: { email: string; code: string }): Promise<void> => {
+    return apiRequest(api.post("auth/confirm-signup", { json: data }));
+  },
+
+  resendCode: async (email: string): Promise<void> => {
+    return apiRequest(api.post("auth/resend-code", { json: { email } }));
+  },
+
+  forgotPassword: async (email: string): Promise<void> => {
+    return apiRequest(api.post("auth/forgot-password", { json: { email } }));
+  },
+
+  confirmForgotPassword: async (data: {
+    email: string;
+    code: string;
+    newPassword: string;
+  }): Promise<void> => {
+    return apiRequest(api.post("auth/confirm-forgot-password", { json: data }));
+  },
+
+  changePassword: async (data: {
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<void> => {
+    return apiRequest(api.post("auth/change-password", { json: data }));
+  },
+
+  // Google OAuth methods
   getGoogleLoginUrl: async (
     redirectUri?: string
   ): Promise<{ url: string; redirectUri: string }> => {

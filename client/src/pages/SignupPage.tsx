@@ -2,6 +2,7 @@ import {
   Alert,
   Button,
   Container,
+  Divider,
   Paper,
   PasswordInput,
   Stack,
@@ -11,7 +12,7 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
-import { IconCheck, IconUserPlus } from "@tabler/icons-react";
+import { IconCheck, IconLogin, IconUserPlus } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -56,17 +57,16 @@ export const SignupPage: React.FC = () => {
 
   const signupMutation = useMutation({
     mutationFn: authApi.signup,
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       notifications.show({
-        title: "Account Created!",
-        message: "You can now log in with your credentials",
-        color: "green",
+        title: "Check your email",
+        message: "We sent you a verification code to finish creating your account.",
+        color: "blue",
         icon: <IconCheck size="1rem" />,
       });
-      setLocation("/login");
+      setLocation(`/confirm-signup?email=${encodeURIComponent(variables.email)}`);
     },
     onError: (err) => {
-      console.error("Signup error:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to create account";
       setError(errorMessage);
     },
@@ -127,16 +127,24 @@ export const SignupPage: React.FC = () => {
               >
                 Create Account
               </Button>
+
+              <Divider label="Already have an account?" labelPosition="center" mt="xs" />
+
+              <Button
+                component={Link}
+                href="/login"
+                fullWidth
+                size="lg"
+                variant="light"
+                color="blue"
+                leftSection={<IconLogin size="1.2rem" />}
+                disabled={signupMutation.isPending}
+              >
+                Log In
+              </Button>
             </Stack>
           </form>
         </Paper>
-
-        <Text c="dimmed" size="sm" ta="center">
-          Already have an account?{" "}
-          <Text component={Link} href="/login" c="blue" style={{ textDecoration: "none" }}>
-            Sign in here
-          </Text>
-        </Text>
       </Stack>
     </Container>
   );

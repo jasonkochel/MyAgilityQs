@@ -1,4 +1,4 @@
-import { CompetitionClass, CompetitionLevel, MastersTitle, MastersTitleProgress } from "@my-agility-qs/shared";
+import { BaselineCounts, CompetitionClass, CompetitionLevel, MastersTitle, MastersTitleProgress, normalizeClassName, Run } from "@my-agility-qs/shared";
 
 export interface MachProgress {
   completeMachs: number;
@@ -11,20 +11,52 @@ export interface MachProgress {
   doubleQProgress: string; // e.g., "5/20"
 }
 
+const baselineQsFor = (
+  baseline: BaselineCounts | undefined,
+  cls: CompetitionClass
+): number => baseline?.perClass?.[cls]?.qs ?? 0;
+
 /**
- * Calculate Double Qs from runs
- * Double Q = Masters Standard + Masters Jumpers qualifying runs on the same date
+ * Baseline Qs that count toward Masters-level title tiers (MX/MXB/...).
+ * Only Masters-level baseline qs contribute — Novice/Open/Excellent baseline
+ * qs feed level advancement instead.
  */
-export function calculateDoubleQs(runs: any[]): number {
+const baselineMastersQsFor = (
+  baseline: BaselineCounts | undefined,
+  cls: CompetitionClass
+): number => {
+  const entry = baseline?.perClass?.[cls];
+  if (!entry || entry.level !== "Masters") return 0;
+  return entry.qs ?? 0;
+};
+
+const baselineTop25For = (
+  baseline: BaselineCounts | undefined,
+  cls: CompetitionClass
+): number => baseline?.perClass?.[cls]?.top25 ?? 0;
+
+// Tolerate legacy long-form class names ("Time 2 Beat", "Premier Standard")
+// stored on dog.classes[].name by matching via normalizeClassName.
+const findDogClass = (
+  dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>,
+  cls: CompetitionClass
+) => dogClasses.find((c) => normalizeClassName(c.name) === cls);
+
+/**
+ * Calculate Double Qs from runs.
+ * Double Q = Masters Standard + Masters Jumpers qualifying runs on the same date.
+ * Adds baseline.doubleQs if a baseline is set.
+ */
+export function calculateDoubleQs(runs: Run[], baseline?: BaselineCounts): number {
   // Only Masters level Standard and Jumpers qualify for Double Qs
-  const mastersRuns = runs.filter(run => 
-    run.qualified && 
-    run.level === "Masters" && 
+  const mastersRuns = runs.filter(run =>
+    run.qualified &&
+    run.level === "Masters" &&
     (run.class === "Standard" || run.class === "Jumpers")
   );
 
   // Group runs by date
-  const runsByDate = new Map<string, any[]>();
+  const runsByDate = new Map<string, Run[]>();
   for (const run of mastersRuns) {
     if (!runsByDate.has(run.date)) {
       runsByDate.set(run.date, []);
@@ -42,47 +74,49 @@ export function calculateDoubleQs(runs: any[]): number {
     }
   }
 
-  return doubleQs;
+  return doubleQs + (baseline?.doubleQs ?? 0);
 }
 
 /**
- * Calculate total MACH points from qualifying runs
- * Only Masters Standard and Jumpers runs count toward MACH points
+ * Calculate total MACH points from qualifying runs.
+ * Only Masters Standard and Jumpers runs count toward MACH points.
+ * Adds baseline.machPoints if a baseline is set.
  */
-export function calculateTotalMachPoints(runs: any[]): number {
-  const qualifyingRuns = runs.filter(run => 
-    run.qualified && 
-    run.level === "Masters" && 
+export function calculateTotalMachPoints(runs: Run[], baseline?: BaselineCounts): number {
+  const qualifyingRuns = runs.filter(run =>
+    run.qualified &&
+    run.level === "Masters" &&
     (run.class === "Standard" || run.class === "Jumpers") &&
     run.machPoints
   );
 
-  return qualifyingRuns.reduce((sum, run) => sum + (run.machPoints || 0), 0);
+  const fromRuns = qualifyingRuns.reduce((sum, run) => sum + (run.machPoints || 0), 0);
+  return fromRuns + (baseline?.machPoints ?? 0);
 }
 
 /**
- * Calculate complete MACH progress including multiple MACHs
+ * Calculate complete MACH progress including multiple MACHs.
  */
-export function calculateMachProgress(runs: any[]): MachProgress {
-  const totalMachPoints = calculateTotalMachPoints(runs);
-  const totalDoubleQs = calculateDoubleQs(runs);
-  
+export function calculateMachProgress(runs: Run[], baseline?: BaselineCounts): MachProgress {
+  const totalMachPoints = calculateTotalMachPoints(runs, baseline);
+  const totalDoubleQs = calculateDoubleQs(runs, baseline);
+
   // How many complete MACHs earned?
   // A MACH requires both 750 points AND 20 Double Qs
   const completeMachs = Math.min(
     Math.floor(totalMachPoints / 750),
     Math.floor(totalDoubleQs / 20)
   );
-  
+
   // Progress toward next MACH
   const pointsTowardNext = totalMachPoints - (completeMachs * 750);
   const doubleQsTowardNext = totalDoubleQs - (completeMachs * 20);
-  
+
   return {
     completeMachs,
     nextMachNumber: completeMachs + 1,
     pointsTowardNext,
-    doubleQsTowardNext, 
+    doubleQsTowardNext,
     totalMachPoints,
     totalDoubleQs,
     pointsProgress: `${pointsTowardNext}/750`,
@@ -91,17 +125,28 @@ export function calculateMachProgress(runs: any[]): MachProgress {
 }
 
 /**
- * Calculate progress for class level advancement
+ * Calculate progress for class level advancement.
+ * Baseline qs are added at baseline.level (where they were earned).
  */
-export function calculateClassProgress(runs: any[], targetClass: CompetitionClass): Map<CompetitionLevel, number> {
+export function calculateClassProgress(
+  runs: Run[],
+  targetClass: CompetitionClass,
+  baseline?: BaselineCounts
+): Map<CompetitionLevel, number> {
   const classRuns = runs.filter(run => run.class === targetClass && run.qualified);
   const levelCounts = new Map<CompetitionLevel, number>();
-  
+
   for (const run of classRuns) {
     const current = levelCounts.get(run.level) || 0;
     levelCounts.set(run.level, current + 1);
   }
-  
+
+  const classBaseline = baseline?.perClass?.[targetClass];
+  if (classBaseline?.qs && classBaseline.qs > 0 && classBaseline.level) {
+    const existing = levelCounts.get(classBaseline.level) || 0;
+    levelCounts.set(classBaseline.level, existing + classBaseline.qs);
+  }
+
   return levelCounts;
 }
 
@@ -109,8 +154,8 @@ export function calculateClassProgress(runs: any[], targetClass: CompetitionClas
  * Check if a dog is MACH eligible (Masters in both Standard and Jumpers)
  */
 export function isMachEligible(dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>): boolean {
-  const standardClass = dogClasses.find(c => c.name === "Standard");
-  const jumpersClass = dogClasses.find(c => c.name === "Jumpers");
+  const standardClass = findDogClass(dogClasses, "Standard");
+  const jumpersClass = findDogClass(dogClasses, "Jumpers");
   return standardClass?.level === "Masters" && jumpersClass?.level === "Masters";
 }
 
@@ -119,26 +164,30 @@ export function isMachEligible(dogClasses: Array<{ name: CompetitionClass; level
  * Calculate Masters-level title progress for Standard and Jumpers classes
  * Includes MX/MXJ (base), MXB/MJB (Bronze), MXS/MJS (Silver), MXG/MJG (Gold), MXC/MJC (Century)
  */
-export function calculateMastersTitleProgress(runs: any[], dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>): MastersTitleProgress {
-  const standardClass = dogClasses.find(c => c.name === "Standard");
-  const jumpersClass = dogClasses.find(c => c.name === "Jumpers");
+export function calculateMastersTitleProgress(
+  runs: Run[],
+  dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>,
+  baseline?: BaselineCounts
+): MastersTitleProgress {
+  const standardClass = findDogClass(dogClasses, "Standard");
+  const jumpersClass = findDogClass(dogClasses, "Jumpers");
 
   // Only calculate for dogs that have reached Masters level
   const standardIsMasters = standardClass?.level === "Masters";
   const jumpersIsMasters = jumpersClass?.level === "Masters";
 
-  // Count qualifying runs at Masters level
+  // Count qualifying runs at Masters level + Masters-level baseline only
   const standardQs = runs.filter(run =>
     run.qualified &&
     run.level === "Masters" &&
     run.class === "Standard"
-  ).length;
+  ).length + baselineMastersQsFor(baseline, "Standard");
 
   const jumpersQs = runs.filter(run =>
     run.qualified &&
     run.level === "Masters" &&
     run.class === "Jumpers"
-  ).length;
+  ).length + baselineMastersQsFor(baseline, "Jumpers");
 
   // Define title requirements (AKC rules)
   const titleRequirements = [
@@ -183,16 +232,20 @@ export function calculateMastersTitleProgress(runs: any[], dogClasses: Array<{ n
  * Calculate Masters-level title progress for FAST class
  * Includes MXF (base), MFB (Bronze), MFS (Silver), MFG (Gold), MFC (Century)
  */
-export function calculateFastTitleProgress(runs: any[], dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>): MastersTitle[] {
-  const fastClass = dogClasses.find(c => c.name === "FAST");
+export function calculateFastTitleProgress(
+  runs: Run[],
+  dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>,
+  baseline?: BaselineCounts
+): MastersTitle[] {
+  const fastClass = findDogClass(dogClasses, "FAST");
   const fastIsMasters = fastClass?.level === "Masters";
 
-  // Count qualifying runs at Masters level
+  // Count qualifying runs at Masters level + Masters-level baseline only
   const fastQs = runs.filter(run =>
     run.qualified &&
     run.level === "Masters" &&
     run.class === "FAST"
-  ).length;
+  ).length + baselineMastersQsFor(baseline, "FAST");
 
   // Define FAST title requirements (AKC rules)
   const titleRequirements = [
@@ -216,14 +269,18 @@ export function calculateFastTitleProgress(runs: any[], dogClasses: Array<{ name
  * AKC T2B is a cumulative title: every 15 qualifying runs earns a title.
  * First = T2B, then T2B2, T2B3, etc.
  */
-export function calculateT2BTitleProgress(runs: any[], dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>): MastersTitle[] {
-  const t2bClass = dogClasses.find(c => c.name === "T2B");
+export function calculateT2BTitleProgress(
+  runs: Run[],
+  dogClasses: Array<{ name: CompetitionClass; level: CompetitionLevel }>,
+  baseline?: BaselineCounts
+): MastersTitle[] {
+  const t2bClass = findDogClass(dogClasses, "T2B");
   if (!t2bClass) return [];
 
-  // Count ALL qualifying T2B runs (across all levels)
+  // Count ALL qualifying T2B runs (across all levels) + baseline
   const totalQs = runs.filter(run =>
     run.qualified && run.class === "T2B"
-  ).length;
+  ).length + baselineQsFor(baseline, "T2B");
 
   const qsPerTitle = 15;
   const completeTitles = Math.floor(totalQs / qsPerTitle);
@@ -284,10 +341,16 @@ const PREMIER_JWW_TIERS = [
  * Calculate Premier title progress for a specific Premier class.
  * Each tier requires 25 qualifying scores + 5 top-25% placements (cumulative).
  */
-export function calculatePremierProgress(runs: any[], premierClass: "Premier Std" | "Premier JWW"): PremierProgress {
+export function calculatePremierProgress(
+  runs: Run[],
+  premierClass: "Premier Std" | "Premier JWW",
+  baseline?: BaselineCounts
+): PremierProgress {
   const classRuns = runs.filter(run => run.class === premierClass && run.qualified);
-  const totalQs = classRuns.length;
-  const topTwentyFivePercentQs = classRuns.filter(run => run.topTwentyFivePercent).length;
+  const totalQs = classRuns.length + baselineQsFor(baseline, premierClass);
+  const topTwentyFivePercentQs =
+    classRuns.filter(run => run.topTwentyFivePercent).length +
+    baselineTop25For(baseline, premierClass);
 
   const tierDefs = premierClass === "Premier Std" ? PREMIER_STD_TIERS : PREMIER_JWW_TIERS;
 

@@ -76,7 +76,7 @@ Authorized JavaScript origins:
   - https://your-production-domain.com (when ready)
 
 Authorized redirect URIs:
-  - https://myagilityqs-auth.auth.us-east-1.amazoncognito.com/oauth2/idpresponse
+  - https://auth.myagilityqs.com/oauth2/idpresponse
 ```
 
 5. **Save the Client ID and Client Secret** - you'll need these for Cognito
@@ -110,14 +110,13 @@ Attribute mapping:
 
 ### Step 3: Configure Cognito Domain
 
-1. Go to **App integration** tab
-2. Scroll to **Domain** section
-3. If not already configured:
-   - Choose **Cognito domain**
-   - Enter: `myagilityqs-auth` (or your preferred prefix)
-   - Click **Create**
+The pool is currently configured with the **custom domain** `auth.myagilityqs.com`
+(via the Cognito "Custom domain" option, with an ACM cert). The legacy Cognito-
+hosted prefix `auth.myagilityqs.com` may still be
+in some redirect URI allowlists; the active domain is the custom one.
 
-**Your domain will be**: `https://myagilityqs-auth.auth.us-east-1.amazoncognito.com`
+If you're standing this up from scratch and don't have a custom domain ready,
+choose the Cognito domain option and pick a prefix.
 
 ### Step 4: Update App Client Settings
 
@@ -157,7 +156,7 @@ Now that you have the Cognito domain, update Google Cloud Console:
 2. Edit your OAuth client
 3. Under **Authorized redirect URIs**, ensure you have:
    ```
-   https://myagilityqs-auth.auth.us-east-1.amazoncognito.com/oauth2/idpresponse
+   https://auth.myagilityqs.com/oauth2/idpresponse
    ```
 
 ## Part 4: Testing the Integration
@@ -181,30 +180,28 @@ Now that you have the Cognito domain, update Google Cloud Console:
 
 ```bash
 # Test getting Google login URL
-curl https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com/auth/google/login
+curl https://vep645bkmqblgemzy72psyrsju0mjgma.lambda-url.us-east-1.on.aws/auth/google/login
 
 # Should return:
 {
-  "loginUrl": "https://myagilityqs-auth.auth.us-east-1.amazoncognito.com/login?client_id=..."
+  "loginUrl": "https://auth.myagilityqs.com/login?client_id=..."
 }
 ```
 
 ## Part 5: Production Configuration
 
-### Update Environment Variables
+These values are baked into `template.yaml` and `client/.env`. The Lambda
+function gets the env vars from CloudFormation; the client's `VITE_API_URL`
+points at the Lambda Function URL.
 
-**Lambda Environment**:
-```bash
-FRONTEND_URL=https://your-production-domain.com
-COGNITO_USER_POOL_ID=us-east-1_808uxrU8E
-COGNITO_CLIENT_ID=7qaajum3pc6ehvkbhidjvmrjmq
-```
+**Lambda Environment** (set by `template.yaml`):
+- `FRONTEND_URL=https://myagilityqs.com`
+- `COGNITO_USER_POOL_ID=us-east-1_808uxrU8E`
+- `COGNITO_CLIENT_ID=7qaajum3pc6ehvkbhidjvmrjmq`
+- `COGNITO_DOMAIN=https://auth.myagilityqs.com`
 
-**Client Environment**:
-```bash
-# client/.env.production
-VITE_API_URL=https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com
-```
+**Client Environment** (`client/.env`):
+- `VITE_API_URL=https://vep645bkmqblgemzy72psyrsju0mjgma.lambda-url.us-east-1.on.aws`
 
 ### Update OAuth URLs
 
@@ -244,7 +241,7 @@ console.log('Google user info:', userInfo)
 **Check CloudWatch Logs**:
 ```bash
 aws logs filter-log-events \
-  --log-group-name /aws/lambda/MyAgilityQs-HandleHttpRequest \
+  --log-group-name /aws/lambda/my-agility-qs-ApiFunction \
   --filter-pattern "OAuth"
 ```
 
@@ -277,12 +274,12 @@ aws logs filter-log-events \
 ```bash
 # Monitor Google OAuth usage
 aws logs filter-log-events \
-  --log-group-name /aws/lambda/MyAgilityQs-HandleHttpRequest \
+  --log-group-name /aws/lambda/my-agility-qs-ApiFunction \
   --filter-pattern "google"
 
 # Check for OAuth errors
 aws logs filter-log-events \
-  --log-group-name /aws/lambda/MyAgilityQs-HandleHttpRequest \
+  --log-group-name /aws/lambda/my-agility-qs-ApiFunction \
   --filter-pattern "ERROR.*oauth"
 ```
 

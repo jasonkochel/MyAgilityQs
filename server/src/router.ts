@@ -13,7 +13,7 @@ interface ExtendedRoute extends Route<APIGatewayProxyEventV2, APIGatewayProxyRes
 }
 
 // OPTIONS handler for CORS preflight requests
-const optionsHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+const optionsHandler = async (_event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   return {
     statusCode: 200,
     headers: {
@@ -56,6 +56,36 @@ export const routes: ExtendedRoute[] = [
     path: "/auth/signup",
     handler: authHandler.signup,
     allowAnonymous: true,
+  },
+  {
+    method: "POST",
+    path: "/auth/confirm-signup",
+    handler: authHandler.confirmSignup,
+    allowAnonymous: true,
+  },
+  {
+    method: "POST",
+    path: "/auth/resend-code",
+    handler: authHandler.resendCode,
+    allowAnonymous: true,
+  },
+  {
+    method: "POST",
+    path: "/auth/forgot-password",
+    handler: authHandler.forgotPassword,
+    allowAnonymous: true,
+  },
+  {
+    method: "POST",
+    path: "/auth/confirm-forgot-password",
+    handler: authHandler.confirmForgotPassword,
+    allowAnonymous: true,
+  },
+  {
+    method: "POST",
+    path: "/auth/change-password",
+    handler: authHandler.changePassword,
+    // authenticated — no allowAnonymous flag
   },
   {
     method: "GET",

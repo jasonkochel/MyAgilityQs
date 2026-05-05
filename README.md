@@ -24,22 +24,26 @@ MyAgilityQs helps agility competitors track their dogs' qualifying runs (Qs), mo
 ### Development Setup
 
 ```bash
-# Clone and install dependencies
 git clone <repository-url>
 cd MyAgilityQs
 npm install
+npm run build           # builds shared, client, server in order
 
-# Start the full application
-npm run dev
+# Frontend only, talking to the live prod backend (default):
+npm run dev:client      # http://localhost:5174
+
+# Or full local stack (Vite + SAM Lambda + real Cognito + prod DynamoDB):
+npm run dev             # http://localhost:5174 + http://localhost:3001
 ```
 
-This starts:
-- **Frontend**: http://localhost:5174 (React app)
-- **Backend**: http://localhost:3001 (AWS Lambda local)
+For the local Lambda mode, see [docs/development.md](docs/development.md) for
+how to point the client at the local backend, isolate the test database, and
+use the `tools/progtest.mjs` integration-testing CLI.
 
 ### Production URLs
-- **API**: https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com/
-- **Health Check**: https://lsuz1b0sgj.execute-api.us-east-1.amazonaws.com/health
+- **App**: https://myagilityqs.com
+- **API**: https://vep645bkmqblgemzy72psyrsju0mjgma.lambda-url.us-east-1.on.aws/
+- **Health Check**: https://vep645bkmqblgemzy72psyrsju0mjgma.lambda-url.us-east-1.on.aws/health
 
 ## 🏃‍♀️ Using the App
 
@@ -70,10 +74,11 @@ This starts:
 
 ## 📖 Documentation
 
-- [Development Guide](docs/development.md) - Architecture, setup, and development workflow
-- [Deployment Guide](docs/deployment.md) - AWS deployment and production setup  
-- [OAuth Setup](docs/oauth-setup.md) - Google OAuth configuration
-- [CLAUDE.md](CLAUDE.md) - LLM context and development reference
+- [Development Guide](docs/development.md) — architecture, local setup, SAM local backend, test database options, integration testing
+- [Deployment Guide](docs/deployment.md) — AWS resources, deployment via GitHub Actions, manual deploy, monitoring
+- [OAuth Setup](docs/oauth-setup.md) — one-time Google OAuth + Cognito configuration
+- [S3 Photo Upload](docs/AWS_S3_SETUP.md) — historical reference; CORS is automated by `template.yaml`
+- [CLAUDE.md](CLAUDE.md) — LLM context for AI-assisted development
 
 ## 🤝 Contributing
 

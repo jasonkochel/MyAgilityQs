@@ -7,6 +7,17 @@ export default tseslint.config(
     files: ['**/*.ts'],
     languageOptions: {
       ecmaVersion: 2022,
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', {
+        ignoreRestSiblings: true,
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      }],
     },
   },
 )

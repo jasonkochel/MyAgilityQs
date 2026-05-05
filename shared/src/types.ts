@@ -16,6 +16,32 @@ export const isPremierClass = (className: string): boolean =>
   className === "Premier Std" || className === "Premier JWW" ||
   className === "Premier Standard" || className === "Premier Jumpers";
 
+/**
+ * Normalize a stored class name to the canonical short form used by
+ * CompetitionClass. Some legacy dogs have classes stored as long display
+ * names ("Time 2 Beat", "Premier Standard"); this maps those back.
+ * Returns null for unrecognized input.
+ */
+export const normalizeClassName = (name: string): CompetitionClass | null => {
+  switch (name) {
+    case "Standard":
+    case "Jumpers":
+    case "FAST":
+    case "T2B":
+    case "Premier Std":
+    case "Premier JWW":
+      return name;
+    case "Time 2 Beat":
+      return "T2B";
+    case "Premier Standard":
+      return "Premier Std";
+    case "Premier Jumpers":
+      return "Premier JWW";
+    default:
+      return null;
+  }
+};
+
 // User types
 export interface User {
   id: string; // Cognito UUID
@@ -36,6 +62,39 @@ export interface DogClass {
   level: CompetitionLevel;
 }
 
+/**
+ * Per-class baseline counts. Lets users seed prior Q totals without
+ * back-entering every historical run. The progression engine uses these
+ * as the dog's starting state in that class; calc functions add these
+ * to counts derived from actual runs.
+ */
+export interface BaselineClassCounts {
+  /**
+   * Current level in this class. Required for Standard/Jumpers/FAST
+   * when qs is set. Ignored for Premier (always Masters) and T2B
+   * (no level progression).
+   */
+  level?: CompetitionLevel;
+  /**
+   * Qs already earned at `level` (or cumulative for T2B, total for Premier).
+   * - For Std/Jmp/FAST at Novice/Open/Excellent: counts toward level advancement.
+   * - For Std/Jmp/FAST at Masters: counts toward MX/MXB/MXS/MXG title tiers.
+   * - For T2B: cumulative qualifying runs across all levels.
+   * - For Premier: total qualifying runs.
+   */
+  qs?: number;
+  /** Premier only: top-25% placements at this class. */
+  top25?: number;
+}
+
+export interface BaselineCounts {
+  perClass?: Partial<Record<CompetitionClass, BaselineClassCounts>>;
+  /** Total MACH points (Masters Std + Masters Jmp combined). */
+  machPoints?: number;
+  /** Total Double Qs (same-day Masters Std + Masters Jmp Q pairs). */
+  doubleQs?: number;
+}
+
 export interface Dog {
   id: string;
   userId: string;
@@ -43,6 +102,7 @@ export interface Dog {
   registeredName?: string; // AKC registered name
   active: boolean;
   classes: DogClass[];
+  baseline?: BaselineCounts;
   photoUrl?: string; // URL to the cropped/display version of the photo
   originalPhotoUrl?: string; // URL to the original uploaded photo (for re-cropping)
   photoCrop?: {
@@ -59,6 +119,7 @@ export interface CreateDogRequest {
   name: string;
   registeredName?: string;
   classes: DogClass[];
+  baseline?: BaselineCounts;
 }
 
 export interface UpdateDogRequest {
@@ -66,6 +127,8 @@ export interface UpdateDogRequest {
   registeredName?: string;
   classes?: DogClass[];
   active?: boolean;
+  /** Pass null to clear the baseline. */
+  baseline?: BaselineCounts | null;
   photoUrl?: string; // URL to the cropped/display version of the photo
   originalPhotoUrl?: string; // URL to the original uploaded photo (for re-cropping)
   photoCrop?: {

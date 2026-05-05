@@ -39,56 +39,141 @@ MyAgilityQs/
 ### Prerequisites
 
 ```bash
-# Required tools
-node --version    # Should be 22+
-docker --version  # Required for SAM local
-sam --version     # AWS SAM CLI
+node --version    # 22+
+docker --version  # Docker Desktop running, required for SAM local
+sam --version     # AWS SAM CLI (1.140+)
+aws sts get-caller-identity   # AWS credentials configured
 ```
 
 ### First-Time Setup
 
 ```bash
-# 1. Clone and install dependencies
 git clone <repo-url>
 cd MyAgilityQs
-npm install       # Creates workspace symlinks
-
-# 2. Build shared dependencies
-npm run build     # Builds shared package first
-
-# 3. Start development servers
-npm run dev       # Starts both client and server
+npm install       # workspace symlinks
+npm run build     # builds shared, client, server in dependency order
 ```
 
-**What happens during `npm run dev`:**
-1. Builds shared package
-2. Starts SAM local server (Lambda simulation)
-3. Starts Vite dev server with HMR
-4. Connects to live AWS DynamoDB
+### Two Modes for the Frontend
 
-### Development Workflow
+The Vite dev server can point at either the live production backend or your local
+SAM Lambda. Pick based on what you're working on:
 
-**Daily Development:**
+| Mode | When to use | API URL |
+|---|---|---|
+| **Live backend (default)** | UI-only changes | prod Lambda URL from `client/.env` |
+| **Local SAM** | Server changes, integration testing | `http://localhost:3001` |
+
+To switch the client to the local backend, create `client/.env.local` (gitignored):
+
+```
+VITE_API_URL=http://localhost:3001
+```
+
+Restart Vite to pick it up. Delete the file to switch back to prod.
+
+### Daily Workflow
+
+**UI-only iteration (live backend):**
 ```bash
-# Start everything
-npm run dev
-
-# Client changes: Hot reload automatically
-# Server changes: 
-npm run build     # Rebuild, SAM picks up changes
+npm run dev:client    # Vite dev server with HMR on http://localhost:5174
 ```
 
-**Testing:**
+**Server iteration (local SAM Lambda):**
 ```bash
-# Client tests
-cd client && npm test
+# Terminal 1
+npm run sam:local     # builds shared+server, starts SAM local on port 3001
 
-# Server validation
-cd server && npm run type-check
-
-# Full build test
-npm run build
+# Terminal 2
+npm run dev:client    # with client/.env.local pointing at localhost:3001
 ```
+
+**After server code changes:** rerun `npm run build:server` (or `npm run sam:local`
+which builds first). SAM picks up the new bundle in `server/dist/`. With
+`--warm-containers LAZY` (already enabled), only the first request after a build
+pays the container init cost.
+
+### Validation
+
+```bash
+npm run type-check    # tsc --noEmit across all three packages
+npm run lint          # ESLint across client + server
+npm run test          # Vitest unit tests (client only)
+```
+
+## Local Backend Testing
+
+### Why a separate `template.local.yaml`?
+
+The production `template.yaml` exposes the Lambda via a **Lambda Function URL**
+(no API Gateway). `sam local start-api` requires an API Gateway event source, so
+it can't serve routes from the prod template directly. `template.local.yaml`
+wraps the same handler with a catch-all `HttpApi` proxy:
+
+- `Type: HttpApi` → delivers **API Gateway v2** event shape
+  (`event.requestContext.http.method`, `event.rawPath`), matching what Lambda
+  Function URLs send in prod. Server code's V2 field accesses work unchanged.
+- Runtime is pinned to `nodejs22.x` because SAM CLI 1.140 doesn't yet ship the
+  `nodejs24.x` Lambda emulation image. Prod uses 24.x; functional behavior is
+  identical for our code.
+- Env vars are baked in (Cognito IDs, Sentry DSN — same values as
+  `template.yaml`, none of which are secrets).
+
+The `npm run sam:local` script chains the build steps and starts the API:
+
+```bash
+sam local start-api -t template.local.yaml --port 3001 --host 0.0.0.0 --warm-containers LAZY
+```
+
+### Integration testing with `progtest`
+
+`tools/progtest.mjs` is an interactive CLI for end-to-end smoke testing of
+progression logic. It creates a throwaway dog, lets you drive baselines and
+runs through a menu, and cleans up afterward:
+
+```bash
+node tools/progtest.mjs                   # menu-driven REPL, defaults to live prod
+node tools/progtest.mjs --server http://localhost:3001   # against local SAM
+```
+
+State (auth token + test dog id) persists in `.progtest-state.json` at the repo
+root (gitignored), so you can quit and resume.
+
+Typical use: pick `Create test dog` → `Set per-class baseline` → `Add run` (it
+prints status and any level-progression after each run) → `Cleanup` when done.
+
+### Test Database Options
+
+By default, the local Lambda hits the **real production** `MyAgilityQs` DynamoDB
+table (env var `DYNAMODB_TABLE_NAME` in `template.local.yaml`). For one-off
+integration tests via `progtest`, this is fine — the tool deletes its test dog
+on exit. For heavier iteration on server code, consider one of these isolation
+options:
+
+| Option | Isolation | Setup cost | Notes |
+|---|---|---|---|
+| **1. Prod DDB + cleanup discipline** (current) | none | zero | Fine for short integration tests with `progtest`'s built-in cleanup. Risk: abandoned data, accidentally corrupting your own dogs/runs. |
+| **2. Real DDB, separate `MyAgilityQs-Dev` table** | per-table | ~5 min | The prod template already creates `${Suffix}` → `-Dev` for non-production environments. Run `sam deploy --parameter-overrides Environment=development --stack-name my-agility-qs-dev` once, then point `template.local.yaml`'s `DYNAMODB_TABLE_NAME` at the new table. Real DDB semantics, ~$0/mo at this scale. |
+| **3. DynamoDB Local in Docker** ⭐ recommended for active server dev | full | ~30 min one-time | Run `amazon/dynamodb-local` on port 8000, init script creates the table + GSI1, `server/src/database/client.ts` honors a `DYNAMODB_ENDPOINT_URL` env var, `template.local.yaml` sets it to `http://host.docker.internal:8000`. Fully offline, instant reset (`docker rm`), free. Cognito still hits prod. |
+| **4. LocalStack** | full | hours | Mocks DynamoDB + Cognito + S3. Cognito mock has fidelity gaps (token signing, OAuth flows). Overkill unless you also want offline auth. |
+
+**Recommendation:** stay on Option 1 for casual testing; switch to Option 3
+(DynamoDB Local) when iterating heavily on server code, as a small Docker
+container plus 4 file changes gives you full data isolation with instant reset
+and no AWS charges. Option 2 is the right choice if you want real DDB
+behavior across multiple machines or want to share dev state with others.
+
+### Common Local-Backend Pitfalls
+
+- **First request after `sam:local` startup is slow** — initial container init
+  takes ~30s. Subsequent requests reuse the warm container (`LAZY` mode).
+- **Server code changes need a rebuild** — `sam local` mounts `server/dist/`
+  read-only into the container. After editing `server/src/`, rerun
+  `npm run build:server` (or restart `npm run sam:local`).
+- **Token expiry mid-session** — Cognito idTokens last ~1 hour. The `progtest`
+  menu has a `Re-login` option for when calls start returning 401.
+- **Port 3001 in use** — usually a previous SAM that didn't shut down cleanly.
+  On Windows: `Get-NetTCPConnection -LocalPort 3001 | Stop-Process -Id $_.OwningProcess -Force`.
 
 ## Database Architecture
 
@@ -295,76 +380,10 @@ async function checkLevelProgression(userId: string, dogId: string,
 **Quick Entry**: Default values and smart form behavior
 **Responsive**: Mobile-first design with progressive enhancement
 
-## Deployment Architecture
+## Deployment
 
-### AWS Resources
-
-- **Lambda Function**: Single function with all routes
-- **API Gateway**: HTTP API (not REST) for cost optimization
-- **DynamoDB**: On-demand billing, single table
-- **Cognito**: User Pool with Google federated identity
-
-### Environment Management
-
-```bash
-# Environment Variables (Lambda)
-FRONTEND_URL=https://your-domain.com
-TABLE_NAME=MyAgilityQs
-COGNITO_USER_POOL_ID=us-east-1_808uxrU8E
-NODE_ENV=production
-```
-
-### CI/CD Pipeline
-
-**GitHub Actions**: Build, test, and deploy
-- Client: Build static assets
-- Server: SAM deploy to AWS
-- Shared: Build before client/server
-
-## Troubleshooting
-
-### Common Issues
-
-**Port 3001 in use:**
-```bash
-# Kill existing SAM processes
-pkill -f sam
-# Or use different port
-sam local start-api --port 3002
-```
-
-**Workspace dependency issues:**
-```bash
-# Always install from root
-rm -rf node_modules */node_modules
-npm install
-```
-
-**DynamoDB permissions:**
-```bash
-# Check AWS credentials
-aws sts get-caller-identity
-# Verify IAM permissions for DynamoDB
-```
-
-**Docker not running:**
-```bash
-# Start Docker Desktop
-docker ps  # Should not error
-```
-
-### Debug Mode
-
-**SAM Debug:**
-```bash
-sam local start-api --debug
-```
-
-**Client Debug:**
-```bash
-cd client
-npm run dev -- --debug
-```
+See [deployment.md](deployment.md) for AWS resources, the GitHub Actions CI/CD
+pipeline, environment variables, monitoring, and rollback procedures.
 
 ## Performance Considerations
 

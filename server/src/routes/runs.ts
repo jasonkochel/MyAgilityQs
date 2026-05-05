@@ -1,15 +1,14 @@
-import { ApiResponse, CreateRunRequest, RunsQuery, UpdateRunRequest } from "@my-agility-qs/shared";
+import { ApiResponse, CompetitionClass, CompetitionLevel, CreateRunRequest, Run, RunsQuery, UpdateRunRequest } from "@my-agility-qs/shared";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import createError from "http-errors";
+import { asCaught } from "../utils/errors.js";
 import {
   createRun,
   deleteRun,
   getDogById,
   getRunById,
-  getRunsByDogId,
   getRunsByUserId,
   updateRun,
-  recalculateDogLevels,
 } from "../database/index.js";
 // No additional imports needed for cache invalidation
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
@@ -26,12 +25,12 @@ export const runHandler = {
       if (event.queryStringParameters) {
         const params = event.queryStringParameters;
         if (params.dogId) query.dogId = params.dogId;
-        if (params.class) query.class = params.class as any;
-        if (params.level) query.level = params.level as any;
+        if (params.class) query.class = params.class as CompetitionClass;
+        if (params.level) query.level = params.level as CompetitionLevel;
         if (params.qualified) query.qualified = params.qualified === "true";
         if (params.limit) query.limit = parseInt(params.limit);
-        if (params.sort) query.sort = params.sort as any;
-        if (params.order) query.order = params.order as any;
+        if (params.sort) query.sort = params.sort as RunsQuery["sort"];
+        if (params.order) query.order = params.order as RunsQuery["order"];
       }
 
       const runs = await getRunsByUserId(userId, query);
@@ -46,7 +45,7 @@ export const runHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error getting runs:", error);
 
       const response: ApiResponse = {
@@ -102,18 +101,19 @@ export const runHandler = {
         statusCode: 201,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       console.error("Error creating run:", error);
 
-      if (error.statusCode) {
+      if (err.statusCode) {
         const response: ApiResponse = {
           success: false,
           error: "validation_error",
-          message: error.message,
+          message: err.message,
         };
 
         return {
-          statusCode: error.statusCode,
+          statusCode: err.statusCode,
           body: JSON.stringify(response),
         };
       }
@@ -175,18 +175,19 @@ export const runHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       console.error("Error updating run:", error);
 
-      if (error.statusCode) {
+      if (err.statusCode) {
         const response: ApiResponse = {
           success: false,
-          error: error.statusCode === 404 ? "not_found" : "validation_error",
-          message: error.message,
+          error: err.statusCode === 404 ? "not_found" : "validation_error",
+          message: err.message,
         };
 
         return {
-          statusCode: error.statusCode,
+          statusCode: err.statusCode,
           body: JSON.stringify(response),
         };
       }
@@ -241,18 +242,19 @@ export const runHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       console.error("Error deleting run:", error);
 
-      if (error.statusCode) {
+      if (err.statusCode) {
         const response: ApiResponse = {
           success: false,
-          error: error.statusCode === 404 ? "not_found" : "validation_error",
-          message: error.message,
+          error: err.statusCode === 404 ? "not_found" : "validation_error",
+          message: err.message,
         };
 
         return {
-          statusCode: error.statusCode,
+          statusCode: err.statusCode,
           body: JSON.stringify(response),
         };
       }
@@ -308,7 +310,7 @@ export const runHandler = {
         };
       }
 
-      const successful: any[] = [];
+      const successful: Run[] = [];
       const failed: Array<{ request: CreateRunRequest; error: string }> = [];
 
       // Process each run request
@@ -329,10 +331,10 @@ export const runHandler = {
           }); // Auto-progression works correctly with chronologically sorted data
 
           successful.push(result.run);
-        } catch (error: any) {
+        } catch (error: unknown) {
           failed.push({
             request: runRequest,
-            error: error.message || "Failed to create run",
+            error: asCaught(error).message || "Failed to create run",
           });
         }
       }
@@ -357,7 +359,7 @@ export const runHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error in batch import runs:", error);
 
       const response: ApiResponse = {

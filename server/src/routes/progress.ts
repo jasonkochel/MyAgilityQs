@@ -1,7 +1,8 @@
-import { ApiResponse } from "@my-agility-qs/shared";
+import { ApiResponse, CompetitionClass } from "@my-agility-qs/shared";
 import { computeAllDogLevels, getProgressionRules } from "../utils/progressionRules.js";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import createError from "http-errors";
+import { asCaught } from "../utils/errors.js";
 import {
   calculateDogProgress,
   calculateUserProgressSummary,
@@ -47,18 +48,19 @@ export const progressHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       console.error("Error getting dog progress:", error);
 
-      if (error.statusCode) {
+      if (err.statusCode) {
         const response: ApiResponse = {
           success: false,
-          error: error.statusCode === 404 ? "not_found" : "validation_error",
-          message: error.message,
+          error: err.statusCode === 404 ? "not_found" : "validation_error",
+          message: err.message,
         };
 
         return {
-          statusCode: error.statusCode,
+          statusCode: err.statusCode,
           body: JSON.stringify(response),
         };
       }
@@ -93,7 +95,7 @@ export const progressHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error getting all progress:", error);
 
       const response: ApiResponse = {
@@ -126,7 +128,7 @@ export const progressHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error getting progress summary:", error);
 
       const response: ApiResponse = {
@@ -162,7 +164,7 @@ export const progressHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error getting locations:", error);
 
       const response: ApiResponse = {
@@ -187,12 +189,13 @@ export const progressHandler = {
       const dogs = await getDogsByUserId(userId);
       const runs = await getRunsByUserId(userId);
 
-      // Generate diagnostics for each active dog
+      // Generate diagnostics for each active dog (baseline-aware).
       const diagnostics = dogs
         .filter((dog) => dog.active)
         .map((dog) => {
           const dogRuns = runs.filter((run) => run.dogId === dog.id);
-          const allLevels = computeAllDogLevels(dogRuns);
+          const baselines = dog.baseline?.perClass;
+          const allLevels = computeAllDogLevels(dogRuns, baselines);
 
           return {
             dog,
@@ -202,7 +205,9 @@ export const progressHandler = {
               const classRuns = dogRuns
                 .filter((run) => run.class === className)
                 .sort((a, b) => a.date.localeCompare(b.date));
-              const rules = getProgressionRules(className as any);
+              const rules = getProgressionRules(className as CompetitionClass);
+              const classBaseline = baselines?.[className as CompetitionClass];
+              const isPremier = className === "Premier Std" || className === "Premier JWW";
 
               return {
                 className,
@@ -211,17 +216,27 @@ export const progressHandler = {
                 rules,
                 ruleEvaluations:
                   rules?.rules.map((rule) => {
-                    const qsAtLevel = classRuns.filter(
+                    const qsFromRuns = classRuns.filter(
                       (run) => run.level === rule.fromLevel && run.qualified
-                    ).length;
+                    );
+                    let qsFromBaseline = 0;
+                    if (classBaseline?.qs) {
+                      if (classBaseline.level === rule.fromLevel) {
+                        // Level-gated baseline (Std/Jmp/FAST) at the matching rule.
+                        qsFromBaseline = classBaseline.qs;
+                      } else if (isPremier && rule.fromLevel === "Masters") {
+                        // Premier baselines have no level field; apply to the
+                        // single Masters rule (Premier always runs at Masters).
+                        qsFromBaseline = classBaseline.qs;
+                      }
+                    }
+                    const qsAtLevel = qsFromRuns.length + qsFromBaseline;
 
                     return {
                       rule,
                       qsAtLevel,
                       satisfied: qsAtLevel >= rule.qualifyingRunsRequired,
-                      qualifyingRuns: classRuns.filter(
-                        (run) => run.level === rule.fromLevel && run.qualified
-                      ),
+                      qualifyingRuns: qsFromRuns,
                     };
                   }) || [],
               };
@@ -239,7 +254,7 @@ export const progressHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error getting progression diagnostics:", error);
 
       const response: ApiResponse = {

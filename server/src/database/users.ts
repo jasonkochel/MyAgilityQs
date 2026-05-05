@@ -1,4 +1,5 @@
 import { GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { asCaught } from "../utils/errors.js";
 import { User } from "@my-agility-qs/shared";
 import { createTimestamp, dynamoClient, KeyPatterns, TABLE_NAME } from "./client.js";
 
@@ -17,7 +18,7 @@ export async function createOrUpdateUserProfile(
   const user: User = {
     id: userId,
     email: userEmail,
-    trackQsOnly: profileData?.trackQsOnly ?? existingUser?.trackQsOnly ?? false,
+    trackQsOnly: profileData?.trackQsOnly ?? existingUser?.trackQsOnly ?? true,
     createdAt: existingUser?.createdAt ?? now,
     updatedAt: now,
   };
@@ -66,7 +67,7 @@ export async function updateUserPreferences(
   // Build update expression
   const updateExpressions: string[] = [];
   const expressionAttributeNames: Record<string, string> = {};
-  const expressionAttributeValues: Record<string, any> = {};
+  const expressionAttributeValues: Record<string, unknown> = {};
 
   if (preferences.trackQsOnly !== undefined) {
     updateExpressions.push("#trackQsOnly = :trackQsOnly");
@@ -103,8 +104,9 @@ export async function updateUserPreferences(
     // Remove DynamoDB-specific fields
     const { PK, SK, EntityType, ...user } = result.Attributes;
     return user as User;
-  } catch (error: any) {
-    if (error.name === "ConditionalCheckFailedException") {
+  } catch (error: unknown) {
+    const err = asCaught(error);
+    if (err.name === "ConditionalCheckFailedException") {
       // User doesn't exist
       return null;
     }

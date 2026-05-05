@@ -1,6 +1,7 @@
 import { ApiResponse, UpdateUserRequest } from "@my-agility-qs/shared";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import createError from "http-errors";
+import { asCaught } from "../utils/errors.js";
 import {
   createOrUpdateUserProfile,
   getUserProfile,
@@ -79,18 +80,19 @@ export const userHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       console.error("Error updating user profile:", error);
 
-      if (error.statusCode) {
+      if (err.statusCode) {
         const response: ApiResponse = {
           success: false,
-          error: error.statusCode === 404 ? "not_found" : "validation_error",
-          message: error.message,
+          error: err.statusCode === 404 ? "not_found" : "validation_error",
+          message: err.message,
         };
 
         return {
-          statusCode: error.statusCode,
+          statusCode: err.statusCode,
           body: JSON.stringify(response),
         };
       }

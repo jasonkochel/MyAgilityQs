@@ -1,15 +1,19 @@
 import {
-  AdminCreateUserCommand,
   AdminInitiateAuthCommand,
   AdminSetUserPasswordCommand,
   AuthFlowType,
   CognitoIdentityProviderClient,
-  MessageActionType,
+  ConfirmForgotPasswordCommand,
+  ConfirmSignUpCommand,
+  ForgotPasswordCommand,
+  ResendConfirmationCodeCommand,
+  SignUpCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { ApiResponse } from "@my-agility-qs/shared";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import { createOrUpdateUserProfile } from "../database/users.js";
 import { AuthenticatedEvent } from "../middleware/jwtAuth";
+import { asCaught } from "../utils/errors.js";
 
 // Validate required environment variables
 if (!process.env.COGNITO_REGION) {
@@ -26,6 +30,19 @@ const cognitoClient = new CognitoIdentityProviderClient({
 
 // Note: calculateSecretHash function removed - not needed for React app (public client)
 
+const jsonError = (
+  statusCode: number,
+  error: string,
+  message: string
+): APIGatewayProxyResultV2 => {
+  const response: ApiResponse = { success: false, error, message };
+  return {
+    statusCode,
+    body: JSON.stringify(response),
+    headers: { "Content-Type": "application/json" },
+  };
+};
+
 interface LoginRequest {
   email: string;
   password: string;
@@ -34,6 +51,30 @@ interface LoginRequest {
 interface SignupRequest {
   email: string;
   password: string;
+}
+
+interface ConfirmSignupRequest {
+  email: string;
+  code: string;
+}
+
+interface ResendCodeRequest {
+  email: string;
+}
+
+interface ForgotPasswordRequest {
+  email: string;
+}
+
+interface ConfirmForgotPasswordRequest {
+  email: string;
+  code: string;
+  newPassword: string;
+}
+
+interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
 }
 
 interface RefreshRequest {
@@ -136,20 +177,21 @@ export const authHandler = {
         body: JSON.stringify(response),
         headers: { "Content-Type": "application/json" },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       console.error("Login error:", error);
 
       let message = "Login failed";
       let statusCode = 500;
 
       // Handle specific Cognito errors
-      if (error.name === "NotAuthorizedException") {
+      if (err.name === "NotAuthorizedException") {
         message = "Invalid email or password";
         statusCode = 401;
-      } else if (error.name === "UserNotFoundException") {
+      } else if (err.name === "UserNotFoundException") {
         message = "User not found";
         statusCode = 404;
-      } else if (error.name === "UserNotConfirmedException") {
+      } else if (err.name === "UserNotConfirmedException") {
         message = "Please verify your email address";
         statusCode = 403;
       }
@@ -206,47 +248,22 @@ export const authHandler = {
         };
       }
 
-      // Create user in Cognito
-      const createUserCommand = new AdminCreateUserCommand({
-        UserPoolId: process.env.COGNITO_USER_POOL_ID!,
-        Username: email,
-        UserAttributes: [
-          {
-            Name: "email",
-            Value: email,
-          },
-          {
-            Name: "email_verified",
-            Value: "true",
-          },
-        ],
-        TemporaryPassword: password,
-        MessageAction: MessageActionType.SUPPRESS, // Don't send welcome email
-      });
-
-      await cognitoClient.send(createUserCommand);
-
-      // Set permanent password
-      const setPasswordCommand = new AdminSetUserPasswordCommand({
-        UserPoolId: process.env.COGNITO_USER_POOL_ID!,
+      // Self-service signup. Cognito creates the user as UNCONFIRMED and emails
+      // a verification code. The DB profile is created after confirmation.
+      const signUpCommand = new SignUpCommand({
+        ClientId: process.env.COGNITO_CLIENT_ID!,
         Username: email,
         Password: password,
-        Permanent: true,
+        UserAttributes: [{ Name: "email", Value: email }],
       });
-      await cognitoClient.send(setPasswordCommand);
-
-      // Create user record in database
-      // Use email as the user ID since that's what Cognito uses as username
-      await createOrUpdateUserProfile(email, email, {
-        trackQsOnly: false, // Default setting
-      });
+      await cognitoClient.send(signUpCommand);
 
       const response: ApiResponse = {
         success: true,
-        message: "Account created successfully",
+        message: "Verification code sent",
         data: {
           email,
-          message: "You can now log in with your credentials",
+          message: "Check your email for a verification code to complete signup.",
         },
       };
 
@@ -255,18 +272,21 @@ export const authHandler = {
         body: JSON.stringify(response),
         headers: { "Content-Type": "application/json" },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       console.error("Signup error:", error);
 
       let message = "Account creation failed";
       let statusCode = 500;
 
-      // Handle specific Cognito errors
-      if (error.name === "UsernameExistsException") {
+      if (err.name === "UsernameExistsException") {
         message = "An account with this email already exists";
         statusCode = 409;
-      } else if (error.name === "InvalidPasswordException") {
+      } else if (err.name === "InvalidPasswordException") {
         message = "Password does not meet requirements";
+        statusCode = 400;
+      } else if (err.name === "InvalidParameterException") {
+        message = err.message || "Invalid signup parameters";
         statusCode = 400;
       }
 
@@ -281,6 +301,245 @@ export const authHandler = {
         body: JSON.stringify(response),
         headers: { "Content-Type": "application/json" },
       };
+    }
+  },
+
+  confirmSignup: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    try {
+      if (!event.body) {
+        return jsonError(400, "bad_request", "Request body is required");
+      }
+
+      const parsedBody: ConfirmSignupRequest =
+        typeof event.body === "string" ? JSON.parse(event.body) : (event.body as ConfirmSignupRequest);
+      const { email, code } = parsedBody;
+
+      if (!email || !code) {
+        return jsonError(400, "bad_request", "Email and confirmation code are required");
+      }
+
+      await cognitoClient.send(
+        new ConfirmSignUpCommand({
+          ClientId: process.env.COGNITO_CLIENT_ID!,
+          Username: email,
+          ConfirmationCode: code,
+        })
+      );
+
+      // Create the database profile now that the account is confirmed.
+      await createOrUpdateUserProfile(email, email, { trackQsOnly: true });
+
+      const response: ApiResponse = {
+        success: true,
+        message: "Email verified",
+        data: { email },
+      };
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+        headers: { "Content-Type": "application/json" },
+      };
+    } catch (error: unknown) {
+      const err = asCaught(error);
+      console.error("Confirm signup error:", error);
+
+      let message = "Failed to verify email";
+      let statusCode = 500;
+
+      if (err.name === "CodeMismatchException") {
+        message = "Invalid verification code";
+        statusCode = 400;
+      } else if (err.name === "ExpiredCodeException") {
+        message = "Verification code has expired. Please request a new one.";
+        statusCode = 400;
+      } else if (err.name === "NotAuthorizedException") {
+        message = "Account is already confirmed";
+        statusCode = 400;
+      } else if (err.name === "UserNotFoundException") {
+        message = "No account found with this email";
+        statusCode = 404;
+      }
+
+      return jsonError(statusCode, "confirm_signup_failed", message);
+    }
+  },
+
+  resendCode: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    try {
+      if (!event.body) {
+        return jsonError(400, "bad_request", "Request body is required");
+      }
+
+      const parsedBody: ResendCodeRequest =
+        typeof event.body === "string" ? JSON.parse(event.body) : (event.body as ResendCodeRequest);
+      const { email } = parsedBody;
+
+      if (!email) {
+        return jsonError(400, "bad_request", "Email is required");
+      }
+
+      await cognitoClient.send(
+        new ResendConfirmationCodeCommand({
+          ClientId: process.env.COGNITO_CLIENT_ID!,
+          Username: email,
+        })
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        message: "Verification code resent",
+      };
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+        headers: { "Content-Type": "application/json" },
+      };
+    } catch (error: unknown) {
+      const err = asCaught(error);
+      console.error("Resend code error:", error);
+
+      let message = "Failed to resend code";
+      let statusCode = 500;
+
+      if (err.name === "UserNotFoundException") {
+        message = "No account found with this email";
+        statusCode = 404;
+      } else if (err.name === "InvalidParameterException") {
+        // Cognito returns this when the user is already confirmed.
+        message = "Account is already confirmed. Please log in.";
+        statusCode = 400;
+      } else if (err.name === "LimitExceededException") {
+        message = "Too many attempts. Please try again later.";
+        statusCode = 429;
+      }
+
+      return jsonError(statusCode, "resend_code_failed", message);
+    }
+  },
+
+  forgotPassword: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    try {
+      if (!event.body) {
+        return jsonError(400, "bad_request", "Request body is required");
+      }
+
+      const parsedBody: ForgotPasswordRequest =
+        typeof event.body === "string" ? JSON.parse(event.body) : (event.body as ForgotPasswordRequest);
+      const { email } = parsedBody;
+
+      if (!email) {
+        return jsonError(400, "bad_request", "Email is required");
+      }
+
+      await cognitoClient.send(
+        new ForgotPasswordCommand({
+          ClientId: process.env.COGNITO_CLIENT_ID!,
+          Username: email,
+        })
+      );
+
+      // Cognito's response is intentionally generic to avoid leaking account existence.
+      const response: ApiResponse = {
+        success: true,
+        message: "If that email is registered, a reset code has been sent.",
+      };
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+        headers: { "Content-Type": "application/json" },
+      };
+    } catch (error: unknown) {
+      const err = asCaught(error);
+      console.error("Forgot password error:", error);
+
+      // For UserNotFound and similar, return the same generic success-shaped
+      // message so we don't leak whether the email is registered.
+      if (err.name === "UserNotFoundException") {
+        const response: ApiResponse = {
+          success: true,
+          message: "If that email is registered, a reset code has been sent.",
+        };
+        return {
+          statusCode: 200,
+          body: JSON.stringify(response),
+          headers: { "Content-Type": "application/json" },
+        };
+      }
+
+      let message = "Failed to send reset code";
+      let statusCode = 500;
+      if (err.name === "LimitExceededException") {
+        message = "Too many attempts. Please try again later.";
+        statusCode = 429;
+      } else if (err.name === "InvalidParameterException") {
+        // Cognito returns this if the user has no verified email/phone — i.e.
+        // unconfirmed accounts. Surface it so the user knows to verify first.
+        message = "Account email is not verified. Please complete signup verification first.";
+        statusCode = 400;
+      }
+      return jsonError(statusCode, "forgot_password_failed", message);
+    }
+  },
+
+  confirmForgotPassword: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    try {
+      if (!event.body) {
+        return jsonError(400, "bad_request", "Request body is required");
+      }
+
+      const parsedBody: ConfirmForgotPasswordRequest =
+        typeof event.body === "string"
+          ? JSON.parse(event.body)
+          : (event.body as ConfirmForgotPasswordRequest);
+      const { email, code, newPassword } = parsedBody;
+
+      if (!email || !code || !newPassword) {
+        return jsonError(400, "bad_request", "Email, code, and new password are required");
+      }
+
+      await cognitoClient.send(
+        new ConfirmForgotPasswordCommand({
+          ClientId: process.env.COGNITO_CLIENT_ID!,
+          Username: email,
+          ConfirmationCode: code,
+          Password: newPassword,
+        })
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        message: "Password reset successfully",
+      };
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+        headers: { "Content-Type": "application/json" },
+      };
+    } catch (error: unknown) {
+      const err = asCaught(error);
+      console.error("Confirm forgot password error:", error);
+
+      let message = "Failed to reset password";
+      let statusCode = 500;
+
+      if (err.name === "CodeMismatchException") {
+        message = "Invalid reset code";
+        statusCode = 400;
+      } else if (err.name === "ExpiredCodeException") {
+        message = "Reset code has expired. Please request a new one.";
+        statusCode = 400;
+      } else if (err.name === "InvalidPasswordException") {
+        message = "Password does not meet requirements";
+        statusCode = 400;
+      } else if (err.name === "UserNotFoundException") {
+        message = "No account found with this email";
+        statusCode = 404;
+      } else if (err.name === "LimitExceededException") {
+        message = "Too many attempts. Please try again later.";
+        statusCode = 429;
+      }
+
+      return jsonError(statusCode, "confirm_forgot_password_failed", message);
     }
   },  googleLogin: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
     try {
@@ -431,7 +690,7 @@ export const authHandler = {
 
       // Create or update user in our database
       const email = idTokenPayload.email;
-      const cognitoUserId = idTokenPayload.sub;      // Validate that we have a valid email
+      // Validate that we have a valid email
       if (!email || typeof email !== "string" || email.trim() === "") {
         console.error("[GOOGLE_AUTH] Invalid or missing email in ID token");
         const response: ApiResponse = {
@@ -559,7 +818,7 @@ export const authHandler = {
       } else {
         throw new Error("No authentication result returned");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Token refresh error:", error);
 
       const response: ApiResponse = {
@@ -577,4 +836,80 @@ export const authHandler = {
   },
 
   // logout handler removed - client handles logout locally
+
+  changePassword: async (event: AuthenticatedEvent): Promise<APIGatewayProxyResultV2> => {
+    try {
+      if (!event.user) {
+        return jsonError(401, "unauthorized", "Authentication required");
+      }
+      if (!event.body) {
+        return jsonError(400, "bad_request", "Request body is required");
+      }
+
+      const parsedBody: ChangePasswordRequest =
+        typeof event.body === "string"
+          ? JSON.parse(event.body)
+          : (event.body as ChangePasswordRequest);
+      const { currentPassword, newPassword } = parsedBody;
+
+      if (!currentPassword || !newPassword) {
+        return jsonError(400, "bad_request", "Current and new passwords are required");
+      }
+      if (currentPassword === newPassword) {
+        return jsonError(400, "bad_request", "New password must differ from current password");
+      }
+
+      const email = event.user.email;
+
+      // Verify the current password by re-authenticating. If wrong, Cognito
+      // throws NotAuthorizedException and we surface a 401.
+      try {
+        await cognitoClient.send(
+          new AdminInitiateAuthCommand({
+            UserPoolId: process.env.COGNITO_USER_POOL_ID!,
+            ClientId: process.env.COGNITO_CLIENT_ID!,
+            AuthFlow: AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
+            AuthParameters: { USERNAME: email, PASSWORD: currentPassword },
+          })
+        );
+      } catch (authError: unknown) {
+        const err = asCaught(authError);
+        if (err.name === "NotAuthorizedException") {
+          return jsonError(401, "incorrect_password", "Current password is incorrect");
+        }
+        throw authError;
+      }
+
+      // Re-auth succeeded — set the new password (permanent).
+      await cognitoClient.send(
+        new AdminSetUserPasswordCommand({
+          UserPoolId: process.env.COGNITO_USER_POOL_ID!,
+          Username: email,
+          Password: newPassword,
+          Permanent: true,
+        })
+      );
+
+      const response: ApiResponse = {
+        success: true,
+        message: "Password changed successfully",
+      };
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+        headers: { "Content-Type": "application/json" },
+      };
+    } catch (error: unknown) {
+      const err = asCaught(error);
+      console.error("Change password error:", error);
+
+      if (err.name === "InvalidPasswordException") {
+        return jsonError(400, "invalid_password", "Password does not meet requirements");
+      }
+      if (err.name === "LimitExceededException") {
+        return jsonError(429, "rate_limited", "Too many attempts. Please try again later.");
+      }
+      return jsonError(500, "change_password_failed", "Failed to change password");
+    }
+  },
 };

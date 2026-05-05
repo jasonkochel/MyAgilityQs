@@ -1,16 +1,99 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { ApiResponse, CreateDogRequest, UpdateDogRequest } from "@my-agility-qs/shared";
+import {
+  ApiResponse,
+  BaselineCounts,
+  CompetitionClass,
+  CreateDogRequest,
+  DogClass,
+  isPremierClass,
+  normalizeClassName,
+  UpdateDogRequest,
+} from "@my-agility-qs/shared";
 import { APIGatewayProxyResultV2 } from "aws-lambda";
 import createError from "http-errors";
+import { asCaught } from "../utils/errors.js";
 import {
     createDog,
     getDogById,
     getDogsByUserId,
     hardDeleteDog,
+    recalculateDogLevels,
     updateDog,
 } from "../database/index.js";
 import { AuthenticatedEvent } from "../middleware/jwtAuth.js";
+
+/**
+ * Validates a baseline against the dog's class config. Throws a 400 createError
+ * with a user-friendly message if invalid.
+ *
+ *  - All numeric fields must be finite, non-negative integers.
+ *  - asOf must be YYYY-MM-DD.
+ *  - perClass keys must be classes the dog competes in.
+ *  - For Standard/Jumpers/FAST: when qs > 0, level is required and must be a valid CompetitionLevel.
+ *  - top25 is only allowed for Premier classes.
+ */
+function validateBaseline(baseline: BaselineCounts, dogClasses: DogClass[]): void {
+  if (typeof baseline !== "object" || baseline === null) {
+    throw createError(400, "Invalid baseline: must be an object");
+  }
+
+  const isNonNegInt = (n: unknown): n is number =>
+    typeof n === "number" && Number.isInteger(n) && n >= 0 && Number.isFinite(n);
+
+  const isValidLevel = (l: unknown): l is "Novice" | "Open" | "Excellent" | "Masters" =>
+    l === "Novice" || l === "Open" || l === "Excellent" || l === "Masters";
+
+  if (baseline.machPoints !== undefined && !isNonNegInt(baseline.machPoints)) {
+    throw createError(400, "Baseline machPoints must be a non-negative integer");
+  }
+  if (baseline.doubleQs !== undefined && !isNonNegInt(baseline.doubleQs)) {
+    throw createError(400, "Baseline doubleQs must be a non-negative integer");
+  }
+
+  if (baseline.perClass) {
+    for (const [className, classBaseline] of Object.entries(baseline.perClass)) {
+      if (!classBaseline) continue;
+      const cls = className as CompetitionClass;
+      const dogClass = dogClasses.find(
+        (c) => normalizeClassName(c.name) === normalizeClassName(cls)
+      );
+      if (!dogClass) {
+        throw createError(400, `Baseline references class "${cls}" not in dog's classes`);
+      }
+      const isLevelGated = cls === "Standard" || cls === "Jumpers" || cls === "FAST";
+
+      if (classBaseline.qs !== undefined) {
+        if (!isNonNegInt(classBaseline.qs)) {
+          throw createError(400, `Baseline qs for ${cls} must be a non-negative integer`);
+        }
+        // Std/Jmp/FAST need a level when qs > 0 so the engine knows where to seed them.
+        if (isLevelGated && classBaseline.qs > 0 && !classBaseline.level) {
+          throw createError(400, `Baseline level is required for ${cls}`);
+        }
+      }
+      if (classBaseline.level !== undefined) {
+        if (!isValidLevel(classBaseline.level)) {
+          throw createError(400, `Baseline level for ${cls} must be a valid level`);
+        }
+        if (!isLevelGated) {
+          throw createError(
+            400,
+            `Baseline level does not apply to ${cls} (no level progression in this class)`
+          );
+        }
+      }
+      if (classBaseline.top25 !== undefined) {
+        if (!isNonNegInt(classBaseline.top25)) {
+          throw createError(400, `Baseline top25 for ${cls} must be a non-negative integer`);
+        }
+        if (!isPremierClass(cls) && classBaseline.top25 > 0) {
+          throw createError(400, `Baseline top25 only applies to Premier classes`);
+        }
+      }
+    }
+  }
+}
 
 // Dog management handlers - full database implementation
 export const dogHandler = {
@@ -135,6 +218,10 @@ export const dogHandler = {
         throw createError(400, "Invalid request: name and classes are required");
       }
 
+      if (request.baseline) {
+        validateBaseline(request.baseline, request.classes);
+      }
+
       const dog = await createDog(userId, request);
 
       const response: ApiResponse = {
@@ -147,18 +234,19 @@ export const dogHandler = {
         statusCode: 201,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       console.error("Error creating dog:", error);
 
-      if (error.statusCode) {
+      if (err.statusCode) {
         const response: ApiResponse = {
           success: false,
           error: "validation_error",
-          message: error.message,
+          message: err.message,
         };
 
         return {
-          statusCode: error.statusCode,
+          statusCode: err.statusCode,
           body: JSON.stringify(response),
         };
       }
@@ -202,10 +290,23 @@ export const dogHandler = {
         throw createError(403, "Not authorized to update this dog");
       }
 
-      const updatedDog = await updateDog(dogId, userId, request);
+      if (request.baseline) {
+        // Validate against the resulting class config (request override or existing).
+        const effectiveClasses = request.classes ?? existingDog.classes;
+        validateBaseline(request.baseline, effectiveClasses);
+      }
+
+      let updatedDog = await updateDog(dogId, userId, request);
 
       if (!updatedDog) {
         throw createError(404, "Dog not found or no changes made");
+      }
+
+      // If baseline was added/changed/cleared, the cached classes[].level may
+      // be stale. Recompute through the rules engine so the cache is accurate.
+      if (request.baseline !== undefined) {
+        await recalculateDogLevels(userId, dogId);
+        updatedDog = (await getDogById(dogId)) ?? updatedDog;
       }
 
       const response: ApiResponse = {
@@ -218,18 +319,19 @@ export const dogHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       console.error("Error updating dog:", error);
 
-      if (error.statusCode) {
+      if (err.statusCode) {
         const response: ApiResponse = {
           success: false,
-          error: error.statusCode === 404 ? "not_found" : "validation_error",
-          message: error.message,
+          error: err.statusCode === 404 ? "not_found" : "validation_error",
+          message: err.message,
         };
 
         return {
-          statusCode: error.statusCode,
+          statusCode: err.statusCode,
           body: JSON.stringify(response),
         };
       }
@@ -281,18 +383,19 @@ export const dogHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       console.error("Error hard deleting dog:", error);
 
-      if (error.statusCode) {
+      if (err.statusCode) {
         const response: ApiResponse = {
           success: false,
-          error: error.statusCode === 404 ? "not_found" : "validation_error",
-          message: error.message,
+          error: err.statusCode === 404 ? "not_found" : "validation_error",
+          message: err.message,
         };
 
         return {
-          statusCode: error.statusCode,
+          statusCode: err.statusCode,
           body: JSON.stringify(response),
         };
       }
@@ -334,7 +437,7 @@ export const dogHandler = {
       }
 
       // Parse content type from request body if provided
-      const body = event.body as any;
+      const body = event.body as { contentType?: string } | undefined;
       const contentType = body?.contentType || "image/jpeg";
 
       // Initialize S3 client
@@ -401,19 +504,20 @@ export const dogHandler = {
         statusCode: 200,
         body: JSON.stringify(response),
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = asCaught(error);
       const errorType = isCropped ? "cropped photo" : "photo";
       console.error(`Error generating ${errorType} upload URL:`, error);
 
-      if (error.statusCode) {
+      if (err.statusCode) {
         const response: ApiResponse = {
           success: false,
-          error: error.statusCode === 404 ? "not_found" : "validation_error",
-          message: error.message,
+          error: err.statusCode === 404 ? "not_found" : "validation_error",
+          message: err.message,
         };
 
         return {
-          statusCode: error.statusCode,
+          statusCode: err.statusCode,
           body: JSON.stringify(response),
         };
       }

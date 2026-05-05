@@ -3,6 +3,7 @@ import { Paper, Stack, Text } from "@mantine/core";
 import type { CompetitionClass, Run } from "@my-agility-qs/shared";
 import dayjs from "dayjs";
 import { useMemo } from "react";
+import type { TooltipContentProps } from "recharts/types/component/Tooltip";
 
 // Class display order and colors
 const CLASS_CONFIG: { class: CompetitionClass; label: string; color: string }[] = [
@@ -16,6 +17,12 @@ const CLASS_CONFIG: { class: CompetitionClass; label: string; color: string }[] 
 
 interface RunsGraphViewProps {
   runs: Run[];
+}
+
+interface TooltipPayloadItem {
+  name: string;
+  value: number;
+  color: string;
 }
 
 export const RunsGraphView: React.FC<RunsGraphViewProps> = ({ runs }) => {
@@ -91,14 +98,14 @@ export const RunsGraphView: React.FC<RunsGraphViewProps> = ({ runs }) => {
           gridAxis="y"
           barProps={{ minPointSize: 5, maxBarSize: 80 }}
           tooltipProps={{
-            content: ({ label, payload }: any) => {
+            content: ({ label, payload }: TooltipContentProps<number, string>) => {
               if (!payload?.length) return null;
-              const filtered = getFilteredChartTooltipPayload(payload).filter((p: any) => p.value > 0);
+              const filtered = (getFilteredChartTooltipPayload([...payload]) as TooltipPayloadItem[]).filter((p) => p.value > 0);
               if (filtered.length === 0) return null;
               return (
                 <Paper px="md" py="xs" withBorder shadow="md" radius="md">
                   <Text size="sm" fw={500} mb={4}>{label}</Text>
-                  {filtered.map((item: any) => (
+                  {filtered.map((item) => (
                     <Text key={item.name} size="sm" c={item.color}>
                       {item.name}: {item.value} Q{item.value !== 1 ? "s" : ""}
                     </Text>

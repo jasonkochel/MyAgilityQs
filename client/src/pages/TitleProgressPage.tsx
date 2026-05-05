@@ -18,69 +18,16 @@ import type {
   CompetitionLevel,
   Dog,
   DogProgress,
+  MastersTitle,
   PremierProgress,
-  PremierTitleTier,
-  Run,
 } from "@my-agility-qs/shared";
 import { IconArrowLeft, IconTarget, IconTrophy } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 import { useLocation } from "wouter";
-import { dogsApi, progressApi, runsApi } from "../lib/api";
-import { isPremierClass } from "../lib/constants";
+import { dogsApi, progressApi } from "../lib/api";
+import { isPremierClass, sortDogClasses } from "../lib/constants";
 import { getEarnedTitleSuffixes } from "../utils/titleUtils";
 import { createViewRunsLink } from "../utils/viewRunsLinks";
-
-// Client-side Premier progress calculation (server may not have this yet)
-const PREMIER_STD_TIERS = [
-  { title: "PAD", level: "Premier", qsNeeded: 25, top25Needed: 5 },
-  { title: "PADB", level: "Bronze", qsNeeded: 50, top25Needed: 10 },
-  { title: "PADS", level: "Silver", qsNeeded: 75, top25Needed: 15 },
-  { title: "PADG", level: "Gold", qsNeeded: 100, top25Needed: 20 },
-  { title: "PADC", level: "Century", qsNeeded: 125, top25Needed: 25 },
-];
-const PREMIER_JWW_TIERS = [
-  { title: "PJD", level: "Premier", qsNeeded: 25, top25Needed: 5 },
-  { title: "PJDB", level: "Bronze", qsNeeded: 50, top25Needed: 10 },
-  { title: "PJDS", level: "Silver", qsNeeded: 75, top25Needed: 15 },
-  { title: "PJDG", level: "Gold", qsNeeded: 100, top25Needed: 20 },
-  { title: "PJDC", level: "Century", qsNeeded: 125, top25Needed: 25 },
-];
-
-// Normalize Premier class name to short form for consistent lookups
-function normalizePremierClass(name: string): "Premier Std" | "Premier JWW" {
-  if (name === "Premier Std" || name === "Premier Standard") return "Premier Std";
-  return "Premier JWW";
-}
-
-function calculatePremierProgressClient(runs: Run[], premierClassName: string): PremierProgress {
-  const normalized = normalizePremierClass(premierClassName);
-  // Filter runs matching either short or display form of the class name
-  const classRuns = runs.filter(
-    (r) => isPremierClass(r.class) && normalizePremierClass(r.class) === normalized && r.qualified,
-  );
-  const totalQs = classRuns.length;
-  const topTwentyFivePercentQs = classRuns.filter((r) => r.topTwentyFivePercent).length;
-  const tierDefs = normalized === "Premier Std" ? PREMIER_STD_TIERS : PREMIER_JWW_TIERS;
-
-  const tiers: PremierTitleTier[] = tierDefs.map((def) => ({
-    title: def.title,
-    level: def.level,
-    earned: totalQs >= def.qsNeeded && topTwentyFivePercentQs >= def.top25Needed,
-    qsProgress: Math.min(totalQs, def.qsNeeded),
-    qsNeeded: def.qsNeeded,
-    top25Progress: Math.min(topTwentyFivePercentQs, def.top25Needed),
-    top25Needed: def.top25Needed,
-  }));
-
-  return {
-    class: normalized,
-    totalQs,
-    topTwentyFivePercentQs,
-    tiers,
-    nextTier: tiers.find((t) => !t.earned) || null,
-  };
-}
 
 const LEVEL_ORDER: CompetitionLevel[] = ["Novice", "Open", "Excellent", "Masters"];
 
@@ -124,11 +71,15 @@ const ClassProgressDisplay: React.FC<{
   const isMasters = currentLevel === "Masters";
   let mastersProgress = null;
 
-  if (isMasters && dogProgress.mastersTitles) {
-    const titleData =
-      className === "Standard"
-        ? dogProgress.mastersTitles.standardTitles
-        : dogProgress.mastersTitles.jumpersTitles;
+  if (isMasters) {
+    let titleData;
+    if (className === "Standard") {
+      titleData = dogProgress.mastersTitles?.standardTitles;
+    } else if (className === "Jumpers") {
+      titleData = dogProgress.mastersTitles?.jumpersTitles;
+    } else if (className === "FAST") {
+      titleData = dogProgress.fastTitles;
+    }
 
     if (titleData) {
       const earnedTitles = titleData.filter((t) => t.earned);
@@ -291,11 +242,82 @@ const PremierProgressDisplay: React.FC<{
   );
 };
 
+/**
+ * T2B is cumulative across all levels (every 15 Qs earns the next title:
+ * T2B, T2B2, T2B3, …). It has no level progression, so we render it
+ * separately from the level-based ClassProgressDisplay.
+ */
+const T2BProgressDisplay: React.FC<{
+  t2bTitles: MastersTitle[];
+  dogId: string;
+}> = ({ t2bTitles, dogId }) => {
+  const [, setLocation] = useLocation();
+  const earnedTitles = t2bTitles.filter((t) => t.earned);
+  const nextTitle = t2bTitles.find((t) => !t.earned);
+
+  const handleClick = () => {
+    const link = createViewRunsLink({
+      dog: dogId,
+      class: "T2B" as CompetitionClass,
+      level: "all",
+      from: "title-progress",
+    });
+    setLocation(link);
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: "var(--mantine-color-gray-0)",
+        padding: "12px",
+        borderRadius: "8px",
+        cursor: "pointer",
+        transition: "background-color 0.2s ease",
+      }}
+      onClick={handleClick}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = "var(--mantine-color-gray-1)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = "var(--mantine-color-gray-0)";
+      }}
+    >
+      <Stack gap={6}>
+        <Group justify="space-between" align="center">
+          <Text fw={600} size="md">T2B</Text>
+          {earnedTitles.length > 0 && (
+            <Group gap={4}>
+              {earnedTitles.map((t) => (
+                <Badge key={t.title} color="pink" variant="filled" size="sm">
+                  {t.title}
+                </Badge>
+              ))}
+            </Group>
+          )}
+        </Group>
+        {nextTitle && (
+          <div>
+            <Group justify="space-between" mb={4}>
+              <Text size="sm" fw={500}>
+                {nextTitle.progress}/{nextTitle.needed} Qs for {nextTitle.title}
+              </Text>
+            </Group>
+            <Progress
+              value={(nextTitle.progress / nextTitle.needed) * 100}
+              size="sm"
+              color={nextTitle.progress >= nextTitle.needed ? "green" : "blue"}
+            />
+          </div>
+        )}
+      </Stack>
+    </div>
+  );
+};
+
 const DogProgressCard: React.FC<{
   dog: Dog;
   dogProgress: DogProgress;
-  premierProgress?: PremierProgress[];
-}> = ({ dog, dogProgress, premierProgress }) => {
+}> = ({ dog, dogProgress }) => {
   // Check if dog is Masters in both Standard and Jumpers for MACH eligibility
   const standardClass = dog.classes.find((c) => c.name === "Standard");
   const jumpersClass = dog.classes.find((c) => c.name === "Jumpers");
@@ -337,10 +359,10 @@ const DogProgressCard: React.FC<{
           )}
         </Group>
 
-        {/* Class Level Progress (non-Premier) */}
+        {/* Class Level Progress (Premier and T2B handled separately below) */}
         <Grid gutter={8}>
-          {dog.classes
-            .filter((dogClass) => !isPremierClass(dogClass.name))
+          {sortDogClasses(dog.classes)
+            .filter((dogClass) => !isPremierClass(dogClass.name) && dogClass.name !== "T2B")
             .map((dogClass) => {
               const classProgress = dogProgress.classProgress.find(
                 (cp) => cp.class === dogClass.name,
@@ -359,9 +381,18 @@ const DogProgressCard: React.FC<{
             })}
         </Grid>
 
-        {/* Premier Title Progress - use client-side calculation, fall back to server data */}
+        {/* T2B cumulative title progress (no level concept) */}
+        {dog.classes.some((c) => c.name === "T2B") && dogProgress.t2bTitles && (
+          <Grid gutter={8}>
+            <Grid.Col span={{ base: 12, sm: 6 }}>
+              <T2BProgressDisplay t2bTitles={dogProgress.t2bTitles} dogId={dog.id} />
+            </Grid.Col>
+          </Grid>
+        )}
+
+        {/* Premier Title Progress (server data, baseline-aware) */}
         {(() => {
-          const pp = premierProgress || dogProgress.premierProgress;
+          const pp = dogProgress.premierProgress;
           if (!pp || pp.length === 0) return null;
           return (
             <Grid gutter={8}>
@@ -460,30 +491,16 @@ export const TitleProgressPage: React.FC = () => {
     queryFn: progressApi.getAllProgress,
   });
 
-  // Fetch runs for client-side Premier progress calculation
-  const { data: runs = [], isLoading: runsLoading } = useQuery({
-    queryKey: ["runs"],
-    queryFn: runsApi.getAllRuns,
-  });
-
-  const isLoading = dogsLoading || progressLoading || runsLoading;
+  const isLoading = dogsLoading || progressLoading;
   const hasError = dogsError || progressError;
 
-  const activeDogs = dogs?.filter((dog) => dog.active) || [];
-
-  // Calculate Premier progress client-side (supplements server data which may not include it yet)
-  const premierProgressByDog = useMemo(() => {
-    const map = new Map<string, PremierProgress[]>();
-    if (!dogs) return map;
-    for (const dog of dogs) {
-      const premierClasses = dog.classes.filter((c) => isPremierClass(c.name));
-      if (premierClasses.length === 0) continue;
-      const dogRuns = runs.filter((r) => r.dogId === dog.id);
-      const progress = premierClasses.map((c) => calculatePremierProgressClient(dogRuns, c.name));
-      map.set(dog.id, progress);
-    }
-    return map;
-  }, [dogs, runs]);
+  // Active dogs only, sorted alphabetically by name (locale-aware, case-insensitive)
+  // so the page order is stable across reloads and updates.
+  const activeDogs =
+    dogs
+      ?.filter((dog) => dog.active)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })) || [];
 
   if (isLoading) {
     return (
@@ -559,7 +576,6 @@ export const TitleProgressPage: React.FC = () => {
                   key={dog.id}
                   dog={dog}
                   dogProgress={dogProgress}
-                  premierProgress={premierProgressByDog.get(dog.id)}
                 />
               );
             })}
