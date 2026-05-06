@@ -1,5 +1,13 @@
 import { Button, Container, Group, Stack, Text, Title } from "@mantine/core";
-import { IconDog, IconList, IconLogout, IconPlus, IconTrophy, IconUser } from "@tabler/icons-react";
+import {
+  IconDog,
+  IconInfoCircle,
+  IconList,
+  IconLogout,
+  IconPlus,
+  IconTrophy,
+  IconUser,
+} from "@tabler/icons-react";
 import { useLocation } from "wouter";
 import PWAInstallButton from "../components/PWAInstallButton";
 import { useAuth } from "../contexts/AuthContext";
@@ -47,6 +55,13 @@ export const MainMenuPage: React.FC = () => {
       icon: IconUser,
       href: "/profile",
       color: "dark",
+    },
+    {
+      label: "About",
+      description: "About this app",
+      icon: IconInfoCircle,
+      href: "/about",
+      color: "gray",
     },
   ];
 

@@ -21,7 +21,7 @@ import type {
   MastersTitle,
   PremierProgress,
 } from "@my-agility-qs/shared";
-import { IconArrowLeft, IconTarget, IconTrophy } from "@tabler/icons-react";
+import { IconArrowLeft, IconTarget } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { dogsApi, progressApi } from "../lib/api";
@@ -326,6 +326,15 @@ const DogProgressCard: React.FC<{
   // Calculate how many complete MACHs this dog has earned
   const completeMachs = dogProgress.completeMachs || 0;
 
+  // AKC convention: MACH prefix on the registered name. First MACH is just
+  // "MACH"; subsequent earnings get a number suffix (MACH2, MACH3, ...).
+  const machPrefix =
+    completeMachs === 0
+      ? ""
+      : completeMachs === 1
+        ? "MACH "
+        : `MACH${completeMachs} `;
+
   // Calculate progress toward next MACH
   const pointsTowardNext = dogProgress.machProgress - completeMachs * 750;
   const doubleQsTowardNext = dogProgress.doubleQs - completeMachs * 20;
@@ -337,27 +346,14 @@ const DogProgressCard: React.FC<{
   return (
     <Paper withBorder p="sm" radius="md">
       <Stack gap="xs">
-        <Group justify="space-between" align="center">
-          <Title order={3}>
-            {dog.name}
-            {(() => {
-              const titles = getEarnedTitleSuffixes(dog, dogProgress);
-              return titles.length > 0 ? ` ${titles.join(' ')}` : '';
-            })()}
-          </Title>
-          {completeMachs > 0 && (
-            <Group gap="xs">
-              <IconTrophy size={16} color="var(--mantine-color-green-6)" />
-              <Group gap={4}>
-                {Array.from({ length: completeMachs }, (_, i) => (
-                  <Badge key={i} color="green" variant="filled" size="sm">
-                    MACH{i + 1}
-                  </Badge>
-                ))}
-              </Group>
-            </Group>
-          )}
-        </Group>
+        <Title order={3}>
+          {machPrefix}
+          {dog.name}
+          {(() => {
+            const titles = getEarnedTitleSuffixes(dog, dogProgress);
+            return titles.length > 0 ? ` ${titles.join(" ")}` : "";
+          })()}
+        </Title>
 
         {/* Class Level Progress (Premier and T2B handled separately below) */}
         <Grid gutter={8}>

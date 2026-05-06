@@ -1,6 +1,6 @@
-import { useEffect } from "react";
-import { useLocation } from "wouter";
+import { Redirect } from "wouter";
 import { useAuth } from "../../contexts/AuthContext";
+import { AppBootstrap } from "../AppBootstrap";
 import { AppLoadingScreen } from "../AppLoadingScreen";
 
 interface ProtectedRouteProps {
@@ -9,21 +9,16 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      setLocation("/login");
-    }
-  }, [isAuthenticated, isLoading, setLocation]);
 
   if (isLoading) {
     return <AppLoadingScreen />;
   }
 
   if (!isAuthenticated) {
-    return null; // Will redirect via useEffect
+    return <Redirect to="/login" />;
   }
 
-  return <>{children}</>;
+  // AppBootstrap loads dogs/locations and decides whether brand-new users
+  // need to go to /welcome before showing the requested route.
+  return <AppBootstrap>{children}</AppBootstrap>;
 };

@@ -12,8 +12,8 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { IconAlertCircle, IconDog, IconUserPlus } from "@tabler/icons-react";
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useState } from "react";
+import { Link, Redirect, useLocation } from "wouter";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { GoogleIcon } from "../components/GoogleIcon";
 import { useAuth } from "../contexts/AuthContext";
@@ -28,13 +28,6 @@ export const LoginPage: React.FC = () => {
   const [, setLocation] = useLocation();
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // Redirect when authenticated (after login completes)
-  useEffect(() => {
-    if (isAuthenticated) {
-      setLocation("/");
-    }
-  }, [isAuthenticated, setLocation]);
-
   const form = useForm<LoginForm>({
     initialValues: {
       email: "",
@@ -46,9 +39,14 @@ export const LoginPage: React.FC = () => {
     },
   });
 
-  // Show branded loading while checking auth, after login, or during Google redirect
-  if (authLoading || isAuthenticated || googleRedirecting) {
+  // Show branded loading while checking auth or during the Google redirect.
+  if (authLoading || googleRedirecting) {
     return <AppLoadingScreen />;
+  }
+
+  // Once login completes, hand off to ProtectedRoute → AppBootstrap.
+  if (isAuthenticated) {
+    return <Redirect to="/" />;
   }
 
   const handleSubmit = async (values: LoginForm) => {
@@ -58,7 +56,7 @@ export const LoginPage: React.FC = () => {
       const authData = await authApi.login(values);
       await login(authData);
 
-      // Success - redirect will be handled by useEffect
+      // isAuthenticated flips true → the <Redirect> above takes over.
     } catch (err) {
       let userFriendlyMessage = "Login failed. Please try again.";
 

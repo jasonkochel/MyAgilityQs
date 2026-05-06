@@ -10,8 +10,8 @@
     "dev": "npm run build && sam local start-api --port 3001 --host 0.0.0.0",
     "dev:watch": "echo \"Run 'npm run build:watch' in one terminal and 'npm run dev' in another for best development experience\"",
     "clean": "rimraf dist",
-    "type-check": "tsc --noEmit",
-    "lint": "eslint src",
+    "type-check": "tsc --noEmit && npx eslint src --max-warnings 0",
+    "lint": "npx eslint src",
     "test": "npm run build && npm run type-check && echo \"✅ Server build and type check passed\""
   },
   "dependencies": {

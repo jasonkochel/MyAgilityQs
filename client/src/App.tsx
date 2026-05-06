@@ -3,6 +3,7 @@ import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthProvider } from "./contexts/AuthContext";
 import { PWAProvider } from "./contexts/PWAContext";
+import { AboutPage } from "./pages/AboutPage";
 import { AddDogPage } from "./pages/AddDogPage";
 import { AddRunPage } from "./pages/AddRunPage";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
@@ -19,6 +20,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SignupPage } from "./pages/SignupPage";
 import { TitleProgressPage } from "./pages/TitleProgressPage";
 import { ViewRunsPage } from "./pages/ViewRunsPage";
+import { WelcomePage } from "./pages/WelcomePage";
 
 function App() {
   return (
@@ -36,6 +38,8 @@ function App() {
           <ProtectedRoute>
             <Switch>
               <Route path="/" component={MainMenuPage} />
+              <Route path="/welcome" component={WelcomePage} />
+              <Route path="/about" component={AboutPage} />
               <Route path="/add-run" component={AddRunPage} />
               <Route path="/view-runs" component={ViewRunsPage} />
               <Route path="/title-progress" component={TitleProgressPage} />

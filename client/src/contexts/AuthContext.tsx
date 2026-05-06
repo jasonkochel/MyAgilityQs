@@ -2,17 +2,18 @@ import type { User } from "@my-agility-qs/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import * as Sentry from "@sentry/react";
-import { dogsApi, locationsApi, tokenManager, userApi } from "../lib/api";
+import { tokenManager, userApi } from "../lib/api";
 import { reportAuthError } from "../lib/sentry";
 import type { AuthResponse } from "../types";
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  // True while we're still figuring out whether the user is signed in
+  // (token check / refresh).
   isLoading: boolean;
   login: (authData: AuthResponse) => Promise<void>;
   logout: () => void;
-  preloadUserData: () => Promise<void>;
   updateUserPreferences: (preferences: Partial<Pick<User, "trackQsOnly">>) => Promise<void>;
 }
 
@@ -91,26 +92,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [setUserWithSentry]);
 
-  // Kick off prefetches for /dogs and /locations. Returns immediately —
-  // intentionally NOT awaited inside `login()` so the post-auth navigation
-  // isn't blocked. TanStack Query de-dupes in-flight requests by queryKey,
-  // so if a downstream component (e.g. MainMenu) calls `useQuery(["dogs"])`
-  // before these resolve, it joins the same request rather than firing a
-  // second one.
-  const preloadUserData = useCallback(async (): Promise<void> => {
-    queryClient.prefetchQuery({
-      queryKey: ["dogs"],
-      queryFn: dogsApi.getAllDogs,
-      staleTime: Infinity,
-    }).catch((error) => console.error("Failed to preload dogs:", error));
-
-    queryClient.prefetchQuery({
-      queryKey: ["locations"],
-      queryFn: locationsApi.getAll,
-      staleTime: Infinity,
-    }).catch((error) => console.error("Failed to preload locations:", error));
-  }, [queryClient]);
-
   useEffect(() => {
     const initializeAuth = async () => {
       const token = tokenManager.getToken();
@@ -123,7 +104,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         // Fire-and-forget — don't block app render on the network call
         refreshUserProfile();
-        preloadUserData();
       };
 
       if (token && !tokenManager.isTokenExpired()) {
@@ -146,7 +126,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
-  }, [hydrateUserFromToken, refreshUserProfile, preloadUserData, setUserWithSentry]);
+  }, [hydrateUserFromToken, refreshUserProfile, setUserWithSentry]);
 
   // Validate auth when app resumes from background (PWA / long-idle tab)
   useEffect(() => {
@@ -159,23 +139,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     return cleanup;
   }, [queryClient, setUserWithSentry]);
-  const login = async (authData: AuthResponse) => {
-    tokenManager.setTokens(authData);
 
-    // Hydrate user state from the JWT immediately so isAuthenticated flips
-    // true now, the post-login redirect happens without waiting on the
-    // network, and ProtectedRoute lets the user through. The full profile
-    // (with trackQsOnly etc.) is refreshed in the background.
-    const initialUser = hydrateUserFromToken(authData.idToken);
-    if (initialUser) {
-      setUserWithSentry(initialUser);
-    }
+  const login = useCallback(
+    async (authData: AuthResponse) => {
+      tokenManager.setTokens(authData);
 
-    // Background refresh + prefetches — fire-and-forget so login() resolves
-    // instantly. TanStack Query de-dupes any overlapping requests downstream.
-    refreshUserProfile();
-    preloadUserData();
-  };
+      // Hydrate user state from the JWT immediately so isAuthenticated flips
+      // true now, the post-login redirect happens without waiting on the
+      // network, and ProtectedRoute lets the user through. The full profile
+      // (with trackQsOnly etc.) is refreshed in the background. Initial data
+      // (dogs, locations) is loaded by AppBootstrap on the post-auth render.
+      const initialUser = hydrateUserFromToken(authData.idToken);
+      if (initialUser) {
+        setUserWithSentry(initialUser);
+      }
+      refreshUserProfile();
+    },
+    [hydrateUserFromToken, refreshUserProfile, setUserWithSentry]
+  );
 
   const updateUserPreferences = async (preferences: Partial<Pick<User, "trackQsOnly">>) => {
     if (!user) return;
@@ -188,18 +169,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       throw error;
     }
   };
+
   const logout = () => {
     tokenManager.removeToken();
     queryClient.clear(); // Clear all cached data on logout
     setUserWithSentry(null);
   };
+
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
     isLoading,
     login,
     logout,
-    preloadUserData,
     updateUserPreferences,
   };
 

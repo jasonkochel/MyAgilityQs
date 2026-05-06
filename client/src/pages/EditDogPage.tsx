@@ -5,11 +5,9 @@ import {
   Divider,
   Group,
   Loader,
-  NumberInput,
   Paper,
-  Select,
+  SimpleGrid,
   Stack,
-  Switch,
   Text,
   TextInput,
   Title,
@@ -24,37 +22,32 @@ import type {
   DogClass,
   UpdateDogRequest,
 } from "@my-agility-qs/shared";
-import { IconArrowLeft, IconCheck, IconTrash } from "@tabler/icons-react";
+import {
+  IconArchive,
+  IconArchiveOff,
+  IconArrowLeft,
+  IconCheck,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
+import { BaselineForm } from "../components/BaselineForm";
+import {
+  type BaselineFormValues,
+  buildBaselineRequest,
+  emptyBaselineValues,
+} from "../lib/baselineHelpers";
 import { dogsApi } from "../lib/api";
-import { COMPETITION_CLASSES, COMPETITION_LEVELS, isPremierClass } from "../lib/constants";
-
-interface BaselineFormClass {
-  level: string; // empty when not applicable (T2B/Premier)
-  qs: number | "";
-  top25: number | "";
-}
+import { COMPETITION_CLASSES, isPremierClass } from "../lib/constants";
 
 interface DogFormData {
   name: string;
   registeredName: string;
   classSelections: Record<string, { enabled: boolean }>;
-  active: boolean;
   baselineEnabled: boolean;
-  baseline: {
-    perClass: Record<string, BaselineFormClass>;
-    machPoints: number | "";
-    doubleQs: number | "";
-  };
+  baseline: BaselineFormValues;
 }
-
-const emptyBaselineClass = (): BaselineFormClass => ({ level: "", qs: "", top25: "" });
-
-// Classes that have level progression (Novice/Open/Excellent/Masters).
-const isLevelGatedClass = (className: string): boolean =>
-  className === "Standard" || className === "Jumpers" || className === "FAST";
 
 export const EditDogPage: React.FC = () => {
   const [, navigate] = useLocation();
@@ -79,16 +72,8 @@ export const EditDogPage: React.FC = () => {
         acc[className] = { enabled: false };
         return acc;
       }, {} as Record<string, { enabled: boolean }>),
-      active: true,
       baselineEnabled: false,
-      baseline: {
-        perClass: COMPETITION_CLASSES.reduce((acc, className) => {
-          acc[className] = emptyBaselineClass();
-          return acc;
-        }, {} as Record<string, BaselineFormClass>),
-        machPoints: "" as number | "",
-        doubleQs: "" as number | "",
-      },
+      baseline: emptyBaselineValues(COMPETITION_CLASSES),
     },
     validate: {
       name: (value) => (value.trim() ? null : "Dog name is required"),
@@ -121,13 +106,12 @@ export const EditDogPage: React.FC = () => {
           top25: stored?.top25 ?? "",
         };
         return acc;
-      }, {} as Record<string, BaselineFormClass>);
+      }, {} as BaselineFormValues["perClass"]);
 
       form.setValues({
         name: dog.name,
         registeredName: dog.registeredName || "",
         classSelections,
-        active: dog.active,
         baselineEnabled: !!dog.baseline,
         baseline: {
           perClass: baselinePerClass,
@@ -158,6 +142,25 @@ export const EditDogPage: React.FC = () => {
     onError: (err) => {
       const errorMessage = err instanceof Error ? err.message : "Failed to update dog";
       setError(errorMessage);
+    },
+  });
+
+  const setActiveMutation = useMutation({
+    mutationFn: (active: boolean) =>
+      active ? dogsApi.reactivate(dogId!) : dogsApi.deactivate(dogId!),
+    onSuccess: (_data, active) => {
+      queryClient.invalidateQueries({ queryKey: ["dogs"] });
+      queryClient.invalidateQueries({ queryKey: ["progress"] });
+      notifications.show({
+        title: "Success",
+        message: active ? "Dog reactivated" : "Dog deactivated",
+        color: "green",
+        icon: <IconCheck size="1rem" />,
+      });
+      navigate("/my-dogs");
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : "Failed to update dog status");
     },
   });
 
@@ -204,31 +207,12 @@ export const EditDogPage: React.FC = () => {
       });
 
     // Build baseline payload. null clears, undefined leaves untouched, object replaces.
+    const enabledClassNames = Object.entries(values.classSelections)
+      .filter(([, sel]) => sel.enabled)
+      .map(([name]) => name);
     let baseline: BaselineCounts | null | undefined;
     if (values.baselineEnabled) {
-      const perClass: NonNullable<BaselineCounts["perClass"]> = {};
-      for (const [uiClass, fields] of Object.entries(values.baseline.perClass)) {
-        if (!values.classSelections[uiClass]?.enabled) continue;
-        const qs = typeof fields.qs === "number" ? fields.qs : 0;
-        const top25 = typeof fields.top25 === "number" ? fields.top25 : 0;
-        const level = fields.level || undefined;
-        if (qs > 0 || top25 > 0 || level) {
-          perClass[uiClass as CompetitionClass] = {
-            ...(level && isLevelGatedClass(uiClass) ? { level: level as CompetitionLevel } : {}),
-            ...(qs > 0 ? { qs } : {}),
-            ...(top25 > 0 ? { top25 } : {}),
-          };
-        }
-      }
-      const machPoints =
-        typeof values.baseline.machPoints === "number" ? values.baseline.machPoints : 0;
-      const doubleQs =
-        typeof values.baseline.doubleQs === "number" ? values.baseline.doubleQs : 0;
-      baseline = {
-        ...(Object.keys(perClass).length > 0 ? { perClass } : {}),
-        ...(machPoints > 0 ? { machPoints } : {}),
-        ...(doubleQs > 0 ? { doubleQs } : {}),
-      };
+      baseline = buildBaselineRequest(values.baseline, enabledClassNames) ?? {};
     } else if (dog?.baseline) {
       baseline = null;
     }
@@ -237,7 +221,6 @@ export const EditDogPage: React.FC = () => {
       name: values.name.trim(),
       registeredName: values.registeredName.trim() || undefined,
       classes,
-      active: values.active,
       ...(baseline !== undefined ? { baseline } : {}),
     };
     updateDogMutation.mutate({ dogId, data: apiData });
@@ -363,52 +346,45 @@ export const EditDogPage: React.FC = () => {
                 placeholder="Enter your dog's AKC registered name (optional)"
                 {...form.getInputProps("registeredName")}
               />
-              
-              {/* Active Status */}
-              <Switch
-                label="Active"
-                description="Inactive dogs won't appear in run entry forms"
-                color="blue"
-                {...form.getInputProps("active", { type: "checkbox" })}
-              />
+
               {/* Classes */}
               <Stack gap="xs">
-                <Text fw={500}>Classes & Levels</Text>
+                <Text fw={500}>Classes</Text>
                 <Text size="sm" c="dimmed">
-                  Toggle on the classes your dog competes in and select their level
-                </Text>{" "}
-                <Stack gap="sm">
+                  Tap the classes your dog competes in. Current level shown below
+                  classes that have one.
+                </Text>
+                <SimpleGrid cols={2} spacing="xs">
                   {COMPETITION_CLASSES.map((className) => {
-                    const selection = form.values.classSelections[className];
+                    const enabled = form.values.classSelections[className]?.enabled;
                     const dogClass = dog?.classes?.find((c) => c.name === className);
                     const showLevel =
-                      selection.enabled &&
                       !isPremierClass(className) &&
                       className !== "T2B" &&
-                      dogClass?.level;
+                      !!dogClass?.level;
                     return (
-                      <Group key={className} align="center" gap="md" wrap="nowrap">
-                        <Switch
-                          checked={selection.enabled}
-                          onChange={(event) => toggleClass(className, event.currentTarget.checked)}
-                          color="blue"
-                          style={{ flexShrink: 0 }}
-                        />
-                        <Text
-                          fw={500}
-                          style={{ flexShrink: 0, minWidth: "90px", fontSize: "14px" }}
-                        >
-                          {className}
-                        </Text>
-                        {showLevel && (
-                          <Text size="sm" c="dimmed">
-                            Currently {dogClass!.level}
+                      <Button
+                        key={className}
+                        variant={enabled ? "filled" : "outline"}
+                        color={enabled ? "blue" : "gray"}
+                        size="lg"
+                        h={60}
+                        onClick={() => toggleClass(className, !enabled)}
+                      >
+                        <Stack gap={2} align="center">
+                          <Text fw={600} size="md">
+                            {className}
                           </Text>
-                        )}
-                      </Group>
+                          {showLevel && (
+                            <Text size="xs" fw={500} c={enabled ? "white" : "dimmed"}>
+                              {dogClass!.level}
+                            </Text>
+                          )}
+                        </Stack>
+                      </Button>
                     );
                   })}
-                </Stack>
+                </SimpleGrid>
                 {form.errors.classSelections && (
                   <Text c="red" size="sm">
                     {form.errors.classSelections}
@@ -418,136 +394,42 @@ export const EditDogPage: React.FC = () => {
               <Divider my="xs" />
 
               {/* Starting Counts (Baseline) */}
-              <Stack gap="xs">
-                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                  <Stack gap={0}>
-                    <Text fw={500}>Starting Counts</Text>
-                    <Text size="sm" c="dimmed">
-                      Already have prior Qs? Enter your current totals so progress reflects them.
-                    </Text>
-                  </Stack>
-                  <Switch
-                    checked={form.values.baselineEnabled}
-                    onChange={(e) =>
-                      form.setFieldValue("baselineEnabled", e.currentTarget.checked)
-                    }
-                    color="blue"
-                  />
-                </Group>
+              <Stack gap="sm">
+                <Stack gap={0}>
+                  <Text fw={500}>Starting Counts</Text>
+                  <Text size="sm" c="dimmed">
+                    Already have prior Qs? Enter your current totals so progress reflects them.
+                  </Text>
+                </Stack>
 
-                {form.values.baselineEnabled && (
-                  <Stack gap="md" mt="xs">
-                    <Stack gap="sm">
-                      {COMPETITION_CLASSES.filter(
+                {form.values.baselineEnabled ? (
+                  <Stack gap="sm">
+                    <BaselineForm
+                      enabledClasses={COMPETITION_CLASSES.filter(
                         (cls) => form.values.classSelections[cls]?.enabled
-                      ).map((className) => {
-                        const isPremier = isPremierClass(className);
-                        const isCumulativeT2B = className === "T2B";
-                        const isLevelGated = isLevelGatedClass(className); // Std/Jmp/FAST
-                        const baselineLevel = form.values.baseline.perClass[className]?.level ?? "";
-                        return (
-                          <Stack key={className} gap={4}>
-                            <Text size="sm" fw={500}>{className}</Text>
-                            <Group align="flex-end" gap="sm" wrap="wrap">
-                              {isLevelGated && (
-                                <Select
-                                  label="Current level"
-                                  data={COMPETITION_LEVELS}
-                                  value={baselineLevel}
-                                  onChange={(v) =>
-                                    form.setFieldValue(
-                                      `baseline.perClass.${className}.level`,
-                                      v ?? ""
-                                    )
-                                  }
-                                  style={{ width: 130 }}
-                                  size="sm"
-                                  comboboxProps={{
-                                    position: "bottom-start",
-                                    middlewares: { flip: true, shift: true },
-                                  }}
-                                />
-                              )}
-                              <NumberInput
-                                label={
-                                  isCumulativeT2B
-                                    ? "Total Qs"
-                                    : isLevelGated
-                                    ? "Qs at this level"
-                                    : "Qs"
-                                }
-                                placeholder="0"
-                                min={0}
-                                allowDecimal={false}
-                                value={form.values.baseline.perClass[className]?.qs ?? ""}
-                                onChange={(v) =>
-                                  form.setFieldValue(
-                                    `baseline.perClass.${className}.qs`,
-                                    v === "" ? "" : Number(v)
-                                  )
-                                }
-                                style={{ flex: 1, minWidth: 120 }}
-                                size="sm"
-                              />
-                              {isPremier && (
-                                <NumberInput
-                                  label="Top-25% placements"
-                                  placeholder="0"
-                                  min={0}
-                                  allowDecimal={false}
-                                  value={form.values.baseline.perClass[className]?.top25 ?? ""}
-                                  onChange={(v) =>
-                                    form.setFieldValue(
-                                      `baseline.perClass.${className}.top25`,
-                                      v === "" ? "" : Number(v)
-                                    )
-                                  }
-                                  style={{ flex: 1, minWidth: 140 }}
-                                  size="sm"
-                                />
-                              )}
-                            </Group>
-                          </Stack>
-                        );
-                      })}
-                    </Stack>
-
-                    <Group gap="sm" grow>
-                      <NumberInput
-                        label="MACH Points"
-                        description="Total Std + Jmp Masters MACH points"
-                        placeholder="0"
-                        min={0}
-                        allowDecimal={false}
-                        value={form.values.baseline.machPoints}
-                        onChange={(v) =>
-                          form.setFieldValue(
-                            "baseline.machPoints",
-                            v === "" ? "" : Number(v)
-                          )
-                        }
-                        size="sm"
-                      />
-                      <NumberInput
-                        label="Double Qs"
-                        description="Same-day Masters Std + Jmp pairs"
-                        placeholder="0"
-                        min={0}
-                        allowDecimal={false}
-                        value={form.values.baseline.doubleQs}
-                        onChange={(v) =>
-                          form.setFieldValue(
-                            "baseline.doubleQs",
-                            v === "" ? "" : Number(v)
-                          )
-                        }
-                        size="sm"
-                      />
-                    </Group>
-
+                      )}
+                      values={form.values.baseline}
+                      onChange={(v) => form.setFieldValue("baseline", v)}
+                    />
+                    <Button
+                      variant="outline"
+                      color="gray"
+                      onClick={() => form.setFieldValue("baselineEnabled", false)}
+                    >
+                      Remove starting counts
+                    </Button>
                   </Stack>
+                ) : (
+                  <Button
+                    variant="light"
+                    onClick={() => form.setFieldValue("baselineEnabled", true)}
+                  >
+                    Add starting counts
+                  </Button>
                 )}
               </Stack>
+
+              <Divider mt="md" />
 
               {/* Submit Button */}
               <Button
@@ -562,28 +444,31 @@ export const EditDogPage: React.FC = () => {
           </form>
         </Paper>
 
-        {/* Dangerous Actions */}
-        <Paper withBorder shadow="sm" p="md" radius="md" style={{ borderColor: 'var(--mantine-color-red-3)' }}>
-          <Stack gap="md">
-            <Stack gap="xs">
-              <Text fw={500} c="red">Dangerous Actions</Text>
-              <Text size="sm" c="dimmed">
-                These actions cannot be undone. Please be certain before proceeding.
-              </Text>
-            </Stack>
-            
-            <Button
-              variant="outline"
-              color="red"
-              leftSection={<IconTrash size={16} />}
-              onClick={handleHardDelete}
-              loading={hardDeleteMutation.isPending}
-              size="sm"
-            >
-              Delete Dog Permanently
-            </Button>
-          </Stack>
-        </Paper>
+        {/* Footer actions */}
+        <Group justify="space-between" wrap="wrap">
+          <Button
+            variant="subtle"
+            color="gray"
+            leftSection={
+              dog.active ? <IconArchive size={16} /> : <IconArchiveOff size={16} />
+            }
+            onClick={() => setActiveMutation.mutate(!dog.active)}
+            loading={setActiveMutation.isPending}
+            size="sm"
+          >
+            {dog.active ? "Deactivate" : "Activate"}
+          </Button>
+          <Button
+            variant="subtle"
+            color="red"
+            leftSection={<IconTrash size={16} />}
+            onClick={handleHardDelete}
+            loading={hardDeleteMutation.isPending}
+            size="sm"
+          >
+            Delete dog
+          </Button>
+        </Group>
       </Stack>
     </Container>
   );
