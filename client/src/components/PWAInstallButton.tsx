@@ -12,7 +12,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   compact = false,
   showDebugInfo = false
 }) => {
-  const { isInstallable, isInstalled, promptInstall, deferredPrompt } = usePWA();
+  const { isInstallable, isInstalled, promptInstall, deferredPrompt, platform } = usePWA();
 
   if (isInstalled) {
     return null;
@@ -23,7 +23,14 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
     return null;
   }
 
-  const buttonText = deferredPrompt ? 'Install App' : 'Install Instructions';
+  // When the browser provided a native prompt, "Install App" is accurate.
+  // Otherwise we're going to show manual instructions — phrase the CTA
+  // around what the user is about to do, not the technical capability.
+  const buttonText = deferredPrompt
+    ? "Install App"
+    : platform === "ios"
+    ? "Add to Home Screen"
+    : "How to install";
 
   if (compact) {
     return (

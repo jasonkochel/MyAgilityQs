@@ -302,9 +302,11 @@ export const dogHandler = {
         throw createError(404, "Dog not found or no changes made");
       }
 
-      // If baseline was added/changed/cleared, the cached classes[].level may
-      // be stale. Recompute through the rules engine so the cache is accurate.
-      if (request.baseline !== undefined) {
+      // If baseline or the class set changed, the cached classes[].level may
+      // be stale (e.g. re-enabling a class drops it back to Novice in storage
+      // even though existing runs would compute a higher level). Recompute
+      // through the rules engine so the cache is accurate.
+      if (request.baseline !== undefined || request.classes !== undefined) {
         await recalculateDogLevels(userId, dogId);
         updatedDog = (await getDogById(dogId)) ?? updatedDog;
       }

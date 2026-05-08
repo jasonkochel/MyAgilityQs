@@ -10,10 +10,17 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
+type Platform = "ios" | "android" | "other";
+
 interface PWAContextType {
   deferredPrompt: BeforeInstallPromptEvent | null;
+  // True whenever we have something to offer the user — either the native
+  // `beforeinstallprompt` event, or a mobile platform where we can show
+  // manual "Add to Home Screen" instructions (iOS Safari, Android without
+  // the deferred prompt yet, etc.).
   isInstallable: boolean;
   isInstalled: boolean;
+  platform: Platform;
   promptInstall: () => Promise<void>;
   dismissPrompt: () => void;
 }
@@ -40,9 +47,23 @@ const isMobileDevice = () =>
   typeof window !== "undefined" &&
   window.matchMedia("(pointer: coarse) and (hover: none)").matches;
 
+const detectPlatform = (): Platform => {
+  if (typeof window === "undefined") return "other";
+  const ua = window.navigator.userAgent;
+  // iPadOS 13+ reports as Mac; check for touch to disambiguate.
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (ua.includes("Mac") && "ontouchend" in window.document);
+  if (isIOS) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "other";
+};
+
 export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [platform] = useState<Platform>(() => detectPlatform());
+  const [isMobile] = useState(() => isMobileDevice());
 
   useEffect(() => {
     // Check if already installed
@@ -61,7 +82,7 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
     // Don't expose install UI on desktop — PWA installs are a mobile-first
     // feature here. Chrome on desktop also fires `beforeinstallprompt`, which
     // is why the button was showing up there before.
-    if (!isMobileDevice()) {
+    if (!isMobile) {
       return;
     }
 
@@ -92,17 +113,26 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
-  }, []);
+  }, [isMobile]);
+
+  const showManualInstructions = () => {
+    const message =
+      platform === "ios"
+        ? 'Tap the Share button at the bottom of Safari, then choose "Add to Home Screen".'
+        : platform === "android"
+        ? 'Tap the menu (⋮) in your browser, then choose "Install app" or "Add to Home Screen".'
+        : 'Look for "Add to Home Screen" or "Install" in your browser menu.';
+    notifications.show({
+      title: "Install MyAgilityQs",
+      message,
+      color: "blue",
+      autoClose: 10000,
+    });
+  };
 
   const promptInstall = async () => {
     if (!deferredPrompt) {
-      // Fallback for when no browser prompt is available
-      notifications.show({
-        title: 'Install MyAgilityQs',
-        message: 'Look for "Add to Home Screen" in your browser menu (⋮) or address bar',
-        color: 'blue',
-        autoClose: 8000,
-      });
+      showManualInstructions();
       return;
     }
 
@@ -122,13 +152,7 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
         });
       }
     } catch {
-      // Fallback to manual instructions
-      notifications.show({
-        title: 'Install MyAgilityQs',
-        message: 'Look for "Add to Home Screen" in your browser menu (⋮) or address bar',
-        color: 'blue',
-        autoClose: 8000,
-      });
+      showManualInstructions();
     }
   };
 
@@ -138,8 +162,12 @@ export const PWAProvider: React.FC<PWAProviderProps> = ({ children }) => {
 
   const value: PWAContextType = {
     deferredPrompt,
-    isInstallable: !!deferredPrompt,
+    // On mobile we always offer install: either via the deferred prompt (if
+    // Chrome decided to fire it) or via manual instructions otherwise. iOS
+    // Safari never fires the event, so manual is the only option there.
+    isInstallable: !isInstalled && (isMobile || !!deferredPrompt),
     isInstalled,
+    platform,
     promptInstall,
     dismissPrompt,
   };
